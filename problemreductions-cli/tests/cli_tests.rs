@@ -2093,7 +2093,22 @@ fn test_inspect_json_output() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["kind"], "problem");
     assert_eq!(json["type"], "MaximumIndependentSet");
-    assert!(json["size_fields"].is_array());
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "MIS size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "MIS size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
 

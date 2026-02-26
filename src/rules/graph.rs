@@ -624,19 +624,25 @@ impl ReductionGraph {
     /// Get the problem size field names for a problem type.
     ///
     /// Derives size fields from the overhead expressions of reduction entries
-    /// where this problem appears as source or target.
+    /// where this problem appears as source or target. When the problem is a
+    /// source, its size fields are the input variables referenced in the overhead
+    /// expressions. When it's a target, its size fields are the output field names.
     pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
+        let mut fields = std::collections::HashSet::new();
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
-                let overhead = entry.overhead();
-                return overhead.output_size.iter().map(|(name, _)| *name).collect();
+                // Source's size fields are the input variables of the overhead.
+                fields.extend(entry.overhead().input_variable_names());
             }
             if entry.target_name == name {
+                // Target's size fields are the output field names.
                 let overhead = entry.overhead();
-                return overhead.output_size.iter().map(|(name, _)| *name).collect();
+                fields.extend(overhead.output_size.iter().map(|(name, _)| *name));
             }
         }
-        vec![]
+        let mut result: Vec<&'static str> = fields.into_iter().collect();
+        result.sort_unstable();
+        result
     }
 
     /// Get all incoming reductions to a problem (across all its variants).
