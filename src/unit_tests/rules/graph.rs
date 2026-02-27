@@ -7,7 +7,7 @@ use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::rules::registry::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::ProblemSize;
+use crate::types::{One, ProblemSize};
 use std::collections::BTreeMap;
 
 #[test]
@@ -316,7 +316,7 @@ fn test_sat_based_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, One>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
@@ -1050,4 +1050,44 @@ fn test_overhead_variables_are_consistent() {
             );
         }
     }
+}
+
+#[test]
+fn test_variant_entry_complexity_available() {
+    let entries: Vec<_> = inventory::iter::<crate::registry::VariantEntry>
+        .into_iter()
+        .collect();
+    assert!(
+        !entries.is_empty(),
+        "VariantEntry inventory should not be empty"
+    );
+
+    let mis_entry = entries.iter().find(|e| e.name == "MaximumIndependentSet");
+    assert!(mis_entry.is_some(), "MIS should have a VariantEntry");
+    let mis_entry = mis_entry.unwrap();
+    assert!(
+        !mis_entry.complexity.is_empty(),
+        "complexity should not be empty"
+    );
+
+    // Exercise Debug impl for VariantEntry
+    let debug_str = format!("{:?}", mis_entry);
+    assert!(debug_str.contains("VariantEntry"));
+    assert!(debug_str.contains("MaximumIndependentSet"));
+    assert!(debug_str.contains("complexity"));
+}
+
+#[test]
+fn test_variant_complexity() {
+    let graph = ReductionGraph::new();
+    let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let complexity = graph.variant_complexity("MaximumIndependentSet", &variant);
+    assert_eq!(complexity, Some("2^num_vertices"));
+
+    // Unknown problem returns None
+    let unknown = BTreeMap::new();
+    assert_eq!(
+        graph.variant_complexity("NonExistentProblem", &unknown),
+        None
+    );
 }

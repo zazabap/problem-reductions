@@ -4,9 +4,9 @@
 //! such that no two vertices in the subset are adjacent.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -157,6 +157,16 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
         }
     }
     true
+}
+
+crate::declare_variants! {
+    MaximumIndependentSet<SimpleGraph, i32>        => "2^num_vertices",
+    MaximumIndependentSet<SimpleGraph, One>         => "2^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, i32>      => "2^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, One>       => "2^num_vertices",
+    MaximumIndependentSet<TriangularSubgraph, i32> => "2^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, i32>      => "2^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, One>       => "2^num_vertices",
 }
 
 /// Check if a set of vertices forms an independent set.

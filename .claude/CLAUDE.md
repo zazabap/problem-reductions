@@ -7,7 +7,8 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [review-implementation](skills/review-implementation/SKILL.md) -- Review a model or rule implementation for completeness. Auto-detects type from changed files. Called automatically at the end of `add-model`/`add-rule`, or standalone via `/review-implementation`.
+- [review-implementation](skills/review-implementation/SKILL.md) -- Review implementation completeness by dispatching parallel subagents (structural + quality) with fresh context. Auto-detects new models/rules from git diff. Called automatically at the end of `add-model`/`add-rule`, after each `executing-plans` batch, or standalone via `/review-implementation`.
+- [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments (user + Copilot), fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 
 ## Commands
@@ -35,6 +36,7 @@ make cli           # Build the pred CLI tool (release mode)
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
+make copilot-review # Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
 
@@ -119,8 +121,9 @@ Problem types use explicit optimization prefixes:
 ### Problem Variant IDs
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Base: `MaximumIndependentSet` (empty variant = defaults)
-- Graph variant: `MaximumIndependentSet {graph: "GridGraph", weight: "i32"}`
+- Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
 - Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
+- Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 
 ## Conventions
