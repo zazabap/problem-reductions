@@ -52,6 +52,27 @@ git diff --stat $BASE_SHA..$HEAD_SHA
 git diff --name-only $BASE_SHA..$HEAD_SHA
 ```
 
+### Detect Linked Issue
+
+Check if the current branch has a PR linked to an issue:
+
+```bash
+# Get PR number for current branch
+PR_NUM=$(gh pr view --json number -q .number 2>/dev/null)
+
+# If PR exists, extract the linked issue number from the body
+if [ -n "$PR_NUM" ]; then
+  ISSUE_NUM=$(gh pr view $PR_NUM --json body -q .body | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+fi
+
+# Fetch the issue body if found
+if [ -n "$ISSUE_NUM" ]; then
+  ISSUE_BODY=$(gh issue view $ISSUE_NUM --json title,body -q '"# " + .title + "\n\n" + .body')
+fi
+```
+
+If an issue is found, pass it as `{ISSUE_CONTEXT}` to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found."
+
 ## Step 3: Dispatch Subagents in Parallel
 
 ### Structural Reviewer (if new model/rule detected)
@@ -64,6 +85,7 @@ Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{REVIEW_PARAMS}` -> summary of what's being reviewed
   - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
   - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
+  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
 - Prompt = filled template
 
 ### Quality Reviewer (always)
@@ -76,6 +98,7 @@ Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{CHANGED_FILES}` -> list of changed files
   - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
   - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
+  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
 - Prompt = filled template
 
 **Both subagents must be dispatched in parallel** (single message, two Task tool calls).
@@ -106,6 +129,9 @@ Merge both subagent outputs into a single report:
 - `make clippy`: PASS / FAIL
 
 ### Semantic Review (from structural reviewer)
+...
+
+### Issue Compliance (from structural reviewer, if linked issue found)
 ...
 
 ### Code Quality (from quality reviewer)

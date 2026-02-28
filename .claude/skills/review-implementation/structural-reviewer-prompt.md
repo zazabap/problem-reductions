@@ -6,12 +6,17 @@ You are reviewing a new model or rule implementation for structural completeness
 
 {REVIEW_PARAMS}
 
+## Linked Issue
+
+{ISSUE_CONTEXT}
+
 ## Instructions
 
 1. Run the structural checklist below using Grep and Glob tools
 2. Run `make test clippy` to verify build
 3. Read the implementation files and perform semantic review
-4. Output results in the structured format at the end
+4. If a linked issue is provided, perform issue compliance review
+5. Output results in the structured format at the end
 
 ## Model Checklist
 
@@ -84,6 +89,36 @@ Report pass/fail. If tests fail, identify which tests.
 3. **Example quality** -- Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound?
 
+## Issue Compliance Review
+
+Only run this section if a linked issue was provided (not "No linked issue found.").
+
+Compare the implementation against the requirements in the original issue. The issue follows either the model checklist (from add-model) or the rule checklist (from add-rule).
+
+### For Models (check against issue):
+| # | Check | How to verify |
+|---|-------|--------------|
+| 1 | Problem name matches | Compare struct name against issue item 1 |
+| 2 | Mathematical definition matches | Read `evaluate()` and verify it implements the definition from issue item 2 |
+| 3 | Problem type matches | Verify optimization direction or satisfaction matches issue item 3 |
+| 4 | Type parameters match | Verify struct generics match issue item 4 |
+| 5 | Configuration space matches | Verify `dims()` matches issue item 6 |
+| 6 | Feasibility check matches | Verify `evaluate()` feasibility logic matches issue item 7 |
+| 7 | Objective function matches | Verify `evaluate()` objective logic matches issue item 8 |
+| 8 | Complexity matches | Verify `declare_variants!` complexity string matches issue item 9 |
+
+### For Rules (check against issue):
+| # | Check | How to verify |
+|---|-------|--------------|
+| 1 | Source/target match | Compare `ReduceTo` impl against issue items 1-2 |
+| 2 | Reduction algorithm matches | Read `reduce_to()` and verify it follows the algorithm from issue item 3 |
+| 3 | Solution extraction matches | Read `extract_solution()` and verify it matches issue item 4 |
+| 4 | Correctness preserved | Verify the reduction logic is consistent with the correctness argument in issue item 5 |
+| 5 | Overhead expressions match | Compare `#[reduction(overhead = {...})]` against issue item 6 |
+| 6 | Example matches | Verify the example program uses the instance from issue item 7 |
+
+Flag any deviation as ISSUE -- the implementation must match what was specified in the issue unless there's a documented reason for the change.
+
 ## Output Format
 
 You MUST output in this exact format:
@@ -105,7 +140,13 @@ You MUST output in this exact format:
 - dims() correctness: OK / ISSUE -- description
 - [other checks]: OK / ISSUE -- description
 
+### Issue Compliance (if linked issue found)
+| # | Check | Status |
+|---|-------|--------|
+| 1 | ... | OK / ISSUE -- deviation description |
+
 ### Summary
 - X/Y structural checks passed
+- X/Y issue compliance checks passed (if applicable)
 - [list of action items for any failures]
 ```

@@ -14,6 +14,10 @@ You are reviewing code changes for quality in the `problemreductions` Rust codeb
 
 {PLAN_STEP}
 
+## Linked Issue
+
+{ISSUE_CONTEXT}
+
 ## Git Range
 
 **Base:** {BASE_SHA}
