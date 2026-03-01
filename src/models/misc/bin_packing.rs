@@ -39,7 +39,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::BinPacking;
+/// use problemreductions::models::misc::BinPacking;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 4 items with sizes [3, 3, 2, 2], capacity 5
@@ -156,5 +156,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/bin_packing.rs"]
+#[path = "../../unit_tests/models/misc/bin_packing.rs"]
 mod tests;

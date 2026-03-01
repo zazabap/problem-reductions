@@ -42,7 +42,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::SpinGlass;
+/// use problemreductions::models::graph::SpinGlass;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
@@ -256,5 +256,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/spin_glass.rs"]
+#[path = "../../unit_tests/models/graph/spin_glass.rs"]
 mod tests;

@@ -33,7 +33,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::PaintShop;
+/// use problemreductions::models::misc::PaintShop;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Sequence: a, b, a, c, c, b
@@ -197,5 +197,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/paintshop.rs"]
+#[path = "../../unit_tests/models/misc/paintshop.rs"]
 mod tests;

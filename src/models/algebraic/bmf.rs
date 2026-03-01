@@ -34,7 +34,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::BMF;
+/// use problemreductions::models::algebraic::BMF;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 2x2 identity matrix
@@ -235,5 +235,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/bmf.rs"]
+#[path = "../../unit_tests/models/algebraic/bmf.rs"]
 mod tests;

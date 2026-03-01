@@ -89,7 +89,7 @@ impl CNFClause {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::satisfiability::{Satisfiability, CNFClause};
+/// use problemreductions::models::formula::{Satisfiability, CNFClause};
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Formula: (x1 OR x2) AND (NOT x1 OR x3) AND (NOT x2 OR NOT x3)
@@ -225,5 +225,5 @@ pub(crate) fn is_satisfying_assignment(
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/satisfiability/sat.rs"]
+#[path = "../../unit_tests/models/formula/sat.rs"]
 mod tests;

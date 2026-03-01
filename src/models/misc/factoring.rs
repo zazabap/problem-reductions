@@ -29,7 +29,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::Factoring;
+/// use problemreductions::models::misc::Factoring;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Factor 6 with 2-bit factors (allowing factors 0-3)
@@ -167,5 +167,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/factoring.rs"]
+#[path = "../../unit_tests/models/misc/factoring.rs"]
 mod tests;

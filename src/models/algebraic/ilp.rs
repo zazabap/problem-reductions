@@ -195,7 +195,7 @@ pub enum ObjectiveSense {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::{ILP, VarBounds, Comparison, LinearConstraint, ObjectiveSense};
+/// use problemreductions::models::algebraic::{ILP, VarBounds, Comparison, LinearConstraint, ObjectiveSense};
 /// use problemreductions::Problem;
 ///
 /// // Create a simple ILP: maximize x0 + 2*x1
@@ -381,5 +381,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/ilp.rs"]
+#[path = "../../unit_tests/models/algebraic/ilp.rs"]
 mod tests;

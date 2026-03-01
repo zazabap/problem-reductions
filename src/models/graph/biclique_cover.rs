@@ -32,7 +32,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::BicliqueCover;
+/// use problemreductions::models::graph::BicliqueCover;
 /// use problemreductions::topology::BipartiteGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
@@ -248,5 +248,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/biclique_cover.rs"]
+#[path = "../../unit_tests/models/graph/biclique_cover.rs"]
 mod tests;

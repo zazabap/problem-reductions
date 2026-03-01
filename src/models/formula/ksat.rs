@@ -37,7 +37,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::satisfiability::{KSatisfiability, CNFClause};
+/// use problemreductions::models::formula::{KSatisfiability, CNFClause};
 /// use problemreductions::variant::K3;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
@@ -190,5 +190,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/satisfiability/ksat.rs"]
+#[path = "../../unit_tests/models/formula/ksat.rs"]
 mod tests;
