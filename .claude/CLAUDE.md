@@ -12,6 +12,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper. Covers formal definition, background, example with visualization, and algorithm list.
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
+- [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
 
 ## Commands
 ```bash
@@ -26,7 +27,7 @@ make mdbook         # Build and serve mdBook with live reload
 make paper          # Build Typst paper (runs examples + exports first)
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
-make rust-export    # Generate Rust mapping JSON exports
+make rust-export    # Generate Julia parity test data (mapping stages)
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
@@ -90,6 +91,8 @@ enum Direction { Maximize, Minimize }
 ```
 
 ### Key Patterns
+- `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity — must appear in every model file (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
@@ -101,7 +104,7 @@ enum Direction { Maximize, Minimize }
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
 ### Overhead System
-Reduction overhead is expressed using `Expr` AST (in `src/expr.rs`) with the `#[reduction]` macro:
+Reduction overhead is expressed using `Expr` AST (in `src/expr.rs`) with the `#[reduction]` macro. The `overhead` attribute is **required** — omitting it is a compile error:
 ```rust
 #[reduction(overhead = {
     num_vertices = "num_vertices + num_clauses",
@@ -110,9 +113,14 @@ Reduction overhead is expressed using `Expr` AST (in `src/expr.rs`) with the `#[
 impl ReduceTo<Target> for Source { ... }
 ```
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
+- Variable names are validated against actual getter methods on the source type — typos cause compile errors
 - Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
 - `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
-- Expressions support: constants, variables, `+`, `*`, `^`, `exp()`, `log()`, `sqrt()`
+- `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
+- `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
+- Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
+- Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
+- `Expr::parse()` provides runtime parsing for cross-check tests that compare compiled vs symbolic evaluation
 
 ### Problem Names
 Problem types use explicit optimization prefixes:
@@ -216,6 +224,8 @@ The complexity string represents the **worst-case time complexity of the best kn
 2. Confirm the worst-case time bound from the original paper or a survey
 3. Check that polynomial-time problems (e.g., MaximumMatching, 2-SAT, 2-Coloring) are NOT declared with exponential complexity
 4. For NP-hard problems, verify the base of the exponential matches the literature (e.g., 1.1996^n for MIS, not 2^n)
+5. Use only concrete numeric values — no symbolic constants (epsilon, omega); inline the actual numbers with citations
+6. Variable names must match getter methods on the problem type (enforced at compile time)
 
 ### Reduction Overhead (`#[reduction(overhead = {...})]`)
 Overhead expressions describe how target problem size relates to source problem size. To verify correctness:

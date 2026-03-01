@@ -84,6 +84,25 @@ Key decisions:
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
 - **`evaluate()`:** must check feasibility first, then compute objective
+- **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i32`, `One`). See `src/variant.rs`.
+
+## Step 2.5: Register variant complexity
+
+Add `declare_variants!` at the bottom of the model file (after the trait impls, before the test link). Each line declares a concrete type instantiation with its best-known worst-case complexity:
+
+```rust
+crate::declare_variants! {
+    ProblemName<SimpleGraph, i32>  => "1.1996^num_vertices",
+    ProblemName<SimpleGraph, One>  => "1.1996^num_vertices",
+}
+```
+
+- The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
+- One entry per supported `(graph, weight)` combination
+- The string is parsed as an `Expr` AST — supports `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
+- Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
+- A compiled `complexity_eval_fn` is auto-generated alongside the symbolic expression
+- See `src/models/graph/maximum_independent_set.rs` for the reference pattern
 
 ## Step 3: Register the model
 
@@ -146,5 +165,6 @@ Then run the [review-implementation](../review-implementation/SKILL.md) skill to
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
+| Forgetting `declare_variants!` | Required for variant complexity metadata used by the paper's auto-generated table |
 | Forgetting CLI dispatch | Must add match arms in `dispatch.rs` (`load_problem` + `serialize_any_problem`) |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
