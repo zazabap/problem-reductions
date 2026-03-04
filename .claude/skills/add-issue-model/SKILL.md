@@ -1,11 +1,11 @@
 ---
 name: add-issue-model
-description: Use when filing a GitHub issue for a new problem model, ensuring all 11 checklist items from add-model are complete with citations
+description: Use when filing a GitHub issue for a new problem model, ensuring all template sections are complete with citations
 ---
 
 # Add Issue — Model
 
-File a well-formed `[Model]` GitHub issue that passes the `issue-to-pr` validation. This skill ensures all 11 checklist items are complete, cited, and verified against the repo.
+File a `[Model]` GitHub issue on CodingThrust/problem-reductions using the upstream "Problem" issue template. Ensures all sections are complete, cited, and verified against the repo.
 
 ## Input
 
@@ -19,7 +19,7 @@ The caller (zero-to-infinity or user) provides:
 Before anything else, confirm the model doesn't already exist:
 
 ```bash
-# Check implemented models (look for matching filename)
+# Check implemented models
 ls src/models/*/ | grep -i "<problem_name_lowercase>"
 
 # Check open issues
@@ -31,69 +31,91 @@ gh issue list --state closed --limit 200 --json title,number | grep -i "<problem
 
 **If found:** STOP. Report to caller that this model already exists (with issue number or file path).
 
-## Step 2: Research and Fill Checklist
+## Step 2: Research and Fill Template Sections
 
-Use `WebSearch` and `WebFetch` to fill all 11 items from the [add-model](../add-model/SKILL.md) Step 0 checklist:
+Use `WebSearch` and `WebFetch` to fill all sections from the upstream template (`.github/ISSUE_TEMPLATE/problem.md`):
 
-| # | Item | How to fill |
-|---|------|-------------|
-| 1 | **Problem name** | Use optimization prefix convention: `Maximum*`, `Minimum*`, or no prefix. Check CLAUDE.md "Problem Names" |
-| 2 | **Mathematical definition** | Formal definition from textbook/paper. Must include input, output, and objective |
-| 3 | **Problem type** | Optimization (maximize/minimize) or Satisfaction (decision). Determines trait impl |
-| 4 | **Type parameters** | Usually `G: Graph, W: WeightElement` for graph problems, or none |
-| 5 | **Struct fields** | What the struct holds (graph, weights, parameters) |
-| 6 | **Configuration space** | What `dims()` returns — e.g., `vec![2; n]` for binary selection over n items |
-| 7 | **Feasibility check** | How to determine if a configuration is valid |
-| 8 | **Objective function** | How to compute the metric from a valid configuration |
-| 9 | **Best known exact algorithm** | Complexity with concrete numbers, author, year, citation URL |
-| 10 | **Solving strategy** | BruteForce, ILP reduction, or custom solver |
-| 11 | **Category** | `graph/`, `formula/`, `set/`, `algebraic/`, or `misc/` |
+| Section | What to fill | Guidance |
+|---------|-------------|----------|
+| **Motivation** | One sentence: why include this problem? | E.g. "Widely used in network design and has known reductions to QUBO." |
+| **Definition — Name** | Use `Maximum*`/`Minimum*` prefix for optimization. Check CLAUDE.md "Problem Names" | E.g. `MaximumIndependentSet` |
+| **Definition — Reference** | URL or citation for the formal definition | Must be a real, accessible URL |
+| **Definition — Formal** | Input, feasibility constraints, and objective. Define ALL symbols before using them | E.g. "Given G=(V,E) where V is vertex set and E is edge set, find S ⊆ V such that..." |
+| **Variables — Count** | Number of variables in configuration vector | E.g. `n = \|V\|` (one variable per vertex) |
+| **Variables — Domain** | Per-variable domain | E.g. `binary {0,1}` or `{0,...,K-1}` for K colors |
+| **Variables — Meaning** | What each variable represents | E.g. `x_i = 1 if vertex i ∈ S` |
+| **Schema — Type name** | Rust struct name | Must match the Definition Name |
+| **Schema — Variants** | Graph topology variants, weighted/unweighted | E.g. `SimpleGraph, GridGraph; weighted or unweighted` |
+| **Schema — Fields table** | `\| Field \| Type \| Description \|` for each struct field | Connect fields to symbols defined in Definition |
+| **Complexity** | Best known exact algorithm with concrete numbers | E.g. `O(1.1996^n)` by Xiao & Nagamochi (2017). **No symbolic constants.** |
+| **Complexity — References** | URL for complexity results | Must be citable |
+| **Extra Remark** | Optional: historical context, applications, relationships | Can be brief or empty |
+| **How to solve** | Check applicable boxes | BruteForce / ILP reduction / Other |
+| **Example Instance** | Small but non-trivial instance with known optimal solution | Must be large enough to exercise constraints (avoid trivial cases). Will appear in paper. |
 
-**Citation rule:** Every complexity claim and algorithm reference MUST include a URL (paper, Wikipedia, lecture notes).
+**Citation rule:** Every complexity claim and reference MUST include a URL.
 
 ## Step 3: Verify Algorithm Correctness
 
-For item 9 (best known exact algorithm):
+For the Complexity section:
 - Cross-check the complexity claim against at least 2 independent sources
 - Ensure the complexity uses concrete numeric values (e.g., `1.1996^n`), not symbolic constants
 - Verify the variable in the complexity expression maps to a natural size getter (e.g., `n = |V|` → `num_vertices`)
 
 ## Step 4: Draft and File Issue
 
-Draft the issue body with all 11 items clearly formatted:
+Draft the issue body matching the upstream template format exactly:
 
 ```bash
 gh issue create --repo CodingThrust/problem-reductions \
   --title "[Model] ProblemName" \
+  --label "model" \
   --body "$(cat <<'ISSUE_EOF'
-## Problem Definition
+## Motivation
 
-**1. Problem name:** `ProblemName`
+<one sentence>
 
-**2. Mathematical definition:** ...
+## Definition
 
-**3. Problem type:** Optimization (Maximize) / Satisfaction
+**Name:** ProblemName
+**Reference:** [citation](url)
 
-**4. Type parameters:** `G: Graph, W: WeightElement` / None
+<formal definition with all symbols defined>
 
-**5. Struct fields:**
-- `field: Type` — description
+## Variables
 
-**6. Configuration space:** `dims() = vec![2; n]`
+- **Count:** n = |V| (one variable per vertex)
+- **Per-variable domain:** binary {0,1}
+- **Meaning:** x_i = 1 if vertex i is selected
 
-**7. Feasibility check:** ...
+## Schema (data type)
 
-**8. Objective function:** ...
+**Type name:** ProblemName
+**Variants:** graph topology (SimpleGraph, ...), weighted or unweighted
 
-**9. Best known exact algorithm:** O(...) by Author (Year). [Reference](url)
+| Field | Type | Description |
+|-------|------|-------------|
+| graph | SimpleGraph | the graph G=(V,E) |
+| weights | Vec<W> | vertex weights w_i (weighted variant only) |
 
-**10. Solving strategy:** BruteForce / ILP reduction
+## Complexity
 
-**11. Category:** `graph/` / `formula/` / `set/` / `algebraic/` / `misc/`
+- **Best known exact algorithm:** O(1.1996^n) by Author (Year), where n = |V|
+- **References:** [paper](url)
 
-## References
-- [Source 1](url1)
-- [Source 2](url2)
+## Extra Remark
+
+<optional notes>
+
+## How to solve
+
+- [x] It can be solved by (existing) bruteforce.
+- [ ] It can be solved by reducing the integer programming, through #issue-number.
+- [ ] Other, refer to ...
+
+## Example Instance
+
+<small but non-trivial instance with known optimal solution, for testing and the paper>
 ISSUE_EOF
 )"
 ```
@@ -104,7 +126,10 @@ Report the created issue number and URL.
 
 | Mistake | Fix |
 |---------|-----|
+| Using custom format instead of template | Must match `.github/ISSUE_TEMPLATE/problem.md` sections exactly |
 | Missing complexity citation | Every algorithm claim needs author + year + URL |
 | Symbolic constants in complexity | Use concrete numbers: `1.1996^n` not `(2-epsilon)^n` |
-| Wrong optimization prefix | Check CLAUDE.md "Problem Names" for conventions |
+| Undefined symbols in definition | Define ALL symbols (G, V, E, S, etc.) before using them |
+| Trivial example instance | Use non-trivial instance (e.g., Petersen graph, not triangle) |
 | Not checking repo first | Always run Step 1 before researching |
+| Missing label | Use `--label "model"` to match template metadata |
