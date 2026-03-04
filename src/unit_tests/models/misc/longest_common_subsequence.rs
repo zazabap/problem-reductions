@@ -141,3 +141,19 @@ fn test_lcs_serialization() {
     let restored: LongestCommonSubsequence = serde_json::from_value(json).unwrap();
     assert_eq!(restored.strings(), problem.strings());
 }
+
+#[test]
+#[should_panic(expected = "must have at least one string")]
+fn test_lcs_empty_strings_panics() {
+    LongestCommonSubsequence::new(vec![]);
+}
+
+#[test]
+fn test_lcs_empty_string_in_input() {
+    // One empty string means LCS is always empty
+    let problem = LongestCommonSubsequence::new(vec![vec![], vec![b'A', b'B']]);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    let result = problem.evaluate(&[]);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 0);
+}
