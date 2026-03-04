@@ -27,19 +27,12 @@ pub fn run() {
     println!("\n=== Longest Common Subsequence -> Maximum Independent Set Reduction ===\n");
 
     // 1. Create LCS instance: ABAC and BACA
-    let strings = vec![
-        vec![b'A', b'B', b'A', b'C'],
-        vec![b'B', b'A', b'C', b'A'],
-    ];
+    let strings = vec![vec![b'A', b'B', b'A', b'C'], vec![b'B', b'A', b'C', b'A']];
     let lcs = LongestCommonSubsequence::new(strings.clone());
 
     println!("Source: LongestCommonSubsequence");
     for (i, s) in strings.iter().enumerate() {
-        println!(
-            "  String {}: {}",
-            i,
-            std::str::from_utf8(s).unwrap_or("?")
-        );
+        println!("  String {}: {}", i, std::str::from_utf8(s).unwrap_or("?"));
     }
     println!("  num_strings: {}", lcs.num_strings());
     println!("  total_length: {}", lcs.total_length());
