@@ -13,6 +13,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
+- [zero-to-infinity](skills/zero-to-infinity/SKILL.md) -- Discover and prioritize new problems and reduction rules based on user-ranked impact dimensions (academia, industry, cross-field, etc.), then file as GitHub issues.
 
 ## Commands
 ```bash
