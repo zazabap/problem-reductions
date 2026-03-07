@@ -143,6 +143,11 @@ Merge both subagent outputs into a single report:
 ### Test Quality (from quality reviewer)
 ...
 
+### Overhead Consistency Check
+- Rules: verify `#[reduction(overhead)]` expressions match actual sizes constructed in `reduce_to()` code
+- Models: verify `dims()` and getter methods are consistent with struct fields
+- Result: PASS / FAIL
+
 ### Fixes Applied
 - [list of issues automatically fixed by main agent]
 

@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue diagrams jl-testdata cli cli-demo copilot-review
 
 # Default target
 help:
@@ -28,6 +28,7 @@ help:
 	@echo "  cli          - Build the pred CLI tool"
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
+	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 
 # Build the project
@@ -76,10 +77,14 @@ diagrams:
 
 # Build and serve mdBook with API docs
 mdbook:
-	cargo run --example export_graph
-	cargo run --example export_schemas
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
-	mdbook build
+	@echo "Exporting graph..."
+	@cargo run --example export_graph 2>&1 | tail -1
+	@echo "Exporting schemas..."
+	@cargo run --example export_schemas 2>&1 | tail -1
+	@echo "Building API docs..."
+	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
+	@echo "Building mdBook..."
+	@mdbook build
 	rm -rf book/api
 	cp -r target/doc book/api
 	@-lsof -ti:3001 | xargs kill 2>/dev/null || true
@@ -208,6 +213,17 @@ run-plan:
 		--max-turns 500 \
 		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"
 
+# Run issue-to-pr --execute for a GitHub issue
+# Usage: make run-issue N=42
+N ?=
+run-issue:
+	@if [ -z "$(N)" ]; then echo "Usage: make run-issue N=<issue-number>"; exit 1; fi
+	claude --dangerously-skip-permissions \
+		--model opus \
+		--verbose \
+		--max-turns 500 \
+		-p "/issue-to-pr $(N) --execute" 2>&1 | tee "issue-$(N)-output.log"
+
 # Closed-loop CLI demo: exercises all commands end-to-end
 PRED := cargo run -p problemreductions-cli --release --
 CLI_DEMO_DIR := /tmp/pred-cli-demo
@@ -254,18 +270,18 @@ cli-demo: cli
 	\
 	echo ""; \
 	echo "--- 8. create: build problem instances ---"; \
-	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
-	$$PRED create MIS --edges 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
 	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
 	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
 	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \
-	$$PRED create KColoring --k 3 --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/kcol.json; \
-	$$PRED create SpinGlass --edges 0-1,1-2 -o $(CLI_DEMO_DIR)/sg.json; \
-	$$PRED create MaxCut --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
-	$$PRED create MVC --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
-	$$PRED create MaximumMatching --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
-	$$PRED create Factoring --target 15 --bits-m 4 --bits-n 4 -o $(CLI_DEMO_DIR)/factoring.json; \
-	$$PRED create Factoring --target 21 --bits-m 3 --bits-n 3 -o $(CLI_DEMO_DIR)/factoring2.json; \
+	$$PRED create KColoring --k 3 --graph 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/kcol.json; \
+	$$PRED create SpinGlass --graph 0-1,1-2 -o $(CLI_DEMO_DIR)/sg.json; \
+	$$PRED create MaxCut --graph 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
+	$$PRED create MVC --graph 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
+	$$PRED create MaximumMatching --graph 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
+	$$PRED create Factoring --target 15 --m 4 --n 4 -o $(CLI_DEMO_DIR)/factoring.json; \
+	$$PRED create Factoring --target 21 --m 3 --n 3 -o $(CLI_DEMO_DIR)/factoring2.json; \
 	\
 	echo ""; \
 	echo "--- 9. evaluate: test configurations ---"; \
@@ -314,7 +330,7 @@ cli-demo: cli
 	echo ""; \
 	echo "--- 18. closed-loop: create → reduce → solve → verify ---"; \
 	echo "Creating a 6-vertex graph..."; \
-	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-5,0-5,1-4 -o $(CLI_DEMO_DIR)/big.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-5,0-5,1-4 -o $(CLI_DEMO_DIR)/big.json; \
 	echo "Solving with ILP..."; \
 	$$PRED solve $(CLI_DEMO_DIR)/big.json -o $(CLI_DEMO_DIR)/big_sol.json; \
 	echo "Reducing to QUBO and solving with brute-force..."; \

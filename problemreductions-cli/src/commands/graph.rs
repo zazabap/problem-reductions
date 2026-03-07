@@ -259,7 +259,6 @@ pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> Strin
     }
 }
 
-
 /// Format a problem node as **bold name/variant** in slash notation.
 /// This is the single source of truth for "name/variant" display.
 fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
@@ -304,6 +303,15 @@ fn format_path_text(
         }
     }
 
+    // Show composed overall overhead for multi-step paths
+    if reduction_path.len() > 1 {
+        let composed = graph.compose_path_overhead(reduction_path);
+        text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
+        for (field, poly) in &composed.output_size {
+            text.push_str(&format!("    {field} = {poly}\n"));
+        }
+    }
+
     text
 }
 
@@ -329,9 +337,17 @@ fn format_path_json(
         })
         .collect();
 
+    let composed = graph.compose_path_overhead(reduction_path);
+    let overall: Vec<serde_json::Value> = composed
+        .output_size
+        .iter()
+        .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+        .collect();
+
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
+        "overall_overhead": overall,
     })
 }
 

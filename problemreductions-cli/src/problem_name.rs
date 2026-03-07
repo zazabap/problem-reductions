@@ -22,6 +22,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("BP", "BinPacking"),
     ("CVP", "ClosestVectorProblem"),
     ("KS", "Knapsack"),
+    ("MaxMatching", "MaximumMatching"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -40,7 +41,7 @@ pub fn resolve_alias(input: &str) -> String {
         "factoring" => "Factoring".to_string(),
         "maximumindependentset" => "MaximumIndependentSet".to_string(),
         "maximumclique" => "MaximumClique".to_string(),
-        "maximummatching" => "MaximumMatching".to_string(),
+        "maxmatching" | "maximummatching" => "MaximumMatching".to_string(),
         "minimumdominatingset" => "MinimumDominatingSet".to_string(),
         "minimumsetcovering" => "MinimumSetCovering".to_string(),
         "maximumsetpacking" => "MaximumSetPacking".to_string(),
