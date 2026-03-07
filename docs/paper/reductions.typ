@@ -888,7 +888,7 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
 ]
 
 #problem-def("Knapsack")[
-  Given $n$ items with weights $w_1, dots, w_n in NN$ and values $v_1, dots, v_n in NN$, and a capacity $C in NN$, find $S subset.eq {0, dots, n - 1}$ maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
+  Given $n$ items with weights $w_0, dots, w_(n-1) in NN$ and values $v_0, dots, v_(n-1) in NN$, and a capacity $C in NN$, find $S subset.eq {0, dots, n - 1}$ maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
 ][
   One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
 
