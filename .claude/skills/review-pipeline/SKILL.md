@@ -1,11 +1,11 @@
 ---
 name: review-pipeline
-description: Pick a PR from the review-agentic board column, fix Copilot review comments, fix CI, run agentic feature tests, then move to In Review
+description: Pick a PR from the review-agentic board column, fix Copilot review comments, check issue/human comments, fix CI, run agentic feature tests, then move to In Review
 ---
 
 # Review Pipeline
 
-Pick PRs from the `review-agentic` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix comments, fix CI, run agentic feature tests, then move to `In Review`.
+Pick PRs from the `review-agentic` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix Copilot comments, check and address issue/human comments, fix CI, run agentic feature tests, then move to `In Review`.
 
 ## Invocation
 
@@ -114,6 +114,69 @@ git push
 
 If Copilot approved with no actionable comments: skip to next step.
 
+### 2a. Check Issue Comments and Human PR Reviews
+
+Extract the linked issue number from the PR title (pattern: `Fix #N:`):
+
+```bash
+ISSUE=$(gh pr view $PR --json title --jq .title | grep -oP '(?<=Fix #)\d+')
+```
+
+Fetch all comment sources:
+
+```bash
+# 1. Linked issue comments (from contributors, excluding bots)
+if [ -n "$ISSUE" ]; then
+    gh api repos/$REPO/issues/$ISSUE/comments | python3 -c "
+import sys,json
+comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
+print(f'=== Issue #{sys.argv[1]} comments: {len(comments)} ===')
+for c in comments:
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
+    print('---')
+" "$ISSUE"
+fi
+
+# 2. Human PR review comments (inline, excluding Copilot)
+gh api repos/$REPO/pulls/$PR/comments | python3 -c "
+import sys,json
+comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
+print(f'=== Human PR inline comments: {len(comments)} ===')
+for c in comments:
+    line = c.get('line') or c.get('original_line') or '?'
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"][:300]}')
+"
+
+# 3. Human PR conversation comments (general discussion, excluding bots)
+gh api repos/$REPO/issues/$PR/comments | python3 -c "
+import sys,json
+comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
+print(f'=== Human PR conversation comments: {len(comments)} ===')
+for c in comments:
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
+"
+
+# 4. Human review-level comments (top-level review body)
+gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
+import sys,json
+reviews = [r for r in json.load(sys.stdin) if not r['user']['login'].endswith('[bot]') and r.get('body')]
+print(f'=== Human reviews: {len(reviews)} ===')
+for r in reviews:
+    print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"][:300]}')
+"
+```
+
+For each actionable comment found:
+
+1. **Read the relevant source files** referenced by the comment.
+2. **Check if the comment's feedback is already addressed** in the current code.
+3. **If not addressed:** fix the code to respect the comment, commit, and push.
+4. **If already addressed:** move on.
+
+Actionable comments include: code suggestions, bug reports, requests for additional tests, naming feedback, algorithmic corrections, and missing edge cases. Ignore comments that are purely informational or questions that have already been answered.
+
+If there are no actionable unaddressed comments: skip to next step.
+
 ### 3. Agentic Feature Test
 
 Run agentic feature tests on the modified feature:
@@ -195,6 +258,7 @@ gh project item-edit \
 Review pipeline complete:
   PR:     #570
   Copilot comments: 3 fixed
+  Issue/human comments: 2 checked, 1 fixed
   CI:     green
   Agentic test: passed
   Board:  review-agentic -> In Review
@@ -207,10 +271,10 @@ If `--all` was specified, repeat Steps 1-7 for each PR. After all PRs, print a b
 ```
 === Review Pipeline Batch Report ===
 
-| PR   | Title                              | Copilot | CI      | Agentic Test | Board      |
-|------|------------------------------------|---------|---------|--------------|------------|
-| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | green   | passed       | In Review  |
-| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | green   | passed       | In Review  |
+| PR   | Title                              | Copilot | Issue/Human | CI      | Agentic Test | Board      |
+|------|------------------------------------|---------|-------------|---------|--------------|------------|
+| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | green   | passed       | In Review  |
+| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | green   | passed       | In Review  |
 
 Completed: 2/2 | All moved to In Review
 ```
@@ -227,3 +291,5 @@ Completed: 2/2 | All moved to In Review
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Skipping merge with main | Always merge origin/main in Step 1a to catch conflicts before fixing comments |
+| Ignoring issue comments | Always check the linked issue (`Fix #N`) for human feedback in Step 2a |
+| Only checking Copilot comments | Step 2a checks human PR reviews and linked issue comments too — bot-only review is insufficient |
