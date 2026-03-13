@@ -36,6 +36,14 @@ digraph check_issue {
 }
 ```
 
+### Prerequisites
+
+This skill uses the `pred` CLI tool. If `pred` is not available, build it first:
+
+```bash
+pred --version 2>/dev/null || make cli
+```
+
 ### Step 0: Fetch and Parse Issue
 
 ```bash
