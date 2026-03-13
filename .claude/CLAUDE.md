@@ -137,7 +137,7 @@ impl ReduceTo<Target> for Source { ... }
 - `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
 - `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
-- Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
+- Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`, `factorial()`
 - Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
 - `Expr::parse()` provides runtime parsing for cross-check tests that compare compiled vs symbolic evaluation
 
