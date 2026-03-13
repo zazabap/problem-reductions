@@ -6,7 +6,9 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop, SubsetSum};
+use problemreductions::models::misc::{
+    BinPacking, LongestCommonSubsequence, MinimumTardinessSequencing, PaintShop, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -49,6 +51,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bounds.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.deadlines.is_none()
+        && args.precedence_pairs.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -498,6 +502,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumTardinessSequencing
+        "MinimumTardinessSequencing" => {
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --deadlines and --n\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"]"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --n (number of tasks)\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            (
+                ser(MinimumTardinessSequencing::new(
+                    num_tasks,
+                    deadlines,
+                    precedences,
+                ))?,
                 resolved_variant.clone(),
             )
         }

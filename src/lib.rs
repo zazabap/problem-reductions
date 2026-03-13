@@ -46,7 +46,8 @@ pub mod prelude {
         MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover, TravelingSalesman,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum,
+        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+        PaintShop, SubsetSum,
     };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 

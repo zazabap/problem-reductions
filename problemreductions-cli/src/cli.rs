@@ -220,6 +220,7 @@ Flags by problem type:
   CVP                             --basis, --target-vec [--bounds]
   LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
+  MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -337,6 +338,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
+    #[arg(long)]
+    pub deadlines: Option<String>,
+    /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
+    #[arg(long)]
+    pub precedence_pairs: Option<String>,
 }
 
 #[derive(clap::Args)]
