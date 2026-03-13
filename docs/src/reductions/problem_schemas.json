@@ -159,6 +159,22 @@
     ]
   },
   {
+    "name": "IsomorphicSpanningTree",
+    "description": "Does graph G contain a spanning tree isomorphic to tree T?",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G"
+      },
+      {
+        "name": "tree",
+        "type_name": "SimpleGraph",
+        "description": "The target tree T (must be a tree with |V(T)| = |V(G)|)"
+      }
+    ]
+  },
+  {
     "name": "KColoring",
     "description": "Find valid k-coloring of a graph",
     "fields": [

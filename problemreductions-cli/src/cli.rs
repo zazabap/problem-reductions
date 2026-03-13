@@ -210,6 +210,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  IsomorphicSpanningTree          --graph, --tree
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -337,6 +338,9 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
+    #[arg(long)]
+    pub tree: Option<String>,
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,

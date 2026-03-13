@@ -50,6 +50,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
         && args.pattern.is_none()
@@ -93,6 +94,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -101,7 +103,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
-        "MinimumSumMulticenter" => "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2",
+        "MinimumSumMulticenter" => {
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
+        }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
@@ -240,12 +244,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // Hamiltonian path (graph only, no weights)
         "HamiltonianPath" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
+            })?;
+            (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // IsomorphicSpanningTree (graph + tree)
+        "IsomorphicSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3"
+                    "{e}\n\nUsage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
                 )
             })?;
+            let tree_str = args.tree.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IsomorphicSpanningTree requires --tree\n\n\
+                     Usage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_edges: Vec<(usize, usize)> = tree_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid tree edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let tree_num_vertices = tree_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0)
+                .max(graph.num_vertices());
+            let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
             (
-                ser(HamiltonianPath::new(graph))?,
+                ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
                 resolved_variant.clone(),
             )
         }
@@ -609,7 +647,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 }
             }
             (
-                ser(FlowShopScheduling::new(num_processors, task_lengths, deadline))?,
+                ser(FlowShopScheduling::new(
+                    num_processors,
+                    task_lengths,
+                    deadline,
+                ))?,
                 resolved_variant.clone(),
             )
         }
