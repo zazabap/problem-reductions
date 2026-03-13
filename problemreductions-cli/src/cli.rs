@@ -211,6 +211,7 @@ Flags by problem type:
   GraphPartitioning               --graph
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  SubsetSum                       --sizes, --target
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]

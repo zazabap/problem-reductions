@@ -6,7 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop};
+use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -63,6 +63,8 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
+        "i64" => "integer",
+        "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         _ => "value",
     }
 }
@@ -88,6 +90,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         _ => "",
     }
 }
@@ -349,6 +352,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     resolved_variant.clone(),
                 )
             }
+        }
+
+        // SubsetSum
+        "SubsetSum" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --sizes and --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let target = args.target.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(SubsetSum::new(sizes, target as i64))?,
+                resolved_variant.clone(),
+            )
         }
 
         // PaintShop
