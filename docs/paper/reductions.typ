@@ -59,9 +59,11 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SubsetSum": [Subset Sum],
+  "FlowShopScheduling": [Flow Shop Scheduling],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1038,12 +1040,143 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
 ]
 
+#problem-def("ShortestCommonSupersequence")[
+  Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+][
+  A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+
+  For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+
+  *Example.* Let $Sigma = {a, b, c}$ and $R = {"abc", "bac"}$. We seek the shortest string $w$ containing both $"abc"$ and $"bac"$ as subsequences.
+
+  #figure({
+    let w = ("b", "a", "b", "c")
+    let r1 = ("a", "b", "c")       // "abc"
+    let r2 = ("b", "a", "c")       // "bac"
+    let embed1 = (1, 2, 3)         // positions of a, b, c in w (0-indexed)
+    let embed2 = (0, 1, 3)         // positions of b, a, c in w (0-indexed)
+    let blue = graph-colors.at(0)
+    let teal = rgb("#76b7b2")
+    let red = graph-colors.at(1)
+    align(center, stack(dir: ttb, spacing: 0.6cm,
+      // Row 1: the supersequence w
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
+        ..w.enumerate().map(((i, ch)) => {
+          let is1 = embed1.contains(i)
+          let is2 = embed2.contains(i)
+          let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold", ch)))
+        }),
+      ),
+      // Row 2: embedding of r1
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: blue)[$r_1 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed1.position(j => j == i)
+          let ch = if idx != none { r1.at(idx) } else { sym.dot.c }
+          let col = if idx != none { blue } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+      // Row 3: embedding of r2
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: teal)[$r_2 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed2.position(j => j == i)
+          let ch = if idx != none { r2.at(idx) } else { sym.dot.c }
+          let col = if idx != none { teal } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+    ))
+  },
+  caption: [Shortest Common Supersequence: $w = "babc"$ (length 4) contains $r_1 = "abc"$ (blue, positions 1,2,3) and $r_2 = "bac"$ (teal, positions 0,1,3) as subsequences. Dots mark unused positions in each embedding.],
+  ) <fig:scs>
+
+  The supersequence $w = "babc"$ has length 4 and contains both input strings as subsequences. This is optimal because $"LCS"("abc", "bac") = "ac"$ (length 2), so the shortest common supersequence has length $3 + 3 - 2 = 4$.
+]
+
 #problem-def("MinimumFeedbackArcSet")[
   Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
 ][
   Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
   *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
+]
+
+#problem-def("FlowShopScheduling")[
+  Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
+][
+  Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
+
+  *Example.* Let $m = 3$ machines, $n = 5$ jobs with task lengths:
+  $ ell = mat(
+    3, 4, 2;
+    2, 3, 5;
+    4, 1, 3;
+    1, 5, 4;
+    3, 2, 3;
+  ) $
+  and deadline $D = 25$. The job order $pi = (j_4, j_1, j_5, j_3, j_2)$ (0-indexed: $3, 0, 4, 2, 1$) yields makespan $23 <= 25$, so a feasible schedule exists.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Gantt chart for job order [3, 0, 4, 2, 1] on 3 machines
+      // Schedule computed greedily:
+      // M1: j3[0,1], j0[1,4], j4[4,7], j2[7,11], j1[11,13]
+      // M2: j3[1,6], j0[6,10], j4[10,12], j2[12,13], j1[13,16]
+      // M3: j3[6,10], j0[10,12], j4[12,15], j2[15,18], j1[18,23]
+      let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+      let job-names = ("$j_1$", "$j_2$", "$j_3$", "$j_4$", "$j_5$")
+      let scale = 0.38
+      let row-h = 0.6
+      let gap = 0.15
+
+      // Machine labels
+      for (mi, label) in ("M1", "M2", "M3").enumerate() {
+        let y = -mi * (row-h + gap)
+        content((-0.8, y), text(8pt, label))
+      }
+
+      // Draw schedule blocks: (machine, job-index, start, end)
+      let blocks = (
+        (0, 3, 0, 1), (0, 0, 1, 4), (0, 4, 4, 7), (0, 2, 7, 11), (0, 1, 11, 13),
+        (1, 3, 1, 6), (1, 0, 6, 10), (1, 4, 10, 12), (1, 2, 12, 13), (1, 1, 13, 16),
+        (2, 3, 6, 10), (2, 0, 10, 12), (2, 4, 12, 15), (2, 2, 15, 18), (2, 1, 18, 23),
+      )
+
+      for (mi, ji, s, e) in blocks {
+        let x0 = s * scale
+        let x1 = e * scale
+        let y = -mi * (row-h + gap)
+        rect((x0, y - row-h / 2), (x1, y + row-h / 2),
+          fill: colors.at(ji).transparentize(30%), stroke: 0.4pt + colors.at(ji))
+        content(((x0 + x1) / 2, y), text(6pt, job-names.at(ji)))
+      }
+
+      // Time axis
+      let max-t = 23
+      let y-axis = -2 * (row-h + gap) - row-h / 2 - 0.2
+      line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+      for t in (0, 5, 10, 15, 20, 23) {
+        let x = t * scale
+        line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+        content((x, y-axis - 0.25), text(6pt, str(t)))
+      }
+      content((max-t * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+
+      // Deadline marker
+      let dl-x = 25 * scale
+      line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
+      content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = 25$])
+    }),
+    caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
+  ) <fig:flowshop>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

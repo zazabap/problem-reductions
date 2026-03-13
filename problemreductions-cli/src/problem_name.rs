@@ -24,6 +24,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("SCS", "ShortestCommonSupersequence"),
     ("FAS", "MinimumFeedbackArcSet"),
     ("pmedian", "MinimumSumMulticenter"),
 ];
@@ -63,9 +64,11 @@ pub fn resolve_alias(input: &str) -> String {
         "partitionintotriangles" => "PartitionIntoTriangles".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "flowshopscheduling" => "FlowShopScheduling".to_string(),
         "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
         "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "scs" | "shortestcommonsupersequence" => "ShortestCommonSupersequence".to_string(),
         "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }

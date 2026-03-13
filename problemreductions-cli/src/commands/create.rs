@@ -6,7 +6,10 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
-use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop, SubsetSum};
+use problemreductions::models::misc::{
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop,
+    ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -52,6 +55,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.task_lengths.is_none()
+        && args.deadline.is_none()
+        && args.num_processors.is_none()
+        && args.alphabet_size.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -103,6 +110,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
 }
@@ -280,7 +288,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "RuralPostman requires --bound\n\n\
                      Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
                 )
-            })?;
+            })? as i32;
             (
                 ser(RuralPostman::new(
                     graph,
@@ -563,6 +571,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // FlowShopScheduling
+        "FlowShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --task-lengths and --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let task_lengths: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = if let Some(np) = args.num_processors {
+                np
+            } else if let Some(m) = args.m {
+                m
+            } else if let Some(first) = task_lengths.first() {
+                first.len()
+            } else {
+                bail!("Cannot infer num_processors from empty task list; use --num-processors");
+            };
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_processors {
+                    bail!(
+                        "task_lengths row {} has {} entries, expected {} (num_processors)",
+                        j,
+                        row.len(),
+                        num_processors
+                    );
+                }
+            }
+            (
+                ser(FlowShopScheduling::new(num_processors, task_lengths, deadline))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFeedbackArcSet
         "MinimumFeedbackArcSet" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -663,6 +714,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(PartitionIntoTriangles::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ShortestCommonSupersequence
+        "ShortestCommonSupersequence" => {
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
+            })? as usize;
+            let strings: Vec<Vec<usize>> = strings_str
+                .split(';')
+                .map(|s| {
+                    let trimmed = s.trim();
+                    if trimmed.is_empty() {
+                        return Ok(Vec::new());
+                    }
+                    trimmed
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .map_err(|e| anyhow::anyhow!("Invalid alphabet index: {}", e))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let inferred = strings
+                .iter()
+                .flat_map(|s| s.iter())
+                .copied()
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than the largest symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(ShortestCommonSupersequence::new(
+                    alphabet_size,
+                    strings,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }
