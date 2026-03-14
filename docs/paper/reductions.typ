@@ -64,6 +64,7 @@
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
+  "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
 )
 
@@ -451,6 +452,32 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
 
   Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
+
+  *Example.* Consider the graph $G$ on 6 vertices with edges ${(0,1), (0,2), (1,3), (2,3), (3,4), (3,5), (2,4), (1,5)}$. The sequence $[0, 2, 4, 3, 1, 5]$ is a Hamiltonian path: it visits every vertex exactly once, and each consecutive pair is adjacent — $(0,2), (2,4), (4,3), (3,1), (1,5) in E$.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // 6 vertices in two rows
+      let verts = ((0, 1.5), (1.5, 1.5), (3, 1.5), (1.5, 0), (3, 0), (0, 0))
+      let edges = ((0,1),(0,2),(1,3),(2,3),(3,4),(3,5),(2,4),(1,5))
+      // Hamiltonian path edges: 0-2, 2-4, 4-3, 3-1, 1-5
+      let path-edges = ((0,2),(2,4),(4,3),(3,1),(1,5))
+      for (u, v) in edges {
+        let on-path = path-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+        g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+      }
+      for (k, pos) in verts.enumerate() {
+        g-node(pos, name: "v" + str(k),
+          fill: blue,
+          label: text(fill: white)[$v_#k$])
+      }
+    })
+  },
+  caption: [Hamiltonian Path in a 6-vertex graph. Blue edges show the path $v_0 arrow v_2 arrow v_4 arrow v_3 arrow v_1 arrow v_5$.],
+  ) <fig:hamiltonian-path>
 ]
 #problem-def("IsomorphicSpanningTree")[
   Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
@@ -655,6 +682,31 @@ Also known as the _p-median problem_. This is a classical NP-complete facility l
 The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
 
 Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
+
+  *Example.* Consider the graph $G$ on 7 vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (0,6), (2,5)}$, and $K = 2$. Placing centers at $P = {v_2, v_5}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = 6$. This is optimal.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // 7 vertices on a rough circle
+      let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8), (-2.2, 0))
+      let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(0,6),(2,5))
+      for (u, v) in edges {
+        g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+      }
+      let centers = (2, 5)
+      for (k, pos) in verts.enumerate() {
+        let is-center = centers.any(c => c == k)
+        g-node(pos, name: "v" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+      }
+    })
+  },
+  caption: [Minimum Sum Multicenter with $K = 2$ on a 7-vertex graph. Centers $v_2$ and $v_5$ (blue) achieve optimal total weighted distance 6.],
+  ) <fig:minimum-sum-multicenter>
 ]
 
 == Set Problems
@@ -1017,6 +1069,37 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   }),
   caption: [Biclique cover of a bipartite graph: biclique 1 (blue) $= ({ell_1}, {r_1, r_2})$, biclique 2 (teal) $= ({ell_2}, {r_2, r_3})$. Edge $(ell_1, r_3)$ is absent, preventing a single biclique.],
 ) <fig:biclique-cover>
+]
+
+#problem-def("PartitionIntoTriangles")[
+  Given a graph $G = (V, E)$ with $|V| = 3q$ for some integer $q$, determine whether the vertices of $G$ can be partitioned into $q$ disjoint triples $V_1, dots, V_q$, each containing exactly 3 vertices, such that for each $V_i = {u_i, v_i, w_i}$, all three edges ${u_i, v_i}$, ${u_i, w_i}$, and ${v_i, w_i}$ belong to $E$.
+][
+  Partition Into Triangles is NP-complete by transformation from 3-Dimensional Matching @garey1979[GT11]. It remains NP-complete on graphs of maximum degree 4, with an exact algorithm running in $O^*(1.0222^n)$ for bounded-degree-4 graphs @vanrooij2013. The general brute-force bound is $O^*(2^n)$#footnote[No algorithm improving on brute-force enumeration is known for general Partition Into Triangles.].
+
+  *Example.* Consider $G$ with $n = 6$ vertices ($q = 2$) and edges ${0,1}$, ${0,2}$, ${1,2}$, ${3,4}$, ${3,5}$, ${4,5}$, ${0,3}$. The partition $V_1 = {v_0, v_1, v_2}$, $V_2 = {v_3, v_4, v_5}$ is valid: $V_1$ forms a triangle (edges ${0,1}$, ${0,2}$, ${1,2}$ all present) and $V_2$ forms a triangle (edges ${3,4}$, ${3,5}$, ${4,5}$ all present). The cross-edge ${0,3}$ is unused. Swapping $v_2$ and $v_3$ yields $V'_1 = {v_0, v_1, v_3}$, which fails because ${1, 3} in.not E$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Two triangles side by side with a cross-edge
+      let verts = ((0, 1.2), (1, 0), (-1, 0), (3, 1.2), (4, 0), (2, 0))
+      let edges = ((0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3))
+      let tri1 = (0, 1, 2)
+      let tri2 = (3, 4, 5)
+      // Draw edges
+      for (u, v) in edges {
+        let is-cross = u == 0 and v == 3
+        g-edge(verts.at(u), verts.at(v),
+          stroke: if is-cross { 1pt + luma(180) } else if tri1.contains(u) and tri1.contains(v) { 1.5pt + graph-colors.at(0) } else { 1.5pt + rgb("#76b7b2") })
+      }
+      // Draw vertices
+      for (k, p) in verts.enumerate() {
+        let c = if tri1.contains(k) { graph-colors.at(0).lighten(70%) } else { rgb("#76b7b2").lighten(70%) }
+        g-node(p, name: "v" + str(k), fill: c, label: $v_#k$)
+      }
+    }),
+    caption: [Partition Into Triangles: $V_1 = {v_0, v_1, v_2}$ (blue) and $V_2 = {v_3, v_4, v_5}$ (teal) each form a triangle. The cross-edge $(v_0, v_3)$ (gray) is unused.],
+  ) <fig:partition-triangles>
 ]
 
 #problem-def("BinPacking")[
@@ -1963,6 +2046,39 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
 
   _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
+]
+
+#let tsp_qubo = load-example("travelingsalesman_to_qubo")
+#let tsp_qubo_r = load-results("travelingsalesman_to_qubo")
+#let tsp_qubo_sol = tsp_qubo_r.solutions.at(0)
+
+#reduction-rule("TravelingSalesman", "QUBO",
+  example: true,
+  example-caption: [TSP on $K_3$ with weights $w_(01) = 1$, $w_(02) = 2$, $w_(12) = 3$: the QUBO ground state encodes the optimal tour with cost $1 + 2 + 3 = 6$.],
+  extra: [
+    *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.num_vars$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
+    $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) underbrace(x_(2,0) x_(2,1) x_(2,2), "vertex 2") $
+
+    *Step 2 -- Penalize invalid permutations.* The penalty $A = 1 + |w_(01)| + |w_(02)| + |w_(12)| = 1 + 1 + 2 + 3 = 7$ ensures any row/column constraint violation outweighs any tour cost. Row constraints (each vertex at exactly one position) and column constraints (each position has one vertex) contribute diagonal $-7$ and off-diagonal $+14$ within each group.\
+
+    *Step 3 -- Encode edge costs.* For each edge $(u,v)$ and position $p$, the products $x_(u,p) x_(v,(p+1) mod 3)$ and $x_(v,p) x_(u,(p+1) mod 3)$ add the edge weight $w_(u v)$ when vertices $u,v$ are consecutive in the tour. Since $K_3$ is complete, all pairs are edges with their actual weights.\
+
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(x) = (#tsp_qubo_sol.target_config.map(str).join(", "))$ encodes a valid tour. Reading the permutation: each 3-bit group has exactly one 1 (valid permutation #sym.checkmark). The tour cost equals $w_(01) + w_(02) + w_(12) = 1 + 2 + 3 = 6$.\
+
+    *Count:* #tsp_qubo_r.solutions.len() optimal QUBO solutions $= 3! = 6$. On $K_3$ with distinct edge weights $1, 2, 3$, every Hamiltonian cycle has cost $1 + 2 + 3 = 6$ (all edges used), and 3 cyclic tours $times$ 2 directions yield $6$ permutation matrices.
+  ],
+)[
+  Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
+][
+  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and edge weights $w_(u v)$. Let $A = 1 + sum_((u,v) in E) |w_(u v)|$ be the penalty coefficient.
+
+  _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
+
+  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E) w_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $w_(u v)$.
+
+  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix satisfying $H_A = H_B = 0$; the $H_C$ terms sum to the tour cost. ($arrow.l.double$) The minimum-energy state has $H_A = H_B = 0$ (penalty $A$ exceeds any tour cost), so it encodes a valid permutation; $H_C$ equals the tour cost, selecting the shortest tour.
+
+  _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
