@@ -68,6 +68,19 @@ ack_polled_item() {
     python3 scripts/pipeline_board.py ack "$state_file" "$item_id"
 }
 
+board_next_json() {
+    mode=$1
+    repo=${2-}
+    number=${3-}
+    state_file=${4-}
+
+    if [ -z "$state_file" ]; then
+        state_file="/tmp/problemreductions-${mode}-state.json"
+    fi
+
+    poll_project_items "$mode" "$state_file" "$repo" "$number" json
+}
+
 move_board_item() {
     item_id=$1
     status=$2

@@ -494,11 +494,22 @@ worktree-pr:
 #        RUNNER=claude make run-review (use Claude instead of Codex)
 run-review:
 	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	state_file=$${STATE_FILE:-/tmp/problemreductions-review-state.json}; \
 	if [ -n "$(N)" ]; then \
-		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline $(N)" "process PR #$(N)"); \
+		pr="$(N)"; \
 	else \
-		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline" "pick and process the next Review pool PR"); \
+		status=0; \
+		selection=$$(board_next_json review "$$repo" "" "$$state_file") || status=$$?; \
+		if [ "$$status" -eq 1 ]; then \
+			echo "No Review pool PRs are currently eligible."; \
+			exit 1; \
+		elif [ "$$status" -ne 0 ]; then \
+			exit "$$status"; \
+		fi; \
+		pr=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])"); \
 	fi; \
+	PROMPT=$$(skill_prompt review-pipeline "/review-pipeline $$pr" "process PR #$$pr"); \
 	run_agent "review-output.log" "$$PROMPT"
 
 # Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear
