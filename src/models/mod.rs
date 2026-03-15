@@ -12,8 +12,15 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-    MaximumMatching, MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
+    BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring, MaxCut,
+    MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumSumMulticenter, MinimumVertexCover,
+    OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SubgraphIsomorphism,
+    TravelingSalesman,
 };
-pub use misc::{BinPacking, Factoring, Knapsack, PaintShop, SequencingWithinIntervals};
+pub use misc::{
+    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
+    ShortestCommonSupersequence, SubsetSum,
+};
+pub use misc::SequencingWithinIntervals;
 pub use set::{MaximumSetPacking, MinimumSetCovering};
