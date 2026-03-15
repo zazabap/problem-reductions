@@ -66,6 +66,42 @@ def extract_linked_issue_number(title: str | None, body: str | None) -> int | No
     return None
 
 
+def normalize_issue_thread_comment(comment: dict) -> dict:
+    login = login_for(comment)
+    created_at = comment.get("createdAt") or comment.get("created_at")
+    return {
+        "author": login,
+        "body": comment.get("body", ""),
+        "created_at": created_at,
+        "is_bot": is_bot_login(login),
+    }
+
+
+def format_issue_context(issue: dict | None, comments: list[dict] | None = None) -> str:
+    if not issue:
+        return "No linked issue found."
+
+    title = issue.get("title") or f"Issue #{issue.get('number')}"
+    body = issue.get("body") or ""
+    lines = [f"# {title}", ""]
+    if body:
+        lines.extend([body, ""])
+
+    human_comments = [
+        comment for comment in (comments or []) if not comment.get("is_bot")
+    ]
+    if human_comments:
+        lines.extend(["## Comments", ""])
+        for comment in human_comments:
+            author = comment.get("author") or "unknown"
+            created_at = comment.get("created_at") or "unknown-time"
+            lines.append(f"**{author}** ({created_at}):")
+            lines.append(comment.get("body", ""))
+            lines.append("")
+
+    return "\n".join(lines).strip()
+
+
 def summarize_comments(
     inline_comments: list[dict],
     reviews: list[dict],
@@ -311,6 +347,40 @@ def build_snapshot(
     }
 
 
+def build_current_pr_context(repo: str, pr_data: dict) -> dict:
+    return {
+        "repo": repo,
+        "pr_number": pr_data.get("number"),
+        "title": pr_data.get("title"),
+        "head_ref_name": pr_data.get("headRefName"),
+        "url": pr_data.get("url"),
+    }
+
+
+def build_linked_issue_result(
+    *,
+    pr_number: int,
+    linked_issue_number: int | None,
+    linked_issue: dict | None,
+    linked_issue_comments: list[dict] | None = None,
+) -> dict:
+    normalized_comments = [
+        normalize_issue_thread_comment(comment)
+        for comment in (linked_issue_comments or [])
+    ]
+    human_comments = [
+        comment for comment in normalized_comments if not comment["is_bot"]
+    ]
+    return {
+        "pr_number": pr_number,
+        "linked_issue_number": linked_issue_number,
+        "linked_issue": linked_issue,
+        "linked_issue_comments": normalized_comments,
+        "human_linked_issue_comments": human_comments,
+        "issue_context_text": format_issue_context(linked_issue, normalized_comments),
+    }
+
+
 def wait_for_ci(
     fetcher: Callable[[], dict],
     *,
@@ -353,6 +423,23 @@ def fetch_pr_data(repo: str, pr_number: int) -> dict:
             "number,title,body,labels,files,additions,deletions,commits,"
             "headRefName,baseRefName,headRefOid,url,state,mergeable"
         ),
+    )
+
+
+def fetch_current_repo() -> str:
+    data = run_gh_json("repo", "view", "--json", "nameWithOwner")
+    repo = data.get("nameWithOwner")
+    if not repo:
+        raise ValueError(f"Unexpected repo payload: {data!r}")
+    return repo
+
+
+def fetch_current_pr_data() -> dict:
+    return run_gh_json(
+        "pr",
+        "view",
+        "--json",
+        "number,title,headRefName,url",
     )
 
 
@@ -493,6 +580,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     for name in [
+        "current",
         "snapshot",
         "comments",
         "ci",
@@ -503,14 +591,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "edit-body",
     ]:
         command = subparsers.add_parser(name)
-        command.add_argument("--repo", required=True)
-        command.add_argument("--pr", required=True, type=int)
+        if name == "current":
+            command.add_argument("--format", choices=["json", "text"], default="json")
+        else:
+            command.add_argument("--repo", required=True)
+            command.add_argument("--pr", required=True, type=int)
         if name == "wait-ci":
             command.add_argument("--timeout", type=float, default=900)
             command.add_argument("--interval", type=float, default=30)
         elif name in {"comment", "edit-body"}:
             command.add_argument("--body-file", required=True)
-        else:
+        elif name != "current":
             command.add_argument("--format", choices=["json", "text"], default="json")
 
     return parser.parse_args(argv)
@@ -518,6 +609,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+
+    if args.command == "current":
+        emit_result(
+            build_current_pr_context(fetch_current_repo(), fetch_current_pr_data()),
+            args.format,
+        )
+        return 0
 
     if args.command == "snapshot":
         emit_result(build_pr_snapshot(args.repo, args.pr), args.format)
@@ -547,12 +645,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "linked-issue":
         pr_data = fetch_pr_data(args.repo, args.pr)
         issue_number, issue = fetch_linked_issue_bundle(args.repo, pr_data)
+        issue_comments = (
+            fetch_issue_comments(args.repo, issue_number)
+            if issue_number is not None
+            else []
+        )
         emit_result(
-            {
-                "pr_number": args.pr,
-                "linked_issue_number": issue_number,
-                "linked_issue": issue,
-            },
+            build_linked_issue_result(
+                pr_number=args.pr,
+                linked_issue_number=issue_number,
+                linked_issue=issue,
+                linked_issue_comments=issue_comments,
+            ),
             args.format,
         )
         return 0

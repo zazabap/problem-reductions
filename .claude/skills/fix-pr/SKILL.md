@@ -12,11 +12,10 @@ Resolve PR review comments, fix CI failures, and address codecov coverage gaps f
 Use the shared scripted helpers for deterministic PR metadata, comment, CI, and Codecov collection. Do not rebuild this logic inline with `gh api | python3 -c` unless you are debugging the helper itself.
 
 ```bash
-# Get repo identifiers
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)  # e.g., "owner/repo"
-
-# Get PR number
-PR=$(gh pr view --json number --jq .number)
+# Get current branch PR context
+CURRENT=$(python3 scripts/pipeline_pr.py current --format json)
+REPO=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; print(json.load(sys.stdin)['repo'])")
+PR=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; print(json.load(sys.stdin)['pr_number'])")
 
 # Get structured PR state
 SNAPSHOT=$(python3 scripts/pipeline_pr.py snapshot --repo "$REPO" --pr "$PR" --format json)

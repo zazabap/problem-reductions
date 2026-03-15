@@ -50,27 +50,20 @@ git diff --name-only $BASE_SHA..$HEAD_SHA
 Check if the current branch has a PR linked to an issue:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-
-# Get PR number for current branch
-PR_NUM=$(gh pr view --json number -q .number 2>/dev/null)
+CURRENT=$(python3 scripts/pipeline_pr.py current --format json 2>/dev/null || true)
+REPO=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; text=sys.stdin.read().strip(); data=json.loads(text) if text else {}; print(data.get('repo') or '')" 2>/dev/null)
+PR_NUM=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; text=sys.stdin.read().strip(); data=json.loads(text) if text else {}; print(data.get('pr_number') or '')" 2>/dev/null)
+ISSUE_CONTEXT="No linked issue found."
 
 # If PR exists, fetch the linked issue through the shared helper
 if [ -n "$PR_NUM" ]; then
   ISSUE_JSON=$(python3 scripts/pipeline_pr.py linked-issue --repo "$REPO" --pr "$PR_NUM" --format json)
   ISSUE_NUM=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['linked_issue_number'] or '')")
-  ISSUE_TITLE=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); issue=data.get('linked_issue') or {}; print(issue.get('title') or '')")
-  ISSUE_BODY_TEXT=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); issue=data.get('linked_issue') or {}; print(issue.get('body') or '')")
-fi
-
-# Fetch issue comments if found
-if [ -n "$ISSUE_NUM" ]; then
-  ISSUE_BODY=$(printf '# %s\n\n%s\n' "$ISSUE_TITLE" "$ISSUE_BODY_TEXT")
-  ISSUE_COMMENTS=$(gh issue view $ISSUE_NUM --json comments -q '.comments[] | "**" + .author.login + "** (" + .createdAt + "):\n" + .body + "\n"')
+  ISSUE_CONTEXT=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('issue_context_text') or 'No linked issue found.')")
 fi
 ```
 
-If an issue is found, pass `{ISSUE_CONTEXT}` (title + body + comments) to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
+If an issue is found, pass `{ISSUE_CONTEXT}` from `ISSUE_JSON.issue_context_text` to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
 
 ## Step 3: Dispatch Subagents in Parallel
 

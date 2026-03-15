@@ -3,10 +3,13 @@ import unittest
 from unittest import mock
 
 from pipeline_pr import (
+    build_current_pr_context,
+    build_linked_issue_result,
     build_snapshot,
     edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
+    format_issue_context,
     post_pr_comment,
     parse_args,
     summarize_check_runs,
@@ -197,6 +200,77 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertEqual(snapshot["counts"]["files"], 1)
         self.assertEqual(snapshot["counts"]["commits"], 2)
 
+    def test_build_current_pr_context_includes_repo_and_pr_fields(self) -> None:
+        current = build_current_pr_context(
+            "CodingThrust/problem-reductions",
+            {
+                "number": 570,
+                "title": "Fix #117: Add GraphPartitioning model",
+                "headRefName": "feature/graph-partitioning",
+                "url": "https://github.com/CodingThrust/problem-reductions/pull/570",
+            },
+        )
+
+        self.assertEqual(current["repo"], "CodingThrust/problem-reductions")
+        self.assertEqual(current["pr_number"], 570)
+        self.assertEqual(current["title"], "Fix #117: Add GraphPartitioning model")
+        self.assertEqual(current["head_ref_name"], "feature/graph-partitioning")
+
+    def test_format_issue_context_includes_title_body_and_comments(self) -> None:
+        issue_context = format_issue_context(
+            {
+                "number": 117,
+                "title": "[Model] GraphPartitioning",
+                "body": "Implement the model.",
+                "state": "OPEN",
+            },
+            [
+                {
+                    "author": "maintainer",
+                    "body": "Use the paper notation.",
+                    "created_at": "2026-03-15T09:00:00Z",
+                    "is_bot": False,
+                }
+            ],
+        )
+
+        self.assertIn("# [Model] GraphPartitioning", issue_context)
+        self.assertIn("Implement the model.", issue_context)
+        self.assertIn("## Comments", issue_context)
+        self.assertIn("**maintainer** (2026-03-15T09:00:00Z):", issue_context)
+
+    def test_build_linked_issue_result_includes_normalized_comments_and_context(self) -> None:
+        result = build_linked_issue_result(
+            pr_number=570,
+            linked_issue_number=117,
+            linked_issue={
+                "number": 117,
+                "title": "[Model] GraphPartitioning",
+                "body": "Implement the model.",
+                "state": "OPEN",
+                "url": "https://github.com/CodingThrust/problem-reductions/issues/117",
+            },
+            linked_issue_comments=[
+                {
+                    "user": {"login": "maintainer"},
+                    "body": "Use the paper notation.",
+                    "created_at": "2026-03-15T09:00:00Z",
+                },
+                {
+                    "user": {"login": "deploy-bot[bot]"},
+                    "body": "Automated message.",
+                    "created_at": "2026-03-15T09:05:00Z",
+                },
+            ],
+        )
+
+        self.assertEqual(result["pr_number"], 570)
+        self.assertEqual(result["linked_issue_number"], 117)
+        self.assertEqual(len(result["linked_issue_comments"]), 2)
+        self.assertEqual(result["human_linked_issue_comments"][0]["author"], "maintainer")
+        self.assertIn("# [Model] GraphPartitioning", result["issue_context_text"])
+        self.assertIn("**maintainer** (2026-03-15T09:00:00Z):", result["issue_context_text"])
+
     def test_wait_for_ci_polls_until_terminal_state(self) -> None:
         summaries = [
             {"state": "pending", "total": 2, "pending": 1, "failing": 0},
@@ -297,6 +371,22 @@ class PipelinePrHelpersTests(unittest.TestCase):
         )
         self.assertEqual(edit_args.command, "edit-body")
         self.assertEqual(edit_args.body_file, "/tmp/body.md")
+
+        current_args = parse_args(["current", "--format", "json"])
+        self.assertEqual(current_args.command, "current")
+
+        linked_issue_args = parse_args(
+            [
+                "linked-issue",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--pr",
+                "570",
+                "--format",
+                "json",
+            ]
+        )
+        self.assertEqual(linked_issue_args.command, "linked-issue")
 
 
 if __name__ == "__main__":
