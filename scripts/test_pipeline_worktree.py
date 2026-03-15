@@ -2,6 +2,7 @@
 import unittest
 from unittest import mock
 
+import pipeline_worktree
 from pipeline_worktree import (
     prepare_issue_branch,
     plan_issue_worktree,
@@ -87,6 +88,101 @@ class PipelineWorktreeTests(unittest.TestCase):
 
         self.assertEqual(summary["status"], "aborted")
         self.assertFalse(summary["likely_complex"])
+
+    @mock.patch("pipeline_worktree.merge_main")
+    @mock.patch("pipeline_worktree.checkout_pr_worktree")
+    def test_prepare_review_bundles_checkout_and_clean_merge(
+        self,
+        checkout_pr_worktree: mock.Mock,
+        merge_main: mock.Mock,
+    ) -> None:
+        prepare_review = getattr(pipeline_worktree, "prepare_review", None)
+        self.assertIsNotNone(prepare_review)
+
+        checkout_payload = {
+            "pr_number": 570,
+            "head_ref_name": "feature/lcs cleanup",
+            "local_branch": "review-pr-570-feature-lcs-cleanup",
+            "worktree_dir": "/tmp/problemreductions/.worktrees/review-pr-570-feature-lcs-cleanup",
+            "fetch_ref": "pull/570/head:review-pr-570-feature-lcs-cleanup",
+            "base_sha": "base123",
+            "head_sha": "head456",
+        }
+        merge_payload = {
+            "worktree": "/tmp/problemreductions/.worktrees/review-pr-570-feature-lcs-cleanup",
+            "status": "clean",
+            "conflicts": [],
+            "likely_complex": False,
+            "stdout": "Already up to date.\n",
+            "stderr": "",
+        }
+        checkout_pr_worktree.return_value = checkout_payload
+        merge_main.return_value = merge_payload
+
+        result = prepare_review(
+            repo="CodingThrust/problem-reductions",
+            pr_number=570,
+            repo_root="/tmp/problemreductions",
+        )
+
+        self.assertEqual(result["checkout"], checkout_payload)
+        self.assertEqual(result["merge"], merge_payload)
+        self.assertTrue(result["ready"])
+        checkout_pr_worktree.assert_called_once_with(
+            repo="CodingThrust/problem-reductions",
+            pr_number=570,
+            repo_root="/tmp/problemreductions",
+        )
+        merge_main.assert_called_once_with(
+            worktree="/tmp/problemreductions/.worktrees/review-pr-570-feature-lcs-cleanup"
+        )
+
+    @mock.patch("pipeline_worktree.merge_main")
+    @mock.patch("pipeline_worktree.checkout_pr_worktree")
+    def test_prepare_review_marks_conflicted_merge_not_ready(
+        self,
+        checkout_pr_worktree: mock.Mock,
+        merge_main: mock.Mock,
+    ) -> None:
+        prepare_review = getattr(pipeline_worktree, "prepare_review", None)
+        self.assertIsNotNone(prepare_review)
+
+        checkout_pr_worktree.return_value = {
+            "pr_number": 570,
+            "head_ref_name": "feature/lcs cleanup",
+            "local_branch": "review-pr-570-feature-lcs-cleanup",
+            "worktree_dir": "/tmp/problemreductions/.worktrees/review-pr-570-feature-lcs-cleanup",
+            "fetch_ref": "pull/570/head:review-pr-570-feature-lcs-cleanup",
+            "base_sha": "base123",
+            "head_sha": "head456",
+        }
+        merge_main.return_value = {
+            "worktree": "/tmp/problemreductions/.worktrees/review-pr-570-feature-lcs-cleanup",
+            "status": "conflicted",
+            "conflicts": [
+                ".claude/skills/add-model/SKILL.md",
+                "src/models/graph/graph_partitioning.rs",
+            ],
+            "likely_complex": True,
+            "stdout": "Auto-merging ...\n",
+            "stderr": "CONFLICT (content): Merge conflict in .claude/skills/add-model/SKILL.md\n",
+        }
+
+        result = prepare_review(
+            repo="CodingThrust/problem-reductions",
+            pr_number=570,
+            repo_root="/tmp/problemreductions",
+        )
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(
+            result["merge"]["conflicts"],
+            [
+                ".claude/skills/add-model/SKILL.md",
+                "src/models/graph/graph_partitioning.rs",
+            ],
+        )
+        self.assertTrue(result["merge"]["likely_complex"])
 
     @mock.patch("pipeline_worktree.run_git_checked")
     @mock.patch("pipeline_worktree.run_git")

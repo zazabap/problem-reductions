@@ -81,7 +81,11 @@ Collect all information needed for the review:
 
 1e. **Existing problems**: Run `pred list` (CLI tool, not MCP) to show all currently registered problems and reductions. This provides context for evaluating usefulness.
 
-1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, launch a subagent to merge `origin/main` into the PR branch (in a worktree) and push the merge commit.
+1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, use the bundled worktree helper in a worktree:
+   ```bash
+   PREP=$(python3 scripts/pipeline_worktree.py prepare-review --repo "$REPO" --pr <number> --format json)
+   ```
+   Read `PREP["checkout"]["worktree_dir"]` for the worktree path and `PREP["merge"]` for `status`, `conflicts`, and `likely_complex`. If `PREP["ready"]` is false because the conflicts are complex, hold the PR for manual resolution; otherwise resolve in that worktree, commit, and push the merge commit.
 
 1g. **PR / issue comment audit (REQUIRED)**: Final review must check the comment history before recommending merge.
   - Read the following from `CONTEXT["comments"]`:

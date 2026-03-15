@@ -238,6 +238,27 @@ def merge_main(
     return summary
 
 
+def prepare_review(
+    *,
+    repo: str,
+    pr_number: int,
+    repo_root: str | Path | None = None,
+) -> dict:
+    checkout = checkout_pr_worktree(
+        repo=repo,
+        pr_number=pr_number,
+        repo_root=repo_root,
+    )
+    merge = merge_main(worktree=checkout["worktree_dir"])
+    return {
+        "repo": repo,
+        "pr_number": pr_number,
+        "ready": merge["status"] == "clean",
+        "checkout": checkout,
+        "merge": merge,
+    }
+
+
 def cleanup_worktree(*, worktree: str | Path) -> dict:
     worktree = Path(worktree).resolve()
     repo_root = repo_root_from(worktree)
@@ -281,6 +302,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     checkout_pr.add_argument("--repo-root")
     checkout_pr.add_argument("--format", choices=["json", "text"], default="json")
 
+    prepare_review = subparsers.add_parser("prepare-review")
+    prepare_review.add_argument("--repo", required=True)
+    prepare_review.add_argument("--pr", required=True, type=int)
+    prepare_review.add_argument("--repo-root")
+    prepare_review.add_argument("--format", choices=["json", "text"], default="json")
+
     merge_parser = subparsers.add_parser("merge-main")
     merge_parser.add_argument("--worktree", required=True)
     merge_parser.add_argument("--format", choices=["json", "text"], default="json")
@@ -322,6 +349,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "checkout-pr":
         emit_result(
             checkout_pr_worktree(
+                repo=args.repo,
+                pr_number=args.pr,
+                repo_root=args.repo_root,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "prepare-review":
+        emit_result(
+            prepare_review(
                 repo=args.repo,
                 pr_number=args.pr,
                 repo_root=args.repo_root,

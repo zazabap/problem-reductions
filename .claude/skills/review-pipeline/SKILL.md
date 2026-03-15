@@ -121,14 +121,14 @@ python3 scripts/pipeline_board.py move <ITEM_ID> under-review
 
 In `--all` mode, claim each PR right before processing it (not all at once).
 
-### 1. Create Worktree and Checkout PR Branch
+### 1. Prepare Review Worktree
 
-Create an isolated git worktree so the main working directory stays clean:
+Create an isolated git worktree and attempt the `origin/main` merge in one scripted step so the main working directory stays clean:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr --repo "$REPO" --pr "$PR" --format json)
-WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
+PREP=$(python3 scripts/pipeline_worktree.py prepare-review --repo "$REPO" --pr "$PR" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(json.load(sys.stdin)['checkout']['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
 
@@ -142,20 +142,20 @@ All subsequent steps run inside the worktree.
 2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
 3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
 
-Check if the branch has merge conflicts with main:
+Read the bundled merge result:
 
 ```bash
-MERGE=$(python3 scripts/pipeline_worktree.py merge-main --worktree "$WORKTREE_DIR" --format json)
-MERGE_STATUS=$(printf '%s\n' "$MERGE" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+MERGE_STATUS=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(json.load(sys.stdin)['merge']['status'])")
+LIKELY_COMPLEX=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(str(json.load(sys.stdin)['merge']['likely_complex']).lower())")
 ```
 
 - If `MERGE_STATUS == clean`: push the merge commit and continue.
 - If there are conflicts:
-  1. Inspect the conflicting files from the `conflicts` array in `MERGE`.
+  1. Inspect the conflicting files from the `conflicts` array in `PREP["merge"]`.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
   3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If `MERGE_STATUS == conflicted` and `likely_complex == true` (or the overlap is otherwise too complex to resolve automatically):
+- If `MERGE_STATUS == conflicted` and `LIKELY_COMPLEX == true` (or the overlap is otherwise too complex to resolve automatically):
   1. Abort the merge: `git merge --abort` if a merge is still in progress
   2. Move the project item back to `Review pool`:
      ```bash
