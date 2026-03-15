@@ -1630,6 +1630,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
 #let ks_qubo_num_slack = ks_qubo.target.instance.num_vars - ks_qubo_num_items
+#let ks_qubo_penalty = 1 + ks_qubo.source.instance.values.fold(0, (a, b) => a + b)
+#let ks_qubo_selected = ks_qubo_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_qubo_sel_weight = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.weights.at(i))
+#let ks_qubo_sel_value = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.values.at(i))
 #reduction-rule("Knapsack", "QUBO",
   example: true,
   example-caption: [$n = #ks_qubo_num_items$ items, capacity $C = #ks_qubo.source.instance.capacity$],
@@ -1637,16 +1641,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_qubo.source.instance.weights.map(str).join(", "))$, values $(#ks_qubo.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_qubo.source.instance.capacity$.
 
     *Step 2 -- Introduce slack variables.* The inequality $sum_i w_i x_i lt.eq C$ becomes an equality by adding $B = #ks_qubo_num_slack$ binary slack bits that encode unused capacity:
-    $ 2 x_0 + 3 x_1 + 4 x_2 + 5 x_3 + s_0 + 2 s_1 + 4 s_2 = 7 $
+    $ #ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) = #ks_qubo.source.instance.capacity $
     This gives $n + B = #ks_qubo_num_items + #ks_qubo_num_slack = #ks_qubo.target.instance.num_vars$ QUBO variables.
 
-    *Step 3 -- Add the penalty objective.* With penalty $P = 1 + sum_i v_i = 20$, the QUBO minimizes
-    $ H = -(3 x_0 + 4 x_1 + 5 x_2 + 7 x_3) + 20 (2 x_0 + 3 x_1 + 4 x_2 + 5 x_3 + s_0 + 2 s_1 + 4 s_2 - 7)^2 $
+    *Step 3 -- Add the penalty objective.* With penalty $P = 1 + sum_i v_i = #ks_qubo_penalty$, the QUBO minimizes
+    $ H = -(#ks_qubo.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$)) + #ks_qubo_penalty (#ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) - #ks_qubo.source.instance.capacity)^2 $
     so any violation of the equality is more expensive than the entire knapsack value range.
 
-    *Step 4 -- Verify a solution.* The QUBO ground state $bold(z) = (#ks_qubo_sol.target_config.map(str).join(", "))$ extracts to the knapsack choice $bold(x) = (#ks_qubo_sol.source_config.map(str).join(", "))$. This selects items $\{0, 3\}$ with total weight $2 + 5 = 7$ and total value $3 + 7 = 10$, so the slack bits are all zero and the penalty term vanishes #sym.checkmark.
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(z) = (#ks_qubo_sol.target_config.map(str).join(", "))$ extracts to the knapsack choice $bold(x) = (#ks_qubo_sol.source_config.map(str).join(", "))$. This selects items $\{#ks_qubo_selected.map(str).join(", ")\}$ with total weight $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.weights.at(i))).join(" + ") = #ks_qubo_sel_weight$ and total value $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.values.at(i))).join(" + ") = #ks_qubo_sel_value$, so the slack bits are all zero and the penalty term vanishes #sym.checkmark.
 
-    *Count:* #ks_qubo.solutions.len() optimal QUBO solution. The source optimum is unique because items $\{0, 3\}$ are the only feasible selection achieving value 10.
+    *Count:* #ks_qubo.solutions.len() optimal QUBO solution. The source optimum is unique because items $\{#ks_qubo_selected.map(str).join(", ")\}$ are the only feasible selection achieving value #ks_qubo_sel_value.
   ],
 )[
   For a standard 0-1 Knapsack instance with nonnegative weights, nonnegative values, and nonnegative capacity, the inequality $sum_i w_i x_i lt.eq C$ is converted to equality using binary slack variables that encode the unused capacity. When $C > 0$, one can take $B = floor(log_2 C) + 1$ slack bits; when $C = 0$, a single slack bit also suffices. The penalty method (@sec:penalty-method) combines the negated value objective with a quadratic constraint penalty, producing a QUBO with $n + B$ binary variables.
