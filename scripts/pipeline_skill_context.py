@@ -22,6 +22,7 @@ DEFAULT_STATE_FILES = {
 }
 PROJECT_BOARD_NUMBER = 8
 PROJECT_BOARD_LIMIT = 500
+DEFAULT_REPO = "CodingThrust/problem-reductions"
 
 
 def build_status_result(skill: str, *, status: str, **fields: object) -> dict:
@@ -41,6 +42,31 @@ def report_check_status(check: dict | None) -> str:
     if check.get("skipped"):
         return "skipped"
     return "pass" if check.get("ok") else "fail"
+
+
+def first_paragraph(text: str | None) -> str:
+    if not text:
+        return ""
+    paragraphs = [chunk.strip() for chunk in text.split("\n\n") if chunk.strip()]
+    if not paragraphs:
+        return ""
+    return " ".join(paragraphs[0].split())
+
+
+def scan_existing_problems(repo_root: str | Path) -> set[str]:
+    problem_names: set[str] = set()
+    models_root = Path(repo_root) / "src/models"
+    if not models_root.exists():
+        return problem_names
+
+    for path in sorted(models_root.rglob("*.rs")):
+        text = path.read_text()
+        for match in pipeline_checks.re.finditer(
+            r"\bpub\s+(?:struct|enum)\s+([A-Z][A-Za-z0-9_]*)\b",
+            text,
+        ):
+            problem_names.add(match.group(1))
+    return problem_names
 
 
 def review_pipeline_suggested_mode(result: dict) -> str:
@@ -394,11 +420,164 @@ def render_final_review_text(result: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_review_implementation_text(result: dict) -> str:
+    git = result.get("git") or {}
+    review_context = result.get("review_context") or {}
+    scope = review_context.get("scope") or {}
+    subject = review_context.get("subject") or {}
+    current_pr = result.get("current_pr") or {}
+
+    lines = [
+        "# Review Implementation Packet",
+        "",
+        "## Review Range",
+        f"- Base SHA: `{git.get('base_sha', '')}`",
+        f"- Head SHA: `{git.get('head_sha', '')}`",
+        f"- Repo root: `{git.get('repo_root', '')}`",
+        "",
+        "## Scope",
+        f"- Review type: {scope.get('review_type', 'unknown')}",
+        f"- Subject kind: {subject.get('kind', 'unknown')}",
+    ]
+    if subject.get("name"):
+        lines.append(f"- Name: {subject['name']}")
+    if subject.get("source"):
+        lines.append(f"- Source: {subject['source']}")
+    if subject.get("target"):
+        lines.append(f"- Target: {subject['target']}")
+
+    models = scope.get("models") or []
+    if models:
+        lines.append("- Added models:")
+        lines.extend(
+            f"  - {model.get('problem_name')} (`{model.get('path')}`)"
+            for model in models
+        )
+    rules = scope.get("rules") or []
+    if rules:
+        lines.append("- Added rules:")
+        lines.extend(
+            f"  - {rule.get('rule_stem')} (`{rule.get('path')}`)"
+            for rule in rules
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Deterministic Checks",
+            f"- Whitelist: {report_check_status(review_context.get('whitelist'))}",
+            f"- Completeness: {report_check_status(review_context.get('completeness'))}",
+        ]
+    )
+    missing = (review_context.get("completeness") or {}).get("missing") or []
+    if missing:
+        lines.append("- Missing items:")
+        lines.extend(f"  - `{item}`" for item in missing)
+
+    changed_files = review_context.get("changed_files") or []
+    lines.extend(["", "## Changed Files"])
+    if changed_files:
+        lines.extend(f"- `{path}`" for path in changed_files)
+    else:
+        lines.append("- None captured")
+
+    diff_stat = review_context.get("diff_stat")
+    if diff_stat:
+        lines.extend(["", "## Diff Stat", "```text", diff_stat, "```"])
+
+    lines.extend(["", "## Current PR"])
+    if current_pr:
+        lines.append(f"- Repo: {current_pr.get('repo')}")
+        if current_pr.get("pr_number") is not None:
+            lines.append(f"- PR: #{current_pr['pr_number']}")
+        if current_pr.get("title"):
+            lines.append(f"- Title: {current_pr['title']}")
+        if current_pr.get("url"):
+            lines.append(f"- URL: {current_pr['url']}")
+        if current_pr.get("linked_issue_number") is not None:
+            lines.append(f"- Linked issue: #{current_pr['linked_issue_number']}")
+    else:
+        lines.append("- No current PR detected for this branch.")
+
+    issue_context_text = current_pr.get("issue_context_text")
+    if issue_context_text:
+        lines.extend(["", "## Linked Issue Context", issue_context_text])
+
+    return "\n".join(lines) + "\n"
+
+
+def render_project_pipeline_text(result: dict) -> str:
+    ready_issues = result.get("ready_issues") or []
+    eligible = [issue for issue in ready_issues if issue.get("eligible")]
+    blocked = [issue for issue in ready_issues if not issue.get("eligible")]
+    in_progress = result.get("in_progress_issues") or []
+    requested = result.get("requested_issue")
+
+    lines = [
+        "# Project Pipeline Packet",
+        "",
+        "## Queue Summary",
+        f"- Bundle status: {result.get('status')}",
+        f"- Ready issues: {len(ready_issues)}",
+        f"- Eligible ready issues: {len(eligible)}",
+        f"- Blocked ready issues: {len(blocked)}",
+        f"- In progress issues: {len(in_progress)}",
+        f"- Existing problems on main: {len(result.get('existing_problems') or [])}",
+    ]
+
+    if requested is not None:
+        lines.extend(
+            [
+                "",
+                "## Requested Issue",
+                f"- Issue: #{requested.get('issue_number')}",
+                f"- Title: {requested.get('title') or 'unknown'}",
+                f"- Eligible: {str(bool(requested.get('eligible'))).lower()}",
+            ]
+        )
+        if requested.get("blocking_reason"):
+            lines.append(f"- Blocking reason: {requested['blocking_reason']}")
+
+    lines.extend(["", "## Eligible Ready Issues"])
+    if eligible:
+        for issue in eligible:
+            lines.append(f"- #{issue.get('issue_number')} {issue.get('title')}")
+            lines.append(f"  - Kind: {issue.get('kind', 'unknown')}")
+            lines.append(
+                f"  - Pending rules unblocked: {issue.get('pending_rule_count', 0)}"
+            )
+            if issue.get("summary"):
+                lines.append(f"  - Summary: {issue['summary']}")
+    else:
+        lines.append("- None")
+
+    lines.extend(["", "## Blocked Ready Issues"])
+    if blocked:
+        for issue in blocked:
+            lines.append(f"- #{issue.get('issue_number')} {issue.get('title')}")
+            lines.append(f"  - Blocking reason: {issue.get('blocking_reason')}")
+            if issue.get("summary"):
+                lines.append(f"  - Summary: {issue['summary']}")
+    else:
+        lines.append("- None")
+
+    if in_progress:
+        lines.extend(["", "## In Progress Issues"])
+        for issue in in_progress:
+            lines.append(f"- #{issue.get('issue_number')} {issue.get('title')}")
+
+    return "\n".join(lines) + "\n"
+
+
 def render_text(result: dict) -> str:
     if result.get("skill") == "review-pipeline":
         return render_review_pipeline_text(result)
     if result.get("skill") == "final-review":
         return render_final_review_text(result)
+    if result.get("skill") == "review-implementation":
+        return render_review_implementation_text(result)
+    if result.get("skill") == "project-pipeline":
+        return render_project_pipeline_text(result)
     return json.dumps(result, indent=2, sort_keys=True) + "\n"
 
 
@@ -559,6 +738,281 @@ def build_final_review_checks(*, prep: dict, pr_context: dict) -> dict:
         diff_stat=git_text_in(worktree_dir, "diff", "--stat", diff_range),
         scope=scope,
         subject=subject,
+    )
+
+
+def default_review_implementation_context_builder(
+    repo_root: str | Path,
+    *,
+    diff_stat: str,
+    changed_files: list[str],
+    added_files: list[str],
+    kind: str | None,
+    name: str | None,
+    source: str | None,
+    target: str | None,
+) -> dict:
+    scope = pipeline_checks.detect_scope_from_paths(
+        added_files=added_files,
+        changed_files=changed_files,
+    )
+    subject = pipeline_checks.infer_review_subject(
+        scope,
+        kind=kind,
+        name=name,
+        source=source,
+        target=target,
+    )
+    return pipeline_checks.build_review_context(
+        repo_root,
+        diff_stat=diff_stat,
+        scope=scope,
+        subject=subject,
+    )
+
+
+def fetch_current_review_implementation_pr() -> dict | None:
+    try:
+        repo = pipeline_pr.fetch_current_repo()
+        current = pipeline_pr.fetch_current_pr_data_for_repo(repo)
+        pr_number = current.get("number")
+        if pr_number is None:
+            return None
+        pr_context = pipeline_pr.build_pr_context(repo, int(pr_number))
+        return {
+            "repo": repo,
+            "pr_number": int(pr_number),
+            "title": pr_context.get("title"),
+            "url": pr_context.get("url"),
+            "head_ref_name": pr_context.get("head_ref_name"),
+            "linked_issue_number": pr_context.get("linked_issue_number"),
+            "issue_context_text": pr_context.get("issue_context_text"),
+        }
+    except Exception:
+        return None
+
+
+def build_review_implementation_context(
+    *,
+    repo_root: Path,
+    kind: str | None,
+    name: str | None,
+    source: str | None,
+    target: str | None,
+    merge_base_getter: Callable[[Path], str] | None = None,
+    head_sha_getter: Callable[[Path], str] | None = None,
+    diff_stat_getter: Callable[[Path, str, str], str] | None = None,
+    changed_files_getter: Callable[[Path, str, str], list[str]] | None = None,
+    added_files_getter: Callable[[Path, str, str], list[str]] | None = None,
+    current_pr_fetcher: Callable[[], dict | None] | None = None,
+    review_context_builder: Callable[..., dict] | None = None,
+) -> dict:
+    merge_base_getter = merge_base_getter or (
+        lambda repo_root: git_text_in(repo_root, "merge-base", "main", "HEAD").strip()
+    )
+    head_sha_getter = head_sha_getter or (
+        lambda repo_root: git_text_in(repo_root, "rev-parse", "HEAD").strip()
+    )
+    diff_stat_getter = diff_stat_getter or (
+        lambda repo_root, base_sha, head_sha: git_text_in(
+            repo_root,
+            "diff",
+            "--stat",
+            f"{base_sha}..{head_sha}",
+        )
+    )
+    changed_files_getter = changed_files_getter or (
+        lambda repo_root, base_sha, head_sha: git_output_in(
+            repo_root,
+            "diff",
+            "--name-only",
+            f"{base_sha}..{head_sha}",
+        )
+    )
+    added_files_getter = added_files_getter or (
+        lambda repo_root, base_sha, head_sha: git_output_in(
+            repo_root,
+            "diff",
+            "--name-only",
+            "--diff-filter=A",
+            f"{base_sha}..{head_sha}",
+        )
+    )
+    current_pr_fetcher = current_pr_fetcher or fetch_current_review_implementation_pr
+    review_context_builder = review_context_builder or default_review_implementation_context_builder
+
+    base_sha = merge_base_getter(repo_root)
+    head_sha = head_sha_getter(repo_root)
+    diff_stat = diff_stat_getter(repo_root, base_sha, head_sha)
+    changed_files = changed_files_getter(repo_root, base_sha, head_sha)
+    added_files = added_files_getter(repo_root, base_sha, head_sha)
+    current_pr = current_pr_fetcher()
+    review_context = review_context_builder(
+        repo_root,
+        diff_stat=diff_stat,
+        changed_files=changed_files,
+        added_files=added_files,
+        kind=kind,
+        name=name,
+        source=source,
+        target=target,
+    )
+
+    return {
+        "skill": "review-implementation",
+        "status": "ready",
+        "git": {
+            "repo_root": str(repo_root),
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+        },
+        "review_context": review_context,
+        "current_pr": current_pr,
+    }
+
+
+def classify_project_issue(
+    entry: dict,
+    *,
+    issue: dict,
+    existing_problems: set[str],
+    pending_rule_counts: dict[str, int],
+) -> dict:
+    kind, source_problem, target_problem = pipeline_checks.issue_kind_from_title(
+        entry.get("title")
+    )
+    blocking_reason = None
+    eligible = True
+    if kind == "rule":
+        missing = [
+            problem
+            for problem in [source_problem, target_problem]
+            if problem and problem not in existing_problems
+        ]
+        if missing:
+            eligible = False
+            blocking_reason = f'model "{missing[0]}" not yet implemented on main'
+
+    issue_number = int(entry["issue_number"])
+    return {
+        "item_id": entry.get("item_id"),
+        "issue_number": issue_number,
+        "title": entry.get("title"),
+        "kind": kind,
+        "source_problem": source_problem,
+        "target_problem": target_problem,
+        "eligible": eligible,
+        "blocking_reason": blocking_reason,
+        "pending_rule_count": pending_rule_counts.get(entry.get("title", ""), 0)
+        if kind == "rule"
+        else pending_rule_counts.get(
+            pipeline_checks.MODEL_TITLE_RE.match(entry.get("title", "")).group("name")
+            if pipeline_checks.MODEL_TITLE_RE.match(entry.get("title", ""))
+            else "",
+            0,
+        ),
+        "summary": first_paragraph(issue.get("body")),
+        "issue": issue,
+    }
+
+
+def build_pending_rule_counts(
+    ready_entries: list[dict],
+    in_progress_entries: list[dict],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for entry in [*ready_entries, *in_progress_entries]:
+        kind, source_problem, target_problem = pipeline_checks.issue_kind_from_title(
+            entry.get("title")
+        )
+        if kind != "rule":
+            continue
+        for problem in [source_problem, target_problem]:
+            if not problem:
+                continue
+            counts[problem] = counts.get(problem, 0) + 1
+    return counts
+
+
+def fetch_project_board_data(repo: str) -> dict:
+    owner = repo.split("/", 1)[0]
+    return pipeline_board.fetch_board_items(
+        owner,
+        PROJECT_BOARD_NUMBER,
+        PROJECT_BOARD_LIMIT,
+    )
+
+
+def build_project_pipeline_context(
+    *,
+    repo: str,
+    issue_number: int | None,
+    repo_root: Path,
+    board_fetcher: Callable[[str], dict] | None = None,
+    issue_fetcher: Callable[[str, int], dict] | None = None,
+    existing_problem_finder: Callable[[Path], set[str]] | None = None,
+) -> dict:
+    board_fetcher = board_fetcher or fetch_project_board_data
+    issue_fetcher = issue_fetcher or pipeline_checks.fetch_issue
+    existing_problem_finder = existing_problem_finder or scan_existing_problems
+
+    board_data = board_fetcher(repo)
+    ready_entries = sorted(
+        pipeline_board.ready_entries(board_data).values(),
+        key=lambda entry: entry["issue_number"],
+    )
+    in_progress_entries = pipeline_board.status_items(
+        board_data,
+        pipeline_board.STATUS_IN_PROGRESS,
+    )
+    existing_problems = existing_problem_finder(repo_root)
+    pending_rule_counts = build_pending_rule_counts(ready_entries, in_progress_entries)
+
+    ready_issues = [
+        classify_project_issue(
+            dict(entry, item_id=item_id),
+            issue=issue_fetcher(repo, int(entry["issue_number"])),
+            existing_problems=existing_problems,
+            pending_rule_counts=pending_rule_counts,
+        )
+        for item_id, entry in sorted(
+            pipeline_board.ready_entries(board_data).items(),
+            key=lambda pair: pair[1]["issue_number"],
+        )
+    ]
+
+    requested_issue = None
+    if issue_number is not None:
+        requested_issue = next(
+            (
+                issue
+                for issue in ready_issues
+                if int(issue["issue_number"]) == issue_number
+            ),
+            None,
+        )
+
+    eligible_ready_issues = [issue for issue in ready_issues if issue.get("eligible")]
+
+    if not ready_issues:
+        status = "empty"
+    elif issue_number is not None and requested_issue is None:
+        status = "requested-missing"
+    elif requested_issue is not None and not requested_issue.get("eligible"):
+        status = "requested-blocked"
+    elif not eligible_ready_issues:
+        status = "no-eligible-issues"
+    else:
+        status = "ready"
+
+    return build_status_result(
+        "project-pipeline",
+        status=status,
+        repo=repo,
+        existing_problems=sorted(existing_problems),
+        ready_issues=ready_issues,
+        in_progress_issues=in_progress_entries,
+        requested_issue=requested_issue,
     )
 
 
@@ -769,12 +1223,32 @@ def add_bundle_parser(
     parser.add_argument("--format", choices=["json", "text"], default="json")
 
 
+def add_review_implementation_parser(subparsers) -> None:
+    parser = subparsers.add_parser("review-implementation")
+    parser.add_argument("--repo-root", type=Path, default=Path("."))
+    parser.add_argument("--kind", choices=["model", "rule", "generic"])
+    parser.add_argument("--name")
+    parser.add_argument("--source")
+    parser.add_argument("--target")
+    parser.add_argument("--format", choices=["json", "text"], default="json")
+
+
+def add_project_pipeline_parser(subparsers) -> None:
+    parser = subparsers.add_parser("project-pipeline")
+    parser.add_argument("--repo", default=DEFAULT_REPO)
+    parser.add_argument("--issue", type=int)
+    parser.add_argument("--repo-root", type=Path, default=Path("."))
+    parser.add_argument("--format", choices=["json", "text"], default="json")
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Skill-scoped pipeline context bundles.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_bundle_parser(subparsers, "review-pipeline")
     add_bundle_parser(subparsers, "final-review")
+    add_review_implementation_parser(subparsers)
+    add_project_pipeline_parser(subparsers)
 
     return parser.parse_args(argv)
 
@@ -799,6 +1273,30 @@ def main(argv: list[str] | None = None) -> int:
                 repo=args.repo,
                 pr_number=args.pr,
                 state_file=args.state_file,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "review-implementation":
+        emit_result(
+            build_review_implementation_context(
+                repo_root=args.repo_root,
+                kind=args.kind,
+                name=getattr(args, "name", None),
+                source=getattr(args, "source", None),
+                target=getattr(args, "target", None),
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "project-pipeline":
+        emit_result(
+            build_project_pipeline_context(
+                repo=args.repo,
+                issue_number=args.issue,
+                repo_root=args.repo_root,
             ),
             args.format,
         )

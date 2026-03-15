@@ -52,6 +52,41 @@ class PipelineSkillContextTests(unittest.TestCase):
         )
         self.assertEqual(args.format, "text")
 
+    def test_parse_args_review_implementation_defaults(self) -> None:
+        args = pipeline_skill_context.parse_args(
+            [
+                "review-implementation",
+                "--format",
+                "text",
+            ]
+        )
+
+        self.assertEqual(args.command, "review-implementation")
+        self.assertEqual(args.repo_root, Path("."))
+        self.assertIsNone(args.kind)
+        self.assertEqual(args.format, "text")
+
+    def test_parse_args_project_pipeline_with_explicit_values(self) -> None:
+        args = pipeline_skill_context.parse_args(
+            [
+                "project-pipeline",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--issue",
+                "117",
+                "--repo-root",
+                "/tmp/repo",
+                "--format",
+                "text",
+            ]
+        )
+
+        self.assertEqual(args.command, "project-pipeline")
+        self.assertEqual(args.repo, "CodingThrust/problem-reductions")
+        self.assertEqual(args.issue, 117)
+        self.assertEqual(args.repo_root, Path("/tmp/repo"))
+        self.assertEqual(args.format, "text")
+
     def test_emit_result_prints_sorted_json_for_all_formats(self) -> None:
         expected_output = '{\n  "a": 2,\n  "b": 1\n}\n'
 
@@ -164,6 +199,117 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertIn("- Worktree: `/tmp/review-pr-570`", rendered)
         self.assertIn("## Linked Issue Context", rendered)
 
+    def test_emit_result_prints_review_implementation_text_report(self) -> None:
+        result = {
+            "skill": "review-implementation",
+            "status": "ready",
+            "git": {
+                "repo_root": "/tmp/repo",
+                "base_sha": "abc123",
+                "head_sha": "def456",
+            },
+            "review_context": {
+                "scope": {
+                    "review_type": "model",
+                    "models": [
+                        {
+                            "path": "src/models/graph/graph_partitioning.rs",
+                            "problem_name": "GraphPartitioning",
+                        }
+                    ],
+                    "rules": [],
+                    "changed_files": [
+                        "src/models/graph/graph_partitioning.rs",
+                        "src/unit_tests/models/graph/graph_partitioning.rs",
+                    ],
+                },
+                "subject": {"kind": "model", "name": "GraphPartitioning"},
+                "changed_files": [
+                    "src/models/graph/graph_partitioning.rs",
+                    "src/unit_tests/models/graph/graph_partitioning.rs",
+                ],
+                "diff_stat": "2 files changed, 40 insertions(+)",
+                "whitelist": {"ok": True, "skipped": False},
+                "completeness": {"ok": False, "skipped": False, "missing": ["paper_display_name"]},
+            },
+            "current_pr": {
+                "repo": "CodingThrust/problem-reductions",
+                "pr_number": 615,
+                "title": "Fix #117: [Model] GraphPartitioning",
+                "linked_issue_number": 117,
+                "issue_context_text": "# Add GraphPartitioning\n\nNeed canonical example.",
+            },
+        }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            pipeline_skill_context.emit_result(result, "text")
+
+        rendered = stdout.getvalue()
+        self.assertIn("# Review Implementation Packet", rendered)
+        self.assertIn("- Base SHA: `abc123`", rendered)
+        self.assertIn("- Review type: model", rendered)
+        self.assertIn("- Name: GraphPartitioning", rendered)
+        self.assertIn("- PR: #615", rendered)
+        self.assertIn("- Linked issue: #117", rendered)
+        self.assertIn("## Deterministic Checks", rendered)
+        self.assertIn("- Completeness: fail", rendered)
+        self.assertIn("## Linked Issue Context", rendered)
+
+    def test_emit_result_prints_project_pipeline_text_report(self) -> None:
+        result = {
+            "skill": "project-pipeline",
+            "status": "ready",
+            "repo": "CodingThrust/problem-reductions",
+            "existing_problems": ["BinPacking", "ILP", "GraphColoring"],
+            "requested_issue": None,
+            "ready_issues": [
+                {
+                    "item_id": "PVTI_1",
+                    "issue_number": 117,
+                    "title": "[Model] GraphPartitioning",
+                    "kind": "model",
+                    "eligible": True,
+                    "blocking_reason": None,
+                    "pending_rule_count": 2,
+                    "summary": "Partition graph vertices into balanced groups.",
+                },
+                {
+                    "item_id": "PVTI_2",
+                    "issue_number": 130,
+                    "title": "[Rule] MultivariateQuadratic to ILP",
+                    "kind": "rule",
+                    "eligible": False,
+                    "blocking_reason": 'model "MultivariateQuadratic" not yet implemented on main',
+                    "pending_rule_count": 0,
+                    "source_problem": "MultivariateQuadratic",
+                    "target_problem": "ILP",
+                    "summary": "Linearize quadratic constraints.",
+                },
+            ],
+            "in_progress_issues": [
+                {
+                    "issue_number": 129,
+                    "title": "[Model] MultivariateQuadratic",
+                }
+            ],
+        }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            pipeline_skill_context.emit_result(result, "text")
+
+        rendered = stdout.getvalue()
+        self.assertIn("# Project Pipeline Packet", rendered)
+        self.assertIn("- Bundle status: ready", rendered)
+        self.assertIn("- Ready issues: 2", rendered)
+        self.assertIn("- In progress issues: 1", rendered)
+        self.assertIn("## Eligible Ready Issues", rendered)
+        self.assertIn("- #117 [Model] GraphPartitioning", rendered)
+        self.assertIn("- Pending rules unblocked: 2", rendered)
+        self.assertIn("## Blocked Ready Issues", rendered)
+        self.assertIn('model "MultivariateQuadratic" not yet implemented on main', rendered)
+
     def test_build_status_result_normalizes_empty_state(self) -> None:
         self.assertEqual(
             pipeline_skill_context.build_status_result(
@@ -257,6 +403,72 @@ class PipelineSkillContextTests(unittest.TestCase):
             repo="CodingThrust/problem-reductions",
             pr_number=615,
             state_file=Path("/tmp/problemreductions-final-review-state.json"),
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(json.loads(stdout.getvalue()), result)
+
+    def test_main_review_implementation_emits_ready_bundle_shape(self) -> None:
+        result = {
+            "skill": "review-implementation",
+            "status": "ready",
+            "git": {"base_sha": "abc123", "head_sha": "def456"},
+            "review_context": {"subject": {"kind": "generic"}},
+            "current_pr": None,
+        }
+
+        with mock.patch.object(
+            pipeline_skill_context,
+            "build_review_implementation_context",
+            return_value=result,
+        ) as builder:
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = pipeline_skill_context.main(
+                    [
+                        "review-implementation",
+                        "--repo-root",
+                        ".",
+                    ]
+                )
+
+        builder.assert_called_once_with(
+            repo_root=Path("."),
+            kind=None,
+            name=None,
+            source=None,
+            target=None,
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(json.loads(stdout.getvalue()), result)
+
+    def test_main_project_pipeline_emits_ready_bundle_shape(self) -> None:
+        result = {
+            "skill": "project-pipeline",
+            "status": "ready",
+            "ready_issues": [{"issue_number": 117}],
+        }
+
+        with mock.patch.object(
+            pipeline_skill_context,
+            "build_project_pipeline_context",
+            return_value=result,
+        ) as builder:
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = pipeline_skill_context.main(
+                    [
+                        "project-pipeline",
+                        "--repo",
+                        "CodingThrust/problem-reductions",
+                        "--issue",
+                        "117",
+                    ]
+                )
+
+        builder.assert_called_once_with(
+            repo="CodingThrust/problem-reductions",
+            issue_number=117,
+            repo_root=Path("."),
         )
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(stdout.getvalue()), result)
@@ -577,6 +789,80 @@ class PipelineSkillContextTests(unittest.TestCase):
                     "failed to prepare final-review worktree: checkout failed",
                 ],
             },
+        )
+
+    def test_build_review_implementation_context_without_current_pr(self) -> None:
+        result = pipeline_skill_context.build_review_implementation_context(
+            repo_root=Path("/tmp/repo"),
+            kind=None,
+            name=None,
+            source=None,
+            target=None,
+            merge_base_getter=lambda repo_root: "abc123",
+            head_sha_getter=lambda repo_root: "def456",
+            diff_stat_getter=lambda repo_root, base_sha, head_sha: "2 files changed",
+            changed_files_getter=lambda repo_root, base_sha, head_sha: [
+                "src/lib.rs",
+                "src/unit_tests/lib.rs",
+            ],
+            added_files_getter=lambda repo_root, base_sha, head_sha: [],
+            current_pr_fetcher=lambda: None,
+            review_context_builder=lambda repo_root, **kwargs: {
+                "scope": {"review_type": "generic", "models": [], "rules": [], "changed_files": kwargs["changed_files"]},
+                "subject": {"kind": "generic"},
+                "changed_files": kwargs["changed_files"],
+                "diff_stat": kwargs["diff_stat"],
+                "whitelist": {"ok": True, "skipped": True},
+                "completeness": {"ok": True, "skipped": True, "missing": []},
+            },
+        )
+
+        self.assertEqual(result["skill"], "review-implementation")
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["git"]["base_sha"], "abc123")
+        self.assertEqual(result["current_pr"], None)
+        self.assertEqual(result["review_context"]["subject"]["kind"], "generic")
+
+    def test_build_project_pipeline_context_reports_requested_blocked_issue(self) -> None:
+        board_data = {
+            "items": [
+                {
+                    "id": "PVTI_2",
+                    "status": "Ready",
+                    "content": {
+                        "type": "Issue",
+                        "number": 130,
+                        "title": "[Rule] MultivariateQuadratic to ILP",
+                    },
+                }
+            ]
+        }
+        issue_data = {
+            130: {
+                "number": 130,
+                "title": "[Rule] MultivariateQuadratic to ILP",
+                "body": "Linearize quadratic constraints.",
+                "comments": [],
+                "labels": [],
+                "url": "https://github.com/CodingThrust/problem-reductions/issues/130",
+            }
+        }
+
+        result = pipeline_skill_context.build_project_pipeline_context(
+            repo="CodingThrust/problem-reductions",
+            issue_number=130,
+            repo_root=Path("/tmp/repo"),
+            board_fetcher=lambda repo: board_data,
+            issue_fetcher=lambda repo, issue_number: issue_data[issue_number],
+            existing_problem_finder=lambda repo_root: {"ILP"},
+        )
+
+        self.assertEqual(result["skill"], "project-pipeline")
+        self.assertEqual(result["status"], "requested-blocked")
+        self.assertEqual(result["requested_issue"]["issue_number"], 130)
+        self.assertEqual(
+            result["requested_issue"]["blocking_reason"],
+            'model "MultivariateQuadratic" not yet implemented on main',
         )
 
 

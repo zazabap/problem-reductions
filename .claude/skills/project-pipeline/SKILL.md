@@ -36,44 +36,49 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 
 ## Steps
 
-### 0. Discover and Rank Ready Issues
+### 0. Generate the Project-Pipeline Report
 
-#### 0a. Fetch Ready Issues
+Step 0 should be a single report-generation step. Do not manually list Ready items, list In-progress items, grep model declarations, or re-derive blocked rules with separate shell commands.
 
 ```bash
-READY=$(python3 scripts/pipeline_board.py list ready --format json)
-IN_PROGRESS=$(python3 scripts/pipeline_board.py list in-progress --format json)
+set -- python3 scripts/pipeline_skill_context.py project-pipeline --repo CodingThrust/problem-reductions --repo-root . --format text
+
+# If a specific issue number was provided, validate it through the same bundle:
+# set -- "$@" --issue <number>
+
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
 
-Use `READY["items"]` as the candidate set. Each item includes `item_id`, `issue_number`, `title`, and `status`.
+The report is the Step 0 packet. It should already include:
+- Queue Summary
+- Eligible Ready Issues
+- Blocked Ready Issues
+- In Progress Issues
+- Requested Issue validation when a specific issue was supplied
 
-Partition `READY["items"]` into `[Model]` and `[Rule]` buckets by title prefix.
+Branch from the report:
+- `Bundle status: empty` => STOP with `No Ready issues are currently available.`
+- `Bundle status: no-eligible-issues` => STOP with `Ready issues exist, but all current rule candidates are blocked by missing models on main.`
+- `Bundle status: requested-missing` => STOP with `Issue #N is not currently in the Ready column.`
+- `Bundle status: requested-blocked` => STOP with the blocking reason from the report
+- `Bundle status: ready` => continue
 
-#### 0b. Gather Context for Ranking
+The report already handled the deterministic setup:
+- it loaded the Ready and In-progress issue sets
+- it scanned existing problems on main
+- it marked blocked `[Rule]` issues whose source or target model is still missing
+- it computed the pending-rule unblock counts used for C3
 
-1. **Existing problems:** Grep for problem struct definitions in the codebase: `grep -r "^pub struct" src/models/ | sed 's/.*pub struct \([A-Za-z]*\).*/\1/'` to get all problem names currently implemented on `main`.
-2. **Pending rules:** From `READY["items"]` plus `IN_PROGRESS["items"]`, collect all `[Rule]` issues that are in `Ready` or `In progress` status. Parse their source/target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP).
-
-#### 0c. Check Eligibility
-
-**Rule issues require both source and target models to exist on `main`.** For each `[Rule]` issue, parse the source and target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Check that both appear in the existing problems list (from Step 0b grep).
-
-- If both models exist in the codebase → **eligible**
-- If either model is missing from the codebase → **ineligible**, mark it `[blocked]` with reason (e.g., "model X not yet implemented on main")
-
-Do NOT consider pending `[Model]` issues as satisfying the dependency — only models already merged to `main` count. This prevents bundling model + rule in the same PR.
-
-All `[Model]` issues are always eligible (no dependency check needed).
-
-#### 0d. Score Eligible Issues
+#### 0a. Score Eligible Issues
 
 Score only **eligible** issues on three criteria. For `[Model]` issues, extract the problem name. For `[Rule]` issues, extract both source and target problem names.
 
 | Criterion | Weight | How to Assess |
 |-----------|--------|---------------|
-| **C1: Industrial/Theoretical Importance** | 3 | Read the issue body. Score 0-2: **2** = widely used in industry or foundational in complexity theory (e.g., ILP, SAT, MaxFlow, TSP, GraphColoring); **1** = moderately important or well-studied (e.g., SubsetSum, SetCover, Knapsack); **0** = niche or primarily academic |
-| **C2: Related to Existing Problems** | 2 | Check if the problem connects to problems already in the reduction graph (via `list_problems`). Score 0-2: **2** = directly related (shares input structure or has known reductions to/from ≥2 existing problems, but is NOT a trivial variant of an existing one); **1** = loosely related (same domain, connects to 1 existing problem); **0** = isolated or is essentially a variant/renaming of an existing problem |
-| **C3: Unblocks Pending Rules** | 2 | Check if this issue is a dependency for pending `[Rule]` issues. Score 0-2: **2** = unblocks ≥2 pending rules (a `[Model]` issue whose problem appears as source or target in ≥2 pending rules); **1** = unblocks 1 pending rule; **0** = does not unblock any pending rule |
+| **C1: Industrial/Theoretical Importance** | 3 | Read the report's issue summary for each eligible issue. Score 0-2: **2** = widely used in industry or foundational in complexity theory (e.g., ILP, SAT, MaxFlow, TSP, GraphColoring); **1** = moderately important or well-studied (e.g., SubsetSum, SetCover, Knapsack); **0** = niche or primarily academic |
+| **C2: Related to Existing Problems** | 2 | Use the report's Ready/In-progress context plus `pred list` if needed. Score 0-2: **2** = directly related (shares input structure or has known reductions to/from ≥2 existing problems, but is NOT a trivial variant of an existing one); **1** = loosely related (same domain, connects to 1 existing problem); **0** = isolated or is essentially a variant/renaming of an existing problem |
+| **C3: Unblocks Pending Rules** | 2 | Read the `Pending rules unblocked` count already printed in the report for each eligible issue. Score 0-2: **2** = unblocks ≥2 pending rules; **1** = unblocks 1 pending rule; **0** = does not unblock any pending rule |
 
 **Final score** = C1 × 3 + C2 × 2 + C3 × 2 (max = 12)
 
@@ -81,7 +86,7 @@ Score only **eligible** issues on three criteria. For `[Model]` issues, extract 
 
 **Important for C2:** A problem that is merely a weighted/unweighted variant or a graph-subtype specialization of an existing problem scores **0** on C2, not 2. The goal is to add genuinely new problem types that expand the graph's reach.
 
-#### 0e. Print Ranked List
+#### 0b. Print Ranked List
 
 Print all Ready issues with their scores for visibility (no confirmation needed). Blocked rules appear at the bottom with their reason:
 
@@ -99,7 +104,7 @@ Ready issues (ranked):
      3   #130   [Rule] MultivariateQuadratic to ILP  -- model "MultivariateQuadratic" not yet implemented
 ```
 
-#### 0f. Pick Issues
+#### 0c. Pick Issues
 
 **If a specific issue number was provided:** validate and claim it through the scripted bundle:
 
@@ -108,15 +113,13 @@ STATE_FILE=/tmp/problemreductions-ready-selection.json
 CLAIM=$(python3 scripts/pipeline_board.py claim-next ready "$STATE_FILE" --number <number> --format json)
 ```
 
-If the command exits with status 1, STOP with: `Issue #N is not currently in the Ready column.`
-
-If it is blocked by the dependency check above, STOP with a message explaining which model is missing.
+The report should already have stopped you before this point if the requested issue was missing or blocked.
 
 After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
-**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, re-check eligibility for remaining rules (a just-merged Model may unblock them).
+**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules.
 
-**Otherwise (no args):** pick the highest-scored eligible (non-blocked) issue and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
+**Otherwise (no args):** score the eligible issues from the report, pick the highest-scored one, and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 
 ```bash
 STATE_FILE=/tmp/problemreductions-ready-selection.json

@@ -16,58 +16,42 @@ Dispatches two parallel review subagents with fresh context (no implementation h
 - `/review-implementation rule mis_qubo` -- review a specific rule
 - `/review-implementation generic` -- code quality only (no structural checklist)
 
-## Step 1: Detect What Changed
+## Step 1: Generate the Review-Implementation Report
 
-Determine whether new model/rule files were added:
-
-```bash
-BASE_SHA=$(git merge-base main HEAD)
-HEAD_SHA=$(git rev-parse HEAD)
-REVIEW_CONTEXT=$(python3 scripts/pipeline_checks.py review-context --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" --format json)
-```
-
-Read `REVIEW_CONTEXT["scope"]` to determine:
-- `review_type` -> `model`, `rule`, `model+rule`, or `generic`
-- `models` -> new model files with category, file stem, and problem name
-- `rules` -> new rule files with rule stem
-- `added_files` / `changed_files` -> normalized file lists
-
-Read `REVIEW_CONTEXT["subject"]` for the resolved deterministic review subject:
-- auto-detected model name when exactly one new model file was added
-- explicit rule/model metadata when passed manually
-- `generic` when no deterministic structural subject is available
-
-Explicit arguments still override auto-detection. When they are provided, re-run the command with the explicit subject, for example:
+Step 1 should be a single report-generation step. Do not manually rebuild git range detection, `review-context`, current PR lookup, or linked-issue loading with separate shell snippets.
 
 ```bash
-REVIEW_CONTEXT=$(python3 scripts/pipeline_checks.py review-context --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" --kind model --name MaximumClique --format json)
+set -- python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text
+
+# Explicit subject overrides still go through the same bundle. Examples:
+# set -- "$@" --kind model --name MaximumClique
+# set -- "$@" --kind rule --name mis_qubo --source MaximumIndependentSet --target QUBO
+# set -- "$@" --kind generic
+
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
+
+The report is the Step 1 packet. It should already include:
+- Review Range: base SHA, head SHA, repo root
+- Scope: review type, subject, added model/rule files
+- Deterministic Checks: whitelist + completeness status
+- Changed Files
+- Diff Stat
+- Current PR
+- Linked Issue Context
+
+Use the report as the default source of truth for the rest of this skill. If you need structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 1 manually.
 
 ## Step 2: Prepare Subagent Context
 
-Reuse `BASE_SHA` and `HEAD_SHA` from Step 1. For batch reviews you may still choose a narrower manual base SHA if needed.
+Read the packet directly:
+- `Review Range` for `{BASE_SHA}` and `{HEAD_SHA}`
+- `Scope` for `{REVIEW_TYPE}` and the concrete model/rule metadata
+- `Changed Files` and `Diff Stat` for the quality-reviewer prompt
+- `Linked Issue Context` for `{ISSUE_CONTEXT}`
 
-Get the diff summary and changed file list from `REVIEW_CONTEXT["diff_stat"]` and `REVIEW_CONTEXT["changed_files"]` instead of rebuilding them manually.
-
-### Detect Linked Issue
-
-Check if the current branch has a PR linked to an issue:
-
-```bash
-CURRENT=$(python3 scripts/pipeline_pr.py current --format json 2>/dev/null || true)
-REPO=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; text=sys.stdin.read().strip(); data=json.loads(text) if text else {}; print(data.get('repo') or '')" 2>/dev/null)
-PR_NUM=$(printf '%s\n' "$CURRENT" | python3 -c "import sys,json; text=sys.stdin.read().strip(); data=json.loads(text) if text else {}; print(data.get('pr_number') or '')" 2>/dev/null)
-ISSUE_CONTEXT="No linked issue found."
-
-# If PR exists, fetch the linked issue through the shared helper
-if [ -n "$PR_NUM" ]; then
-  ISSUE_JSON=$(python3 scripts/pipeline_pr.py linked-issue --repo "$REPO" --pr "$PR_NUM" --format json)
-  ISSUE_NUM=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['linked_issue_number'] or '')")
-  ISSUE_CONTEXT=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('issue_context_text') or 'No linked issue found.')")
-fi
-```
-
-If an issue is found, pass `{ISSUE_CONTEXT}` from `ISSUE_JSON.issue_context_text` to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
+If the report says `Current PR` is absent, set `{ISSUE_CONTEXT}` to `No linked issue found.` Comments often contain clarifications, corrections, or additional requirements from maintainers, so prefer the report text over re-fetching issue state.
 
 ## Step 3: Dispatch Subagents in Parallel
 
@@ -77,11 +61,11 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `structural-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
-  - `{REVIEW_TYPE}` -> "model", "rule", or "model + rule"
-  - `{REVIEW_PARAMS}` -> summary of what's being reviewed
+  - `{REVIEW_TYPE}` -> from the report's `Scope` section (`model`, `rule`, `model + rule`, or `generic`)
+  - `{REVIEW_PARAMS}` -> summary of what's being reviewed from the report
   - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
   - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
-  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> the report's `Linked Issue Context` section (or "No linked issue found.")
 - Prompt = filled template
 
 ### Quality Reviewer (always)
@@ -90,11 +74,11 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `quality-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
-  - `{DIFF_SUMMARY}` -> output of `git diff --stat`
-  - `{CHANGED_FILES}` -> list of changed files
+  - `{DIFF_SUMMARY}` -> the report's `Diff Stat`
+  - `{CHANGED_FILES}` -> the report's `Changed Files`
   - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
-  - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
-  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
+  - `{BASE_SHA}`, `{HEAD_SHA}` -> the report's `Review Range`
+  - `{ISSUE_CONTEXT}` -> the report's `Linked Issue Context` section (or "No linked issue found.")
 - Prompt = filled template
 
 **Both subagents must be dispatched in parallel** (single message with two Agent tool calls — use `run_in_background: true` on one, foreground on the other, then read the background result with `TaskOutput`).
