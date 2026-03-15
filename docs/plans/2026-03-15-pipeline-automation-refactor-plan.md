@@ -327,16 +327,16 @@ Keep:
 
 ### Task 3: Add worktree script
 
-- [ ] Implement PR checkout from forks using pull refs
-- [ ] Implement merge-main with structured conflict output
-- [ ] Add tests around path/branch naming and result formatting
+- [x] Implement PR checkout from forks using pull refs
+- [x] Implement merge-main with structured conflict output
+- [x] Add tests around path/branch naming and result formatting
 
 ### Task 4: Add deterministic review checks
 
-- [ ] Implement `detect-scope`
-- [ ] Implement `file-whitelist`
+- [x] Implement `detect-scope`
+- [x] Implement `file-whitelist`
 - [ ] Implement `completeness`
-- [ ] Point `final-review` and `review-implementation` at the new checks
+- [x] Point `final-review` and `review-implementation` at the new checks
 
 ### Task 5: Thin the skills
 

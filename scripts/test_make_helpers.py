@@ -183,6 +183,74 @@ class MakeHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_create_issue_worktree_uses_pipeline_worktree_cli(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "python3() { printf '%s\\n' \"$@\"; }; "
+                    "create_issue_worktree 117 graph-partitioning origin/main"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "scripts/pipeline_worktree.py",
+                "create-issue",
+                "--issue",
+                "117",
+                "--slug",
+                "graph-partitioning",
+                "--base",
+                "origin/main",
+                "--format",
+                "json",
+            ],
+        )
+
+    def test_checkout_pr_worktree_uses_pipeline_worktree_cli(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "python3() { printf '%s\\n' \"$@\"; }; "
+                    "checkout_pr_worktree CodingThrust/problem-reductions 570"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "scripts/pipeline_worktree.py",
+                "checkout-pr",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--pr",
+                "570",
+                "--format",
+                "json",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

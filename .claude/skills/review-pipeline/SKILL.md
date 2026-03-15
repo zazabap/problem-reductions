@@ -122,13 +122,9 @@ In `--all` mode, claim each PR right before processing it (not all at once).
 Create an isolated git worktree so the main working directory stays clean:
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-BRANCH=$(gh pr view $PR --json headRefName --jq .headRefName)
-WORKTREE_DIR=".worktrees/review-$BRANCH"
-mkdir -p .worktrees
-git fetch origin $BRANCH
-git worktree add "$WORKTREE_DIR" $BRANCH
+WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr --repo "$REPO" --pr "$PR" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
 
@@ -145,18 +141,18 @@ All subsequent steps run inside the worktree.
 Check if the branch has merge conflicts with main:
 
 ```bash
-git fetch origin main
-git merge origin/main --no-edit
+MERGE=$(python3 scripts/pipeline_worktree.py merge-main --worktree "$WORKTREE_DIR" --format json)
+MERGE_STATUS=$(printf '%s\n' "$MERGE" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
 ```
 
-- If the merge succeeds cleanly: push the merge commit and continue.
+- If `MERGE_STATUS == clean`: push the merge commit and continue.
 - If there are conflicts:
-  1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
+  1. Inspect the conflicting files from the `conflicts` array in `MERGE`.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
   3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function):
-  1. Abort the merge: `git merge --abort`
+- If `MERGE_STATUS == conflicted` and `likely_complex == true` (or the overlap is otherwise too complex to resolve automatically):
+  1. Abort the merge: `git merge --abort` if a merge is still in progress
   2. Move the project item back to `Review pool`:
      ```bash
      gh project item-edit \

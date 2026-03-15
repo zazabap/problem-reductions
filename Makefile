@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-ack board-move pr-context pr-wait-ci diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-ack board-move pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -42,6 +42,8 @@ help:
 	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
 	@echo "  pr-context PR=<number> [REPO=<owner/repo>] - Fetch structured PR snapshot JSON"
 	@echo "  pr-wait-ci PR=<number> [REPO=<owner/repo>] - Poll CI until terminal state and print JSON"
+	@echo "  worktree-issue ISSUE=<number> SLUG=<slug> - Create an issue worktree from origin/main"
+	@echo "  worktree-pr PR=<number> [REPO=<owner/repo>] - Checkout a PR into an isolated worktree"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 	@echo ""
 	@echo "  Set RUNNER=claude to use Claude instead of Codex (default: codex)"
@@ -457,6 +459,29 @@ pr-wait-ci:
 	timeout=$${TIMEOUT:-900}; \
 	interval=$${INTERVAL:-30}; \
 	pr_wait_ci "$$repo" "$(PR)" "$$timeout" "$$interval"
+
+# Create an issue worktree from origin/main
+# Usage: make worktree-issue ISSUE=117 SLUG=graph-partitioning
+worktree-issue:
+	@if [ -z "$(ISSUE)" ] || [ -z "$(SLUG)" ]; then \
+		echo "ISSUE=<number> and SLUG=<slug> are required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	base=$${BASE:-origin/main}; \
+	create_issue_worktree "$(ISSUE)" "$(SLUG)" "$$base"
+
+# Checkout a PR into an isolated worktree
+# Usage: make worktree-pr PR=570
+#        make worktree-pr PR=570 REPO=CodingThrust/problem-reductions
+worktree-pr:
+	@if [ -z "$(PR)" ]; then \
+		echo "PR=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	checkout_pr_worktree "$$repo" "$(PR)"
 
 # Usage: make run-review              (picks next Review pool PR automatically)
 #        make run-review N=570        (processes specific PR)

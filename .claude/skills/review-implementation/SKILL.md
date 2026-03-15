@@ -21,27 +21,22 @@ Dispatches two parallel review subagents with fresh context (no implementation h
 Determine whether new model/rule files were added:
 
 ```bash
-# Check for NEW files across the entire branch
-git diff --name-only --diff-filter=A main..HEAD
+BASE_SHA=$(git merge-base main HEAD)
+HEAD_SHA=$(git rev-parse HEAD)
+SCOPE=$(python3 scripts/pipeline_checks.py detect-scope --base "$BASE_SHA" --head "$HEAD_SHA" --format json)
 ```
 
-Detection rules:
-- New file in `src/models/` (not `mod.rs`) -> **model review** (structural + quality)
-- New file in `src/rules/` (not `mod.rs`, `traits.rs`, `cost.rs`, `graph.rs`, `registry.rs`) -> **rule review** (structural + quality)
-- Only modified files (no new model/rule) -> **quality review only**
-- Both new model and rule files -> dispatch structural for both + quality
-- Explicit argument overrides auto-detection
+Read `SCOPE` to determine:
+- `review_type` -> `model`, `rule`, `model+rule`, or `generic`
+- `models` -> new model files with category, file stem, and problem name
+- `rules` -> new rule files with rule stem
+- `added_files` / `changed_files` -> normalized file lists
 
-Extract the problem name(s) and rule source/target from the file paths.
+Explicit arguments still override auto-detection.
 
 ## Step 2: Prepare Subagent Context
 
-Get the git SHAs for the review range:
-
-```bash
-BASE_SHA=$(git merge-base main HEAD)  # or HEAD~N for batch reviews
-HEAD_SHA=$(git rev-parse HEAD)
-```
+Reuse `BASE_SHA` and `HEAD_SHA` from Step 1. For batch reviews you may still choose a narrower manual base SHA if needed.
 
 Get the diff summary and changed file list:
 

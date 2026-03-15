@@ -44,11 +44,16 @@ If a specific PR number was given, use it directly. Otherwise:
 
 Collect all information needed for the review:
 
-1a. **PR metadata**: `gh pr view <number> --json title,body,labels,files,additions,deletions,commits,headRefName,baseRefName,url,state`
+1a. **PR metadata**: prefer the scripted snapshot:
+   ```bash
+   REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+   SNAPSHOT=$(python3 scripts/pipeline_pr.py snapshot --repo "$REPO" --pr <number> --format json)
+   ```
+   This includes title, body, labels, files, additions, deletions, commits, branch names, mergeability, linked issue, CI summary, and Codecov summary in one JSON payload.
 
 1b. **PR diff**: `gh pr diff <number>` — read the full diff to understand all changes.
 
-1c. **Linked issue**: Extract the linked issue number from PR body (look for `Fixes #N`, `Closes #N`, or `#N` references). Fetch issue body: `gh issue view <N> --json title,body,labels`
+1c. **Linked issue**: read it from `SNAPSHOT["linked_issue_number"]` / `SNAPSHOT["linked_issue"]` instead of reparsing the PR body manually.
 
 1d. **Determine PR type**: From labels and title, classify as `[Model]` or `[Rule]`.
   - For `[Model]`: identify the problem name being added
@@ -126,7 +131,21 @@ Check that the PR only touches files expected for its type. Any file outside the
 - `docs/src/reductions/reduction_graph.json` — graph export
 - `docs/src/reductions/problem_schemas.json` — only if updating field descriptions
 
-If any file falls outside these whitelists, flag it:
+Run the deterministic whitelist check against the PR file list from `SNAPSHOT`:
+
+```bash
+printf '%s\n' "$SNAPSHOT" | python3 -c "
+import sys, json
+snapshot = json.load(sys.stdin)
+for path in snapshot['files']:
+    print(path)
+" > /tmp/final-review-files.txt
+
+python3 scripts/pipeline_checks.py file-whitelist --kind model --files-file /tmp/final-review-files.txt --format json
+# or --kind rule for [Rule] PRs
+```
+
+If any file falls outside the whitelist result, flag it:
 
 > **File Whitelist Check**
 >

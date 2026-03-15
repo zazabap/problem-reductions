@@ -85,6 +85,31 @@ pr_wait_ci() {
     python3 scripts/pipeline_pr.py wait-ci --repo "$repo" --pr "$pr" --timeout "$timeout" --interval "$interval" --format json
 }
 
+# --- Worktree helpers ---
+
+create_issue_worktree() {
+    issue=$1
+    slug=$2
+    base=${3:-origin/main}
+    python3 scripts/pipeline_worktree.py create-issue --issue "$issue" --slug "$slug" --base "$base" --format json
+}
+
+checkout_pr_worktree() {
+    repo=$1
+    pr=$2
+    python3 scripts/pipeline_worktree.py checkout-pr --repo "$repo" --pr "$pr" --format json
+}
+
+merge_main_worktree() {
+    worktree=$1
+    python3 scripts/pipeline_worktree.py merge-main --worktree "$worktree" --format json
+}
+
+cleanup_pipeline_worktree() {
+    worktree=$1
+    python3 scripts/pipeline_worktree.py cleanup --worktree "$worktree" --format json
+}
+
 # Poll a board column and dispatch a make target when new items appear.
 #   watch_and_dispatch <mode> <make-target> <label> [repo]
 # Example:

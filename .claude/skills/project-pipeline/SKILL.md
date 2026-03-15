@@ -109,12 +109,9 @@ Ready issues (ranked):
 Create an isolated git worktree for this issue so the main working directory stays clean:
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
-git fetch origin main
-BRANCH="issue-<number>-<slug>"
-WORKTREE_DIR=".worktrees/$BRANCH"
-mkdir -p .worktrees
-git worktree add "$WORKTREE_DIR" -b "$BRANCH" origin/main
+WORKTREE=$(python3 scripts/pipeline_worktree.py create-issue --issue <number> --slug <slug> --base origin/main --format json)
+BRANCH=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
 
