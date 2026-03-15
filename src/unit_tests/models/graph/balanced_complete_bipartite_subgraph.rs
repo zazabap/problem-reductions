@@ -81,6 +81,14 @@ fn test_balanced_complete_bipartite_subgraph_invalid_pairing() {
 }
 
 #[test]
+fn test_balanced_complete_bipartite_subgraph_rejects_invalid_configs() {
+    let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
+
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 1, 1, 0]));
+    assert!(!problem.evaluate(&[1, 2, 0, 0, 1, 1, 0, 0]));
+}
+
+#[test]
 fn test_balanced_complete_bipartite_subgraph_solver_yes_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_2_graph(), 3);
     let solver = BruteForce::new();
@@ -124,14 +132,9 @@ fn test_balanced_complete_bipartite_subgraph_is_valid_solution() {
     let yes_config = issue_instance_2_witness();
     let no_config = vec![1, 1, 0, 1, 1, 1, 0, 0];
 
-    assert_eq!(
-        problem.is_valid_solution(&yes_config),
-        problem.evaluate(&yes_config)
-    );
-    assert_eq!(
-        problem.is_valid_solution(&no_config),
-        problem.evaluate(&no_config)
-    );
+    assert!(problem.is_valid_solution(&yes_config));
+    assert!(!problem.is_valid_solution(&no_config));
+    assert!(!problem.is_valid_solution(&[1, 1, 1]));
 }
 
 #[test]

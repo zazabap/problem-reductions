@@ -20,19 +20,9 @@
     "description": "Decide whether a bipartite graph contains a K_{k,k} subgraph",
     "fields": [
       {
-        "name": "left_size",
-        "type_name": "usize",
-        "description": "Vertices in left partition"
-      },
-      {
-        "name": "right_size",
-        "type_name": "usize",
-        "description": "Vertices in right partition"
-      },
-      {
-        "name": "edges",
-        "type_name": "Vec<(usize, usize)>",
-        "description": "Bipartite edges"
+        "name": "graph",
+        "type_name": "BipartiteGraph",
+        "description": "The bipartite graph G = (A, B, E)"
       },
       {
         "name": "k",

@@ -347,13 +347,13 @@ pub struct CreateArgs {
     /// Universe size for MinimumSetCovering
     #[arg(long)]
     pub universe: Option<usize>,
-    /// Bipartite graph edges for BicliqueCover (e.g., "0-0,0-1,1-2" for left-right pairs)
+    /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
     #[arg(long)]
     pub biedges: Option<String>,
-    /// Left partition size for BicliqueCover
+    /// Left partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub left: Option<usize>,
-    /// Right partition size for BicliqueCover
+    /// Right partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub right: Option<usize>,
     /// Rank for BMF

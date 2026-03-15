@@ -237,6 +237,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
+        "BalancedCompleteBipartiteSubgraph" => {
+            "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
+        }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
@@ -274,6 +277,19 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+            } else if field.type_name == "BipartiteGraph" {
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "left", "Vertices in the left partition", "integer"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "right", "Vertices in the right partition", "integer"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "biedges", "Bipartite edges as left-right pairs", "edge list: 0-0,0-1,1-2"
+                );
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
@@ -705,51 +721,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // BicliqueCover
         "BicliqueCover" => {
-            let left = args.left.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BicliqueCover requires --left, --right, --biedges, and --k\n\n\
-                     Usage: pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2"
-                )
-            })?;
-            let right = args.right.ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --right (right partition size)")
-            })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --k (number of bicliques)")
-            })?;
-            let edges_str = args.biedges.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --biedges (e.g., 0-0,0-1,1-1)")
-            })?;
-            let edges = util::parse_edge_pairs(edges_str)?;
-            let graph = BipartiteGraph::new(left, right, edges);
+            let usage = "pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2";
+            let (graph, k) =
+                parse_bipartite_problem_input(args, "BicliqueCover", "number of bicliques", usage)?;
             (ser(BicliqueCover::new(graph, k))?, resolved_variant.clone())
         }
 
         // BalancedCompleteBipartiteSubgraph
         "BalancedCompleteBipartiteSubgraph" => {
-            let left = args.left.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BalancedCompleteBipartiteSubgraph requires --left, --right, --biedges, and --k\n\n\
-                     Usage: pred create BalancedCompleteBipartiteSubgraph --left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
-                )
-            })?;
-            let right = args.right.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BalancedCompleteBipartiteSubgraph requires --right (right partition size)"
-                )
-            })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BalancedCompleteBipartiteSubgraph requires --k (balanced biclique size)"
-                )
-            })?;
-            let edges_str = args.biedges.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BalancedCompleteBipartiteSubgraph requires --biedges (e.g., 0-0,0-1,1-1)"
-                )
-            })?;
-            let edges = util::parse_edge_pairs(edges_str)?;
-            let graph = BipartiteGraph::new(left, right, edges);
+            let usage = "pred create BalancedCompleteBipartiteSubgraph --left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3";
+            let (graph, k) = parse_bipartite_problem_input(
+                args,
+                "BalancedCompleteBipartiteSubgraph",
+                "balanced biclique size",
+                usage,
+            )?;
             (
                 ser(BalancedCompleteBipartiteSubgraph::new(graph, k))?,
                 resolved_variant.clone(),
@@ -1214,6 +1200,21 @@ mod tests {
 
         let _ = std::fs::remove_file(output_path);
     }
+
+    #[test]
+    fn test_create_balanced_complete_bipartite_subgraph_rejects_out_of_range_biedges() {
+        let mut args = create_args_for_bcbs();
+        args.biedges = Some("4-0".to_string());
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("out of bounds for left partition size 4"));
+    }
 }
 
 /// Reject non-unit weights when the resolved variant uses `weight=One`.
@@ -1333,6 +1334,48 @@ fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
+}
+
+fn parse_bipartite_problem_input(
+    args: &CreateArgs,
+    canonical: &str,
+    k_description: &str,
+    usage: &str,
+) -> Result<(BipartiteGraph, usize)> {
+    let left = args.left.ok_or_else(|| {
+        anyhow::anyhow!(
+            "{canonical} requires --left, --right, --biedges, and --k\n\nUsage: {usage}"
+        )
+    })?;
+    let right = args.right.ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --right (right partition size)\n\nUsage: {usage}")
+    })?;
+    let k = args.k.ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --k ({k_description})\n\nUsage: {usage}")
+    })?;
+    let edges_str = args.biedges.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --biedges (e.g., 0-0,0-1,1-1)\n\nUsage: {usage}")
+    })?;
+    let edges = util::parse_edge_pairs(edges_str)?;
+    validate_bipartite_edges(canonical, left, right, &edges)?;
+    Ok((BipartiteGraph::new(left, right, edges), k))
+}
+
+fn validate_bipartite_edges(
+    canonical: &str,
+    left: usize,
+    right: usize,
+    edges: &[(usize, usize)],
+) -> Result<()> {
+    for &(u, v) in edges {
+        if u >= left {
+            bail!("{canonical} edge {u}-{v} is out of bounds for left partition size {left}");
+        }
+        if v >= right {
+            bail!("{canonical} edge {u}-{v} is out of bounds for right partition size {right}");
+        }
+    }
+    Ok(())
 }
 
 /// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.

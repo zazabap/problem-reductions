@@ -180,6 +180,22 @@ fn test_show_includes_fields() {
 }
 
 #[test]
+fn test_create_balanced_complete_bipartite_subgraph_help_uses_bipartite_flags() {
+    let output = pred()
+        .args(["create", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--left"), "stderr: {stderr}");
+    assert!(stderr.contains("--right"), "stderr: {stderr}");
+    assert!(stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--left-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--right-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edges"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_list_json() {
     let tmp = std::env::temp_dir().join("pred_test_list.json");
     let output = pred()

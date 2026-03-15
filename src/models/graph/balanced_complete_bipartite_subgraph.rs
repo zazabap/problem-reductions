@@ -12,9 +12,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Decide whether a bipartite graph contains a K_{k,k} subgraph",
         fields: &[
-            FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },
-            FieldInfo { name: "right_size", type_name: "usize", description: "Vertices in right partition" },
-            FieldInfo { name: "edges", type_name: "Vec<(usize, usize)>", description: "Bipartite edges" },
+            FieldInfo { name: "graph", type_name: "BipartiteGraph", description: "The bipartite graph G = (A, B, E)" },
             FieldInfo { name: "k", type_name: "usize", description: "Balanced biclique size" },
         ],
     }
