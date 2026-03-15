@@ -151,6 +151,30 @@ fn test_lcs_empty_string_in_input() {
 }
 
 #[test]
+fn test_lcs_paper_example() {
+    // Paper example: s1 = "ABAC", s2 = "BACA", LCS = "BAC" (length 3)
+    let problem = LongestCommonSubsequence::new(vec![
+        vec![b'A', b'B', b'A', b'C'],
+        vec![b'B', b'A', b'C', b'A'],
+    ]);
+    // Verify the claimed solution: select positions 1,2,3 of s1 → "BAC"
+    let paper_solution = vec![0, 1, 1, 1];
+    let metric = problem.evaluate(&paper_solution);
+    assert!(metric.is_valid());
+    assert_eq!(metric.unwrap(), 3);
+
+    // Verify optimality via brute force
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).expect("should find a solution");
+    assert_eq!(problem.evaluate(&best).unwrap(), 3);
+
+    // Count all optimal solutions
+    let all_best = solver.find_all_best(&problem);
+    // Only "BAC" [0,1,1,1] achieves length 3
+    assert_eq!(all_best.len(), 1);
+}
+
+#[test]
 #[should_panic(expected = "LCS requires at least 2 strings")]
 fn test_lcs_single_string_panics() {
     LongestCommonSubsequence::new(vec![vec![b'A', b'B']]);
