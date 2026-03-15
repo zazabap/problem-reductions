@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SequencingWithinIntervals",
+        display_name: "Sequencing Within Intervals",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Schedule tasks non-overlappingly within their time windows",
         fields: &[
@@ -168,7 +171,7 @@ impl Problem for SequencingWithinIntervals {
 impl SatisfactionProblem for SequencingWithinIntervals {}
 
 crate::declare_variants! {
-    SequencingWithinIntervals => "2^num_tasks",
+    default sat SequencingWithinIntervals => "2^num_tasks",
 }
 
 #[cfg(test)]
