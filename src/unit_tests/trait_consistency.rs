@@ -126,6 +126,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        "MinimumTardinessSequencing",
+    );
 }
 
 #[test]
@@ -163,6 +167,10 @@ fn test_direction() {
         Direction::Minimize
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
+    assert_eq!(
+        MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
+        Direction::Minimize
+    );
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
         Direction::Minimize

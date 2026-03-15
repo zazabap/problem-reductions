@@ -462,6 +462,27 @@
     ]
   },
   {
+    "name": "MinimumTardinessSequencing",
+    "description": "Schedule unit-length tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
+    "fields": [
+      {
+        "name": "num_tasks",
+        "type_name": "usize",
+        "description": "Number of tasks |T|"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<usize>",
+        "description": "Deadline d(t) for each task (1-indexed finish time)"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (predecessor, successor)"
+      }
+    ]
+  },
+  {
     "name": "MinimumVertexCover",
     "description": "Find minimum weight vertex cover in a graph",
     "fields": [

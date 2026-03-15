@@ -96,6 +96,7 @@
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1780,6 +1781,82 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
   ) <fig:flowshop>
 ]
+
+#{
+  let x = load-model-example("MinimumTardinessSequencing")
+  let ntasks = x.instance.num_tasks
+  let deadlines = x.instance.deadlines
+  let precs = x.instance.precedences
+  let sol = x.optimal.at(0)
+  let tardy-count = sol.metric.Valid
+  // Decode Lehmer code to permutation (schedule order)
+  let lehmer = sol.config
+  let schedule = {
+    let avail = range(ntasks)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  // Compute inverse: task-pos[task] = position
+  let task-pos = range(ntasks).map(task => {
+    schedule.enumerate().filter(((p, t)) => t == task).at(0).at(0)
+  })
+  // Identify tardy tasks
+  let tardy-tasks = range(ntasks).filter(t => task-pos.at(t) + 1 > deadlines.at(t))
+  [
+    #problem-def("MinimumTardinessSequencing")[
+      Given a set $T$ of $n$ unit-length tasks, a deadline function $d: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints (if $t_i prec.eq t_j$ then $sigma(t_i) < sigma(t_j)$) and minimizes the number of _tardy_ tasks, i.e., tasks $t$ with $sigma(t) > d(t)$.
+    ][
+      Minimum Tardiness Sequencing is a classical NP-complete scheduling problem catalogued as SS2 in Garey & Johnson @garey1979. In standard scheduling notation it is written $1 | "prec", p_j = 1 | sum U_j$, where $U_j = 1$ if job $j$ finishes after its deadline and $U_j = 0$ otherwise.
+
+      The problem is NP-complete by reduction from Clique (Theorem 3.10 in @garey1979). When the precedence constraints are empty, the problem becomes solvable in $O(n log n)$ time by Moore's algorithm @moore1968: sort tasks by deadline and greedily schedule each task on time, removing the task with the largest processing time whenever a deadline violation occurs. With arbitrary precedence constraints and unit processing times, the problem remains strongly NP-hard.
+
+      *Example.* Consider $n = #ntasks$ tasks with deadlines $d = (#deadlines.map(v => str(v)).join(", "))$ and precedence constraint #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule places tasks in order $(#schedule.map(t => $t_#t$).join(", "))$, giving #tardy-count tardy #if tardy-count == 1 [task] else [tasks]#{if tardy-tasks.len() > 0 [ ($#{tardy-tasks.map(t => $t_#t$).join(", ")}$ #if tardy-tasks.len() == 1 [finishes] else [finish] after #if tardy-tasks.len() == 1 [its deadline] else [their deadlines])]}.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 1.2
+          let row-h = 0.6
+
+          // Draw schedule blocks (single machine, unit-length tasks)
+          for (pos, task) in schedule.enumerate() {
+            let x0 = pos * scale
+            let x1 = (pos + 1) * scale
+            let is-tardy = tardy-tasks.contains(task)
+            let fill = colors.at(calc.rem(task, colors.len())).transparentize(if is-tardy { 70% } else { 30% })
+            let stroke-color = colors.at(calc.rem(task, colors.len()))
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: fill, stroke: 0.4pt + stroke-color)
+            content(((x0 + x1) / 2, 0), text(7pt, $t_#task$))
+            // Deadline marker for this task
+            let dl = deadlines.at(task)
+            if dl <= ntasks {
+              let dl-x = dl * scale
+              line((dl-x, row-h / 2 + 0.05 + task * 0.12), (dl-x, row-h / 2 + 0.15 + task * 0.12),
+                stroke: (paint: if is-tardy { red } else { green.darken(20%) }, thickness: 0.6pt))
+            }
+          }
+
+          // Time axis
+          let y-axis = -row-h / 2 - 0.2
+          line((0, y-axis), (ntasks * scale, y-axis), stroke: 0.4pt)
+          for t in range(ntasks + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(t + 1)))
+          }
+          content((ntasks * scale / 2, y-axis - 0.45), text(7pt)[finish time])
+        }),
+        caption: [Optimal schedule for #ntasks tasks. #if tardy-tasks.len() > 0 [Faded #if tardy-tasks.len() == 1 [block indicates the] else [blocks indicate] tardy #if tardy-tasks.len() == 1 [task] else [tasks] (finish time exceeds deadline).] else [All tasks meet their deadlines.]],
+      ) <fig:mts>
+    ]
+  ]
+}
 
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
