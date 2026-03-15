@@ -14,7 +14,7 @@ mod bin_packing;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
-mod longest_common_subsequence;
+pub(crate) mod longest_common_subsequence;
 pub(crate) mod paintshop;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
@@ -34,5 +34,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs
 }
