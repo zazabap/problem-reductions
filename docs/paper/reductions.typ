@@ -2005,7 +2005,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     Source: $n = #spin-num-spins(sg_qubo.source.instance)$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
     Mapping: $s_i = 2x_i - 1$ converts spins ${-1, +1}$ to binary ${0, 1}$ \
-    Ground state ($#sg_qubo.solutions.len()$-fold degenerate): $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
+    Canonical ground-state witness: $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
   ],
 )[
   The Ising model and QUBO are both quadratic functions over finite domains: spins ${-1,+1}$ and binary variables ${0,1}$, respectively. The affine map $s_i = 2x_i - 1$ establishes a bijection between the two domains and preserves the quadratic structure. Substituting into the Ising Hamiltonian yields a QUBO objective that differs from the original energy by a constant, so ground states correspond exactly.
@@ -2053,7 +2053,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#kc_qubo_sol.source_config.map(str).join(", "))$, shown in the figure above. The one-hot encoding is $bold(x) = (#kc_qubo_sol.target_config.map(str).join(", "))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
 
-    *Count:* #kc_qubo.solutions.len() valid colorings $= 3! times 3$. The triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations); for each, the base vertices $0, 1$ each have 3 compatible choices but share edge $0 dash 1$, leaving $3$ valid pairs.
+    *Multiplicity:* The fixture stores one canonical coloring witness. The house graph has $3! times 3 = 18$ valid colorings overall: the triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations), and for each, the base vertices $0, 1$ have exactly $3$ compatible ordered pairs.
   ],
 )[
   The $k$-coloring problem has two requirements: each vertex gets exactly one color, and adjacent vertices get different colors. Both can be expressed as quadratic penalties over binary variables. Introduce $n k$ binary variables $x_(v,c) in {0,1}$ (indexed by $v dot k + c$), where $x_(v,c) = 1$ means vertex $v$ receives color $c$. The first requirement becomes a _one-hot constraint_ penalizing vertices with zero or multiple colors; the second becomes an _edge conflict penalty_ penalizing same-color neighbors. The combined QUBO matrix $Q in RR^(n k times n k)$ encodes both penalties.
@@ -2187,7 +2187,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 4 -- Verify a solution.* The QUBO ground state $bold(z) = (#ks_qubo_sol.target_config.map(str).join(", "))$ extracts to the knapsack choice $bold(x) = (#ks_qubo_sol.source_config.map(str).join(", "))$. This selects items $\{#ks_qubo_selected.map(str).join(", ")\}$ with total weight $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.weights.at(i))).join(" + ") = #ks_qubo_sel_weight$ and total value $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.values.at(i))).join(" + ") = #ks_qubo_sel_value$, so the slack bits are all zero and the penalty term vanishes #sym.checkmark.
 
-    *Count:* #ks_qubo.solutions.len() optimal QUBO solution. The source optimum is unique because items $\{#ks_qubo_selected.map(str).join(", ")\}$ are the only feasible selection achieving value #ks_qubo_sel_value.
+    *Uniqueness:* The fixture stores one canonical optimal witness. The source optimum is unique because items $\{#ks_qubo_selected.map(str).join(", ")\}$ are the only feasible selection achieving value #ks_qubo_sel_value.
   ],
 )[
   For a standard 0-1 Knapsack instance with nonnegative weights, nonnegative values, and nonnegative capacity, the inequality $sum_i w_i x_i lt.eq C$ is converted to equality using binary slack variables that encode the unused capacity. When $C > 0$, one can take $B = floor(log_2 C) + 1$ slack bits; when $C = 0$, a single slack bit also suffices. The penalty method (@sec:penalty-method) combines the negated value objective with a quadratic constraint penalty, producing a QUBO with $n + B$ binary variables.
@@ -2212,7 +2212,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
     Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
-    Optimal: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ ($#qubo_ilp.solutions.len()$-fold degenerate) #sym.checkmark
+    Canonical optimal witness: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ #sym.checkmark
   ],
 )[
   QUBO minimizes a quadratic form $bold(x)^top Q bold(x)$ over binary variables. Every quadratic term $Q_(i j) x_i x_j$ can be _linearized_ by introducing an auxiliary variable $y_(i j)$ constrained to equal the product $x_i x_j$ via three McCormick inequalities. Diagonal terms $Q_(i i) x_i^2 = Q_(i i) x_i$ are already linear for binary $x_i$. The result is a binary ILP with a linear objective and $3 m$ constraints (where $m$ is the number of non-zero off-diagonal entries), whose minimizer corresponds exactly to the QUBO minimizer.
@@ -2238,7 +2238,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     Circuit: #circuit-num-gates(cs_ilp.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_ilp.source.instance) variables \
     Target: #cs_ilp.target.instance.num_vars ILP variables (circuit vars $+$ auxiliary), trivial objective \
-    #cs_ilp.solutions.len() feasible solutions ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
+    Canonical feasible witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
   Each boolean gate (AND, OR, NOT, XOR) has a truth table that can be captured exactly by a small set of linear inequalities over binary variables. By Tseitin-style flattening, each internal expression node gets an auxiliary ILP variable constrained to match its gate's output, so the conjunction of all gate constraints is feasible if and only if the circuit is satisfiable. The ILP has a trivial objective (minimize 0), making it a pure feasibility problem.
@@ -2292,7 +2292,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     SAT assignment: $(x_1, ..., x_5) = (#sat_kc_sol.source_config.map(str).join(", "))$ \
     Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #graph-num-vertices(sat_kc.target.instance) vertices, #graph-num-edges(sat_kc.target.instance) edges \
-    #sat_kc.solutions.len() valid 3-colorings (color symmetry of satisfying assignments) #sym.checkmark
+    Canonical 3-coloring witness shown (the construction also has the expected color-symmetry multiplicity for satisfying assignments) #sym.checkmark
   ],
 )[
   @garey1979 A 3-coloring partitions vertices into three classes. The key insight is that three colors suffice to encode Boolean logic: one color represents TRUE, one FALSE, and a third (AUX) serves as a neutral ground. Variable gadgets force each variable's positive and negative literals to receive opposite truth colors, while clause gadgets use an OR-chain that can only receive the TRUE color when at least one input literal is TRUE-colored. Connecting the output of each clause gadget to the FALSE vertex forces it to be TRUE-colored, encoding the requirement that every clause is satisfied.
@@ -2379,7 +2379,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
     Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
-    #cs_sg.solutions.len() ground states ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
+    Canonical ground-state witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
   @whitfield2012 @lucas2014 Each logic gate can be represented as an Ising gadget --- a small set of spins with couplings $J_(i j)$ and fields $h_i$ chosen so that the gadget's ground states correspond exactly to the gate's truth table rows. Composing gadgets for all gates in the circuit yields a spin glass whose ground states encode precisely the satisfying assignments of the circuit. The energy gap between valid and invalid I/O patterns ensures that any global ground state respects every gate's logic.
@@ -2414,18 +2414,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   let pow2 = (1, 2, 4, 8, 16, 32)
   range(count).fold(0, (acc, i) => acc + config.at(start + i) * pow2.at(i))
 }
+#let fact_cs_sol = fact_cs.solutions.at(0)
 #let fact-nbf = fact_cs.source.instance.m
 #let fact-nbs = fact_cs.source.instance.n
+#let fact-p = fact-decode(fact_cs_sol.source_config, 0, fact-nbf)
+#let fact-q = fact-decode(fact_cs_sol.source_config, fact-nbf, fact-nbs)
 #reduction-rule("Factoring", "CircuitSAT",
   example: true,
   example-caption: [Factor $N = #fact_cs.source.instance.target$],
   extra: [
     Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #circuit-num-gates(fact_cs.target.instance) gates, #circuit-num-variables(fact_cs.target.instance) variables \
-    #fact_cs.solutions.len() solutions: #fact_cs.solutions.map(sol => {
-      let p = fact-decode(sol.source_config, 0, fact-nbf)
-      let q = fact-decode(sol.source_config, fact-nbf, fact-nbs)
-      $#p times #q = #fact_cs.source.instance.target$
-    }).join(" and ") #sym.checkmark
+    Canonical witness: $#fact-p times #fact-q = #fact_cs.source.instance.target$ #sym.checkmark
   ],
 )[
   Integer multiplication can be implemented as a boolean circuit: an $m times n$ array multiplier computes $p times q$ using only AND, XOR, and OR gates arranged in a grid of full adders. Constraining the output bits to match $N$ turns the circuit into a satisfiability problem --- the circuit is satisfiable iff $N = p times q$ for some $p, q$ within the given bit widths. _(Folklore; no canonical reference.)_
@@ -2452,7 +2451,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     Direct 1:1 mapping: vertices $arrow.r$ spins, $J_(i j) = w_(i j) = 1$, $h_i = 0$ \
     Partition: $S = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ vs $overline(S) = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")}$ \
-    Cut value $= #mc_sg_cut$ ($#mc_sg.solutions.len()$-fold degenerate) #sym.checkmark
+    Cut value $= #mc_sg_cut$ (canonical witness shown) #sym.checkmark
   ],
 )[
   @barahona1982 A maximum cut partitions vertices into two groups to maximize the total weight of edges crossing the partition. In the Ising model, two spins with opposite signs contribute $-J_(i j) s_i s_j = J_(i j)$ to the energy, while same-sign spins contribute $-J_(i j)$. Setting $J_(i j) = w_(i j)$ and $h_i = 0$ makes each cut edge lower the energy by $2 J_(i j)$ relative to an uncut edge, so the Ising ground state corresponds to the maximum cut.
@@ -2472,7 +2471,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     All $h_i = 0$: no ancilla needed, direct 1:1 vertex mapping \
     Edge weights $w_(i j) = J_(i j) in {plus.minus 1}$ (alternating couplings) \
-    Ground state ($#sg_mc.solutions.len()$-fold degenerate): partition $S = {#sg_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ #sym.checkmark
+    Canonical ground-state witness: partition $S = {#sg_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ #sym.checkmark
   ],
 )[
   @barahona1982 @lucas2014 The Ising Hamiltonian $H = -sum J_(i j) s_i s_j - sum h_i s_i$ has two types of terms. The pairwise couplings $J_(i j)$ map directly to MaxCut edge weights, since minimizing $-J_(i j) s_i s_j$ favors opposite spins (cut edges) when $J_(i j) > 0$. The local fields $h_i$ have no direct MaxCut analogue, but can be absorbed by introducing a single ancilla vertex connected to every spin with weight $h_i$: fixing the ancilla's partition side effectively creates a linear bias on each spin.
@@ -2641,7 +2640,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
     *Step 4 -- Verify a solution.* The QUBO ground state $bold(x) = (#tsp_qubo_sol.target_config.map(str).join(", "))$ encodes a valid tour. Reading the permutation: each 3-bit group has exactly one 1 (valid permutation #sym.checkmark). The tour cost equals $w_(01) + w_(02) + w_(12) = 1 + 2 + 3 = 6$.\
 
-    *Count:* #tsp_qubo.solutions.len() optimal QUBO solutions $= 3! = 6$. On $K_3$ with distinct edge weights $1, 2, 3$, every Hamiltonian cycle has cost $1 + 2 + 3 = 6$ (all edges used), and 3 cyclic tours $times$ 2 directions yield $6$ permutation matrices.
+    *Multiplicity:* The fixture stores one canonical optimal witness. On $K_3$ with distinct edge weights $1, 2, 3$, every Hamiltonian cycle has cost $1 + 2 + 3 = 6$ (all edges used), and 3 cyclic tours $times$ 2 directions yield $6$ permutation matrices overall.
   ],
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).

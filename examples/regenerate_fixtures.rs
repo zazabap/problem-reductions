@@ -6,7 +6,7 @@
 /// expected results:
 ///
 /// ```
-/// cargo run --release --example regenerate_fixtures --features example-db
+/// cargo run --release --example regenerate_fixtures --features "ilp-highs example-db"
 /// ```
 use problemreductions::example_db::compute_example_db;
 use problemreductions::export::write_example_db_to;

@@ -158,7 +158,7 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
 
     *Step N -- Verify a solution.* [end-to-end verification]
 
-    *Count:* #src_tgt.solutions.len() optimal solutions ...
+    *Multiplicity:* The fixture stores one canonical witness. If total multiplicity matters, explain it from the construction.
   ],
 )
 ```
@@ -177,7 +177,7 @@ Each step should:
 | First | Show the source instance (dimensions, structure). Include graph visualization if applicable. |
 | Middle | Walk through the construction. Show intermediate values. Explicitly quantify overhead. |
 | Second-to-last | Verify a concrete solution end-to-end (source config → target config, check validity). |
-| Last | Solution count: `#src_tgt.solutions.len()` with brief combinatorial justification. |
+| Last | State that the fixture stores one canonical witness; if multiplicity matters, justify it mathematically from the construction. |
 
 ### 4d. Graph Visualization (if applicable)
 
@@ -202,8 +202,8 @@ Each step should:
 // Target configuration (e.g., binary encoding)
 #src_tgt_sol.target_config.map(str).join(", ")
 
-// Number of optimal solutions
-#src_tgt.solutions.len()
+// The canonical witness pair
+#src_tgt.solutions.at(0)
 
 // Source instance fields
 #src_tgt.source.instance.num_vertices
@@ -231,7 +231,7 @@ make paper
 - [ ] **Overhead consistent**: prose dimensions match auto-derived overhead from JSON edge data
 - [ ] **Example uses JSON data**: concrete values come from `load-example`/`load-results`, not hardcoded
 - [ ] **Solution verified**: at least one solution checked end-to-end in the example
-- [ ] **Solution count**: `solutions.len()` stated with combinatorial explanation
+- [ ] **Witness semantics**: text treats `solutions.at(0)` as the canonical witness; any multiplicity claim is derived mathematically, not from fixture length
 - [ ] **Paper compiles**: `make paper` succeeds without errors
 - [ ] **Completeness check**: no new warnings about missing edges in the paper
 

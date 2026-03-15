@@ -115,7 +115,7 @@ mdbook:
 
 # Regenerate example DB fixtures from code (runs BruteForce/ILP — slow)
 regenerate-fixtures:
-	cargo run --release --features "example-db" --example regenerate_fixtures
+	cargo run --release --features "ilp-highs example-db" --example regenerate_fixtures
 
 # Export problem schemas to JSON
 export-schemas:

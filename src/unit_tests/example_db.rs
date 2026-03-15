@@ -174,6 +174,38 @@ fn test_build_rule_db_nonempty() {
 }
 
 #[test]
+fn test_rule_examples_store_single_solution_pair() {
+    let db = build_rule_db().expect("rule db should build");
+    for rule in &db.rules {
+        assert_eq!(
+            rule.solutions.len(),
+            1,
+            "canonical rule example should store one witness pair for {} {:?} -> {} {:?}",
+            rule.source.problem,
+            rule.source.variant,
+            rule.target.problem,
+            rule.target.variant
+        );
+    }
+}
+
+#[test]
+fn test_computed_rule_examples_store_single_solution_pair() {
+    let db = computed_rule_db_for_tests();
+    for rule in &db.rules {
+        assert_eq!(
+            rule.solutions.len(),
+            1,
+            "computed canonical rule example should store one witness pair for {} {:?} -> {} {:?}",
+            rule.source.problem,
+            rule.source.variant,
+            rule.target.problem,
+            rule.target.variant
+        );
+    }
+}
+
+#[test]
 fn test_build_model_db_nonempty() {
     let db = build_model_db().expect("model db should build");
     assert!(!db.models.is_empty(), "model db should not be empty");
@@ -577,20 +609,20 @@ fn verify_model_fixtures_match_computed() {
         assert!(
             json_semantically_equal(&loaded_instance, &computed_instance),
             "model fixture instance mismatch for {} {:?} — regenerate fixtures with: \
-             cargo run --release --example regenerate_fixtures --features example-db",
+             cargo run --release --example regenerate_fixtures --features \"ilp-highs example-db\"",
             loaded_model.problem,
             loaded_model.variant
         );
         assert_eq!(
             loaded_model.samples, computed_model.samples,
             "model fixture sample evaluations mismatch for {} {:?} — regenerate fixtures with: \
-             cargo run --release --example regenerate_fixtures --features example-db",
+             cargo run --release --example regenerate_fixtures --features \"ilp-highs example-db\"",
             loaded_model.problem, loaded_model.variant
         );
         assert_eq!(
             loaded_model.optimal, computed_model.optimal,
             "model fixture optima mismatch for {} {:?} — regenerate fixtures with: \
-             cargo run --release --example regenerate_fixtures --features example-db",
+             cargo run --release --example regenerate_fixtures --features \"ilp-highs example-db\"",
             loaded_model.problem, loaded_model.variant
         );
     }

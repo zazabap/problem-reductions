@@ -9,8 +9,6 @@ pub fn build_rule_examples() -> Vec<RuleExample> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn builds_all_canonical_rule_examples() {
         let examples = &crate::example_db::computed_rule_db_for_tests().rules;
