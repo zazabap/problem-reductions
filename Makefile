@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review regenerate-fixtures
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -18,13 +18,13 @@ help:
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
-	@echo "  paper        - Build Typst paper (requires typst)"
+	@echo "  paper        - Build Typst paper from checked-in fixtures (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
-	@echo "  examples     - Generate example JSON for paper"
+	@echo "  regenerate-fixtures - Recompute example DB fixtures (BruteForce/ILP, slow)"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
@@ -113,20 +113,20 @@ mdbook:
 	python3 -m http.server 3001 -d book &
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
-# Generate all example JSON files for the paper
-examples:
-	cargo run --features "ilp-highs example-db" --example export_examples
-	cargo run --features ilp-highs --example export_petersen_mapping
+# Regenerate example DB fixtures from code (runs BruteForce/ILP — slow)
+regenerate-fixtures:
+	cargo run --release --features "ilp-highs example-db" --example regenerate_fixtures
 
 # Export problem schemas to JSON
 export-schemas:
 	cargo run --example export_schemas
 
-# Build Typst paper (generates examples first)
-paper: examples
+# Build Typst paper (reads canonical examples directly from fixtures)
+paper:
+	cargo run --example export_petersen_mapping
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	cd docs/paper && typst compile --root .. reductions.typ reductions.pdf
+	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
