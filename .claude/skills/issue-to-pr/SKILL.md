@@ -18,10 +18,10 @@ For Codex, open this `SKILL.md` directly and treat the slash-command forms above
 
 ```
 Receive issue number [+ --execute flag]
-    -> Fetch issue with gh
-    -> Verify Good label (from check-issue)
-    -> If not Good: STOP
-    -> If Good: research references, write plan, create PR
+    -> Fetch structured issue preflight report
+    -> Verify Good label and rule-model guards
+    -> If guards fail: STOP
+    -> If guards pass: research references, write plan, create or resume PR
     -> If --execute: run plan via subagent-driven-development, then review-implementation
 ```
 
@@ -29,44 +29,48 @@ Receive issue number [+ --execute flag]
 
 ### 1. Parse Input
 
-Extract issue number and flags from arguments:
+Extract issue number, repo, and flags from arguments:
 - `123` -> issue #123, plan only
 - `123 --execute` -> issue #123, plan + execute
 - `https://github.com/owner/repo/issues/123` -> issue #123
 - `owner/repo#123` -> issue #123 in owner/repo
 
-### 2. Fetch Issue
+Normalize to:
+- `ISSUE=<number>`
+- `REPO=<owner/repo>` (default `CodingThrust/problem-reductions`)
+- `EXECUTE=true|false`
+
+### 2. Fetch Issue + Preflight Guards
 
 ```bash
-gh issue view <number> --json title,body,labels,assignees,comments
+ISSUE_JSON=$(python3 scripts/pipeline_checks.py issue-guards \
+  --repo "$REPO" \
+  --issue "$ISSUE" \
+  --format json)
 ```
 
-Present issue summary to user. **Also review all comments** — contributors and maintainers may have posted clarifications, corrections, additional context, or design decisions that refine or override parts of the original issue body. Incorporate relevant comment content when writing the plan.
+Treat `ISSUE_JSON` as the source of truth for the deterministic preflight data:
+- `title`, `body`, `labels`, and `comments` provide the issue summary and comment thread
+- `kind`, `source_problem`, and `target_problem` provide parsed issue metadata
+- `checks.good_label`, `checks.source_model`, and `checks.target_model` provide guard outcomes
+- `existing_prs`, `resume_pr`, and `action` tell you whether to resume an open PR instead of creating a new one
+
+Present the issue summary to the user. **Also review all comments** — contributors and maintainers may have posted clarifications, corrections, additional context, or design decisions that refine or override parts of the original issue body. Incorporate relevant comment content when writing the plan.
 
 ### 3. Verify Issue Has Passed check-issue
 
 The issue must have already passed the `check-issue` quality gate (Stage 1 validation). Do NOT re-validate the issue here.
 
-**Gate condition:** The issue must have the `Good` label (added by `check-issue` when all checks pass).
-
-```bash
-LABELS=$(gh issue view <number> --json labels --jq '[.labels[].name] | join(",")')
-```
-
-- If `Good` is NOT in the labels → **STOP**: "Issue #N has not passed check-issue. Please run `/check-issue <N>` first."
-- If `Good` is present → continue to step 4.
+Use `ISSUE_JSON.checks.good_label`:
+- If it is `fail` → **STOP**: "Issue #N has not passed check-issue. Please run `/check-issue <N>` first."
+- If it is `pass` → continue.
 
 ### 3.5. Model-Existence Guard (for `[Rule]` issues only)
 
-For `[Rule]` issues, parse the source and target problem names from the title (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Verify that **both** models already exist in the codebase on `main`:
+For `[Rule]` issues, `ISSUE_JSON` already includes `source_problem`, `target_problem`, and the deterministic model-existence checks.
 
-```bash
-grep -r "struct SourceName" src/models/
-grep -r "struct TargetName" src/models/
-```
-
-- If **both** models exist → continue to step 4.
-- If either model is missing → **STOP**. Comment on the issue: "Blocked: model `<name>` does not exist in main yet. Please implement it first (or file a `[Model]` issue)."
+- If both `checks.source_model` and `checks.target_model` are `pass` → continue to step 4.
+- If either is `fail` → **STOP**. Comment on the issue: "Blocked: model `<name>` does not exist in main yet. Please implement it first (or file a `[Model]` issue)."
 
 **One item per PR:** Do NOT implement a missing model as part of a `[Rule]` PR. Each PR should contain exactly one model or one rule, never both. This avoids bloated PRs and repeated implementation when the model is needed by multiple rules.
 
@@ -106,17 +110,14 @@ Include the concrete details from the issue (problem definition, reduction algor
 
 ### 6. Create PR (or Resume Existing)
 
-**Check for existing PR first:**
-```bash
-EXISTING_PR=$(gh pr list --search "Fixes #<number>" --state open --json number,headRefName --jq '.[0].number // empty')
-```
+Use the `ISSUE_JSON.action` and `ISSUE_JSON.resume_pr` fields from Step 2.
 
-**If a PR already exists** (`EXISTING_PR` is non-empty):
-- Switch to its branch: `git checkout <headRefName>`
-- Capture `PR=$EXISTING_PR`
+**If an open PR already exists** (`action == "resume-pr"`):
+- Switch to its branch: `git checkout <resume_pr.head_ref_name>`
+- Capture `PR=<resume_pr.number>`
 - Skip plan creation — jump directly to Step 7 (execute)
 
-**If no existing PR** — create one with only the plan file:
+**If no open PR exists** (`action == "create-pr"`) — create one with only the plan file:
 
 **Pre-flight checks** (before creating the branch):
 1. Verify clean working tree: `git status --porcelain` must be empty. If not, STOP and ask user to stash or commit.
@@ -194,7 +195,8 @@ Post an implementation summary comment on the PR **before** pushing. This commen
 - Note any open questions or trade-offs made
 
 ```bash
-gh pr comment $PR --body "$(cat <<'EOF'
+COMMENT_FILE=$(mktemp)
+cat > "$COMMENT_FILE" <<'EOF'
 ## Implementation Summary
 
 ### Changes
@@ -206,7 +208,8 @@ gh pr comment $PR --body "$(cat <<'EOF'
 ### Open Questions
 - [any trade-offs or items needing review — or "None"]
 EOF
-)"
+python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
+rm -f "$COMMENT_FILE"
 
 git push
 make copilot-review

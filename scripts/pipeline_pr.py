@@ -40,6 +40,10 @@ def run_gh_json(*args: str):
     return json.loads(run_gh(*args))
 
 
+def run_gh_checked(*args: str) -> None:
+    subprocess.check_call(["gh", *args])
+
+
 def login_for(entry: dict) -> str:
     return (entry.get("user") or entry.get("author") or {}).get("login", "")
 
@@ -448,6 +452,30 @@ def build_pr_snapshot(repo: str, pr_number: int) -> dict:
     )
 
 
+def post_pr_comment(repo: str, pr_number: int, body_file: str) -> None:
+    run_gh_checked(
+        "pr",
+        "comment",
+        str(pr_number),
+        "--repo",
+        repo,
+        "--body-file",
+        body_file,
+    )
+
+
+def edit_pr_body(repo: str, pr_number: int, body_file: str) -> None:
+    run_gh_checked(
+        "pr",
+        "edit",
+        str(pr_number),
+        "--repo",
+        repo,
+        "--body-file",
+        body_file,
+    )
+
+
 def emit_result(result: dict, fmt: str) -> None:
     if fmt == "json":
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -464,14 +492,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="PR automation helpers.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for name in ["snapshot", "comments", "ci", "wait-ci", "codecov", "linked-issue"]:
+    for name in [
+        "snapshot",
+        "comments",
+        "ci",
+        "wait-ci",
+        "codecov",
+        "linked-issue",
+        "comment",
+        "edit-body",
+    ]:
         command = subparsers.add_parser(name)
         command.add_argument("--repo", required=True)
         command.add_argument("--pr", required=True, type=int)
-        command.add_argument("--format", choices=["json", "text"], default="json")
         if name == "wait-ci":
             command.add_argument("--timeout", type=float, default=900)
             command.add_argument("--interval", type=float, default=30)
+        elif name in {"comment", "edit-body"}:
+            command.add_argument("--body-file", required=True)
+        else:
+            command.add_argument("--format", choices=["json", "text"], default="json")
 
     return parser.parse_args(argv)
 
@@ -515,6 +555,14 @@ def main(argv: list[str] | None = None) -> int:
             },
             args.format,
         )
+        return 0
+
+    if args.command == "comment":
+        post_pr_comment(args.repo, args.pr, args.body_file)
+        return 0
+
+    if args.command == "edit-body":
+        edit_pr_body(args.repo, args.pr, args.body_file)
         return 0
 
     raise AssertionError(f"Unhandled command: {args.command}")

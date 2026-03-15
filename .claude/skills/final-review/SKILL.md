@@ -295,7 +295,10 @@ This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer 
 1. Ask the reviewer for the reason (use `AskUserQuestion` with free text).
 2. Post a comment on the PR (or linked issue) with the reason:
    ```bash
-   gh pr comment <number> --body "**On Hold**: <reason>"
+   COMMENT_FILE=$(mktemp)
+   printf '**On Hold**: %s\n' "<reason>" > "$COMMENT_FILE"
+   python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "<number>" --body-file "$COMMENT_FILE"
+   rm -f "$COMMENT_FILE"
    ```
 3. Move the project board item to `OnHold`:
    ```bash

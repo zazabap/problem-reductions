@@ -163,6 +163,18 @@ def find_model_file(repo_root: Path, file_stem: str) -> Path | None:
     return matches[0] if matches else None
 
 
+def find_problem_declaration(repo_root: Path, problem_name: str) -> Path | None:
+    pattern = re.compile(rf"\b(?:pub\s+)?(?:struct|enum)\s+{re.escape(problem_name)}\b")
+    model_root = repo_root / "src/models"
+    if not model_root.exists():
+        return None
+
+    for path in sorted(model_root.rglob("*.rs")):
+        if pattern.search(path.read_text()):
+            return path
+    return None
+
+
 def check_entry(
     *,
     status: str,
@@ -342,6 +354,139 @@ def completeness_check(
     raise ValueError(f"Unsupported completeness kind: {kind}")
 
 
+RULE_TITLE_RE = re.compile(r"^\[Rule\]\s+(?P<source>.+?)\s+to\s+(?P<target>.+?)\s*$")
+MODEL_TITLE_RE = re.compile(r"^\[Model\]\s+(?P<name>.+?)\s*$")
+
+
+def issue_kind_from_title(title: str | None) -> tuple[str, str | None, str | None]:
+    title = (title or "").strip()
+
+    rule_match = RULE_TITLE_RE.match(title)
+    if rule_match:
+        return "rule", rule_match.group("source"), rule_match.group("target")
+
+    if MODEL_TITLE_RE.match(title):
+        return "model", None, None
+
+    return "other", None, None
+
+
+def normalize_issue_comment(comment: dict) -> dict:
+    author = comment.get("author") or comment.get("user") or {}
+    return {
+        "author": author.get("login") or author.get("name") or "",
+        "body": comment.get("body", ""),
+    }
+
+
+def normalize_existing_pr(pr: dict) -> dict:
+    return {
+        "number": pr.get("number"),
+        "head_ref_name": pr.get("headRefName"),
+        "url": pr.get("url"),
+    }
+
+
+def issue_guard_check(
+    repo_root: str | Path,
+    *,
+    issue: dict,
+    existing_prs: list[dict],
+) -> dict:
+    repo_root = Path(repo_root)
+    title = issue.get("title", "")
+    labels = [label.get("name") for label in issue.get("labels", []) if label.get("name")]
+    comments = [normalize_issue_comment(comment) for comment in issue.get("comments", [])]
+    kind, source_problem, target_problem = issue_kind_from_title(title)
+
+    checks = {
+        "good_label": (
+            check_entry(status="pass", detail='label "Good" present')
+            if "Good" in labels
+            else check_entry(status="fail", detail='missing required "Good" label')
+        ),
+        "source_model": check_entry(status="skip", detail="not a rule issue"),
+        "target_model": check_entry(status="skip", detail="not a rule issue"),
+    }
+
+    if kind == "rule":
+        source_path = find_problem_declaration(repo_root, source_problem or "")
+        target_path = find_problem_declaration(repo_root, target_problem or "")
+        checks["source_model"] = (
+            check_entry(status="pass", path=str(source_path.relative_to(repo_root)))
+            if source_path is not None
+            else check_entry(
+                status="fail",
+                detail=f"model {source_problem!r} not found under src/models/",
+            )
+        )
+        checks["target_model"] = (
+            check_entry(status="pass", path=str(target_path.relative_to(repo_root)))
+            if target_path is not None
+            else check_entry(
+                status="fail",
+                detail=f"model {target_problem!r} not found under src/models/",
+            )
+        )
+
+    missing = [name for name, entry in checks.items() if entry["status"] == "fail"]
+    normalized_existing_prs = [normalize_existing_pr(pr) for pr in existing_prs]
+    resume_pr = normalized_existing_prs[0] if normalized_existing_prs else None
+
+    return {
+        "issue_number": issue.get("number"),
+        "title": title,
+        "body": issue.get("body"),
+        "state": issue.get("state"),
+        "url": issue.get("url"),
+        "labels": labels,
+        "comments": comments,
+        "kind": kind,
+        "source_problem": source_problem,
+        "target_problem": target_problem,
+        "ok": not missing,
+        "checks": checks,
+        "missing": missing,
+        "existing_prs": normalized_existing_prs,
+        "resume_pr": resume_pr,
+        "action": "resume-pr" if resume_pr is not None else "create-pr",
+    }
+
+
+def run_gh_json(*args: str):
+    return json.loads(subprocess.check_output(["gh", *args], text=True))
+
+
+def fetch_issue(repo: str, issue_number: int) -> dict:
+    return run_gh_json(
+        "issue",
+        "view",
+        str(issue_number),
+        "--repo",
+        repo,
+        "--json",
+        "number,title,body,state,url,labels,comments",
+    )
+
+
+def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
+    data = run_gh_json(
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "open",
+        "--search",
+        f"Fixes #{issue_number}",
+        "--json",
+        "number,headRefName,url",
+    )
+    if not isinstance(data, list):
+        raise ValueError(f"Unexpected PR list payload for issue #{issue_number}: {data!r}")
+    return data
+
+
 def git_output(*args: str) -> list[str]:
     output = subprocess.check_output(["git", *args], text=True)
     return [line for line in output.splitlines() if line]
@@ -377,6 +522,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     completeness.add_argument("--target")
     completeness.add_argument("--repo-root", default=".")
     completeness.add_argument("--format", choices=["json", "text"], default="json")
+
+    issue_guards = subparsers.add_parser("issue-guards")
+    issue_guards.add_argument("--repo", required=True)
+    issue_guards.add_argument("--issue", required=True, type=int)
+    issue_guards.add_argument("--repo-root", default=".")
+    issue_guards.add_argument("--format", choices=["json", "text"], default="json")
 
     return parser.parse_args(argv)
 
@@ -416,6 +567,17 @@ def main(argv: list[str] | None = None) -> int:
                 name=args.name,
                 source=args.source,
                 target=args.target,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "issue-guards":
+        emit_result(
+            issue_guard_check(
+                args.repo_root,
+                issue=fetch_issue(args.repo, args.issue),
+                existing_prs=fetch_existing_prs(args.repo, args.issue),
             ),
             args.format,
         )

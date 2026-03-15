@@ -342,7 +342,7 @@ Keep:
 
 - [x] Rewrite `project-pipeline` to call scripts for board/worktree actions
 - [x] Rewrite `review-pipeline` to call scripts for board selection, PR context, CI wait, and cleanup
-- [ ] Rewrite `final-review`, `issue-to-pr`, and `fix-pr` similarly
+- [x] Rewrite `final-review`, `issue-to-pr`, and `fix-pr` similarly
 - [ ] Remove long shell snippets that duplicate script behavior
 
 ### Task 6: Makefile cleanup

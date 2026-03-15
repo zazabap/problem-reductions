@@ -243,6 +243,41 @@ class MakeHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_issue_guards_uses_pipeline_checks_cli(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "python3() { printf '%s\\n' \"$@\"; }; "
+                    "issue_guards CodingThrust/problem-reductions 117 /tmp/repo"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "scripts/pipeline_checks.py",
+                "issue-guards",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--issue",
+                "117",
+                "--repo-root",
+                "/tmp/repo",
+                "--format",
+                "json",
+            ],
+        )
+
     def test_pr_wait_ci_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")

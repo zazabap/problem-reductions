@@ -103,6 +103,15 @@ pr_wait_ci() {
     python3 scripts/pipeline_pr.py wait-ci --repo "$repo" --pr "$pr" --timeout "$timeout" --interval "$interval" --format json
 }
 
+# --- Issue helpers ---
+
+issue_guards() {
+    repo=$1
+    issue=$2
+    repo_root=${3:-.}
+    python3 scripts/pipeline_checks.py issue-guards --repo "$repo" --issue "$issue" --repo-root "$repo_root" --format json
+}
+
 # --- Worktree helpers ---
 
 create_issue_worktree() {

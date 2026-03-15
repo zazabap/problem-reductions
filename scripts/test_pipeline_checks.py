@@ -7,6 +7,7 @@ from pipeline_checks import (
     completeness_check,
     detect_scope_from_paths,
     file_whitelist_check,
+    issue_guard_check,
 )
 
 
@@ -225,6 +226,114 @@ class PipelineChecksTests(unittest.TestCase):
             self.assertIn("overhead_form", report["missing"])
             self.assertIn("paper_rule", report["missing"])
             self.assertIn("module_registration", report["missing"])
+
+    def test_issue_guards_pass_for_good_model_issue_without_existing_pr(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            report = issue_guard_check(
+                repo,
+                issue={
+                    "number": 117,
+                    "title": "[Model] GraphPartitioning",
+                    "body": "Implement the model.",
+                    "state": "OPEN",
+                    "url": "https://example.test/issues/117",
+                    "labels": [{"name": "Good"}],
+                    "comments": [
+                        {
+                            "author": {"login": "maintainer"},
+                            "body": "Use the paper notation.",
+                        }
+                    ],
+                },
+                existing_prs=[],
+            )
+
+            self.assertTrue(report["ok"])
+            self.assertEqual(report["kind"], "model")
+            self.assertEqual(report["checks"]["good_label"]["status"], "pass")
+            self.assertEqual(report["checks"]["source_model"]["status"], "skip")
+            self.assertEqual(report["comments"][0]["author"], "maintainer")
+            self.assertEqual(report["action"], "create-pr")
+
+    def test_issue_guards_fail_when_good_label_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            report = issue_guard_check(
+                repo,
+                issue={
+                    "number": 118,
+                    "title": "[Model] GraphPartitioning",
+                    "body": "Implement the model.",
+                    "state": "OPEN",
+                    "url": "https://example.test/issues/118",
+                    "labels": [{"name": "NeedsCheck"}],
+                    "comments": [],
+                },
+                existing_prs=[],
+            )
+
+            self.assertFalse(report["ok"])
+            self.assertIn("good_label", report["missing"])
+            self.assertEqual(report["checks"]["good_label"]["status"], "fail")
+
+    def test_issue_guards_fail_rule_issue_when_target_model_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(
+                repo / "src/models/misc/bin_packing.rs",
+                "pub struct BinPacking;\n",
+            )
+
+            report = issue_guard_check(
+                repo,
+                issue={
+                    "number": 119,
+                    "title": "[Rule] BinPacking to ILP",
+                    "body": "Implement the reduction.",
+                    "state": "OPEN",
+                    "url": "https://example.test/issues/119",
+                    "labels": [{"name": "Good"}],
+                    "comments": [],
+                },
+                existing_prs=[],
+            )
+
+            self.assertFalse(report["ok"])
+            self.assertEqual(report["kind"], "rule")
+            self.assertEqual(report["source_problem"], "BinPacking")
+            self.assertEqual(report["target_problem"], "ILP")
+            self.assertEqual(report["checks"]["source_model"]["status"], "pass")
+            self.assertEqual(report["checks"]["target_model"]["status"], "fail")
+            self.assertIn("target_model", report["missing"])
+
+    def test_issue_guards_report_existing_open_pr_for_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            report = issue_guard_check(
+                repo,
+                issue={
+                    "number": 120,
+                    "title": "[Model] GraphPartitioning",
+                    "body": "Implement the model.",
+                    "state": "OPEN",
+                    "url": "https://example.test/issues/120",
+                    "labels": [{"name": "Good"}],
+                    "comments": [],
+                },
+                existing_prs=[
+                    {
+                        "number": 650,
+                        "headRefName": "issue-120-graph-partitioning",
+                        "url": "https://example.test/pull/650",
+                    }
+                ],
+            )
+
+            self.assertTrue(report["ok"])
+            self.assertEqual(report["action"], "resume-pr")
+            self.assertEqual(report["resume_pr"]["number"], 650)
+            self.assertEqual(report["resume_pr"]["head_ref_name"], "issue-120-graph-partitioning")
 
     def _write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

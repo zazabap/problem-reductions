@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import unittest
+from unittest import mock
 
 from pipeline_pr import (
     build_snapshot,
+    edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
+    post_pr_comment,
+    parse_args,
     summarize_check_runs,
     summarize_comments,
     wait_for_ci,
@@ -222,6 +226,77 @@ class PipelinePrHelpersTests(unittest.TestCase):
 
         self.assertEqual(result["state"], "success")
         self.assertEqual(sleeps, [5, 5])
+
+    @mock.patch("pipeline_pr.subprocess.check_call")
+    def test_post_pr_comment_uses_gh_pr_comment_with_body_file(self, check_call: mock.Mock) -> None:
+        post_pr_comment(
+            "CodingThrust/problem-reductions",
+            570,
+            "/tmp/comment.md",
+        )
+
+        check_call.assert_called_once_with(
+            [
+                "gh",
+                "pr",
+                "comment",
+                "570",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--body-file",
+                "/tmp/comment.md",
+            ]
+        )
+
+    @mock.patch("pipeline_pr.subprocess.check_call")
+    def test_edit_pr_body_uses_gh_pr_edit_with_body_file(self, check_call: mock.Mock) -> None:
+        edit_pr_body(
+            "CodingThrust/problem-reductions",
+            570,
+            "/tmp/body.md",
+        )
+
+        check_call.assert_called_once_with(
+            [
+                "gh",
+                "pr",
+                "edit",
+                "570",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--body-file",
+                "/tmp/body.md",
+            ]
+        )
+
+    def test_parse_args_accepts_comment_and_edit_body_commands(self) -> None:
+        comment_args = parse_args(
+            [
+                "comment",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--pr",
+                "570",
+                "--body-file",
+                "/tmp/comment.md",
+            ]
+        )
+        self.assertEqual(comment_args.command, "comment")
+        self.assertEqual(comment_args.body_file, "/tmp/comment.md")
+
+        edit_args = parse_args(
+            [
+                "edit-body",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--pr",
+                "570",
+                "--body-file",
+                "/tmp/body.md",
+            ]
+        )
+        self.assertEqual(edit_args.command, "edit-body")
+        self.assertEqual(edit_args.body_file, "/tmp/body.md")
 
 
 if __name__ == "__main__":
