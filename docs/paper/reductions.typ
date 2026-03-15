@@ -1649,16 +1649,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Count:* #ks_qubo.solutions.len() optimal QUBO solution. The source optimum is unique because items $\{0, 3\}$ are the only feasible selection achieving value 10.
   ],
 )[
-  The 0-1 Knapsack capacity inequality $sum_i w_i x_i lt.eq C$ is converted to equality using $B = floor(log_2 C) + 1$ binary slack variables encoding the unused capacity. The penalty method (@sec:penalty-method) combines the negated value objective with a quadratic constraint penalty, producing a QUBO with $n + B$ binary variables.
+  For a standard 0-1 Knapsack instance with nonnegative weights, nonnegative values, and nonnegative capacity, the inequality $sum_i w_i x_i lt.eq C$ is converted to equality using binary slack variables that encode the unused capacity. When $C > 0$, one can take $B = floor(log_2 C) + 1$ slack bits; when $C = 0$, a single slack bit also suffices. The penalty method (@sec:penalty-method) combines the negated value objective with a quadratic constraint penalty, producing a QUBO with $n + B$ binary variables.
 ][
-  _Construction._ Given $n$ items with weights $w_0, dots, w_(n-1)$, values $v_0, dots, v_(n-1)$, and capacity $C$, introduce $B = floor(log_2 C) + 1$ binary slack variables $s_0, dots, s_(B-1)$ to convert the capacity inequality to equality:
+  _Construction._ Given $n$ items with nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and nonnegative capacity $C$, introduce $B = floor(log_2 C) + 1$ binary slack variables $s_0, dots, s_(B-1)$ when $C > 0$ (or one slack bit when $C = 0$) to convert the capacity inequality to equality:
   $ sum_(i=0)^(n-1) w_i x_i + sum_(j=0)^(B-1) 2^j s_j = C $
   Let $a_k$ denote the constraint coefficient of the $k$-th binary variable ($a_k = w_k$ for $k < n$, $a_(n+j) = 2^j$ for $j < B$). The QUBO objective is:
   $ f(bold(z)) = -sum_(i=0)^(n-1) v_i x_i + P (sum_k a_k z_k - C)^2 $
   where $bold(z) = (x_0, dots, x_(n-1), s_0, dots, s_(B-1))$ and $P = 1 + sum_i v_i$. Expanding the quadratic penalty using $z_k^2 = z_k$ (binary):
   $ Q_(k k) = P a_k^2 - 2 P C a_k - [k < n] v_k, quad Q_(i j) = 2 P a_i a_j quad (i < j) $
 
-  _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective, exceeding the entire value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
+  _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective. Since all values are nonnegative, every feasible assignment has objective in the range $[-sum_i v_i, 0]$, so that penalty exceeds the entire feasible value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(z)[0..n]$.
 ]

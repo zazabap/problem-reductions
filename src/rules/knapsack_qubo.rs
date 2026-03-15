@@ -1,9 +1,12 @@
 //! Reduction from Knapsack to QUBO.
 //!
-//! Converts the capacity inequality sum(w_i * x_i) <= C into equality using B = floor(log2(C)) + 1
-//! binary slack variables, then constructs a QUBO that combines the objective
-//! -sum(v_i * x_i) with a quadratic penalty P * (sum(w_i * x_i) + sum(2^j * s_j) - C)^2.
-//! Penalty P > sum(v_i) ensures any infeasible solution costs more than any feasible one.
+//! Converts a nonnegative 0-1 Knapsack instance into QUBO by turning the
+//! capacity inequality sum(w_i * x_i) <= C into equality using binary slack
+//! variables, then constructing a QUBO that combines the objective
+//! -sum(v_i * x_i) with a quadratic penalty
+//! P * (sum(w_i * x_i) + sum(2^j * s_j) - C)^2.
+//! For nonnegative values, penalty P > sum(v_i) ensures any infeasible solution
+//! costs more than any feasible one.
 //!
 //! Reference: Lucas, 2014, "Ising formulations of many NP problems".
 

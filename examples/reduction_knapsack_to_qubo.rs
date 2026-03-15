@@ -11,7 +11,7 @@
 // - Optimal: items {0,3} (weight=7, value=10)
 //
 // ## Output
-// Exports `docs/paper/examples/knapsack_to_qubo.json` and `knapsack_to_qubo.result.json`.
+// Exports `docs/paper/examples/generated/knapsack_to_qubo.json` by default.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -52,35 +52,19 @@ pub fn run() {
     println!("Source value: {:?}", knapsack.evaluate(&source_sol));
     println!("\nReduction verified successfully");
 
-    // Export JSON
-    let source_variant = variant_to_map(Knapsack::variant());
-    let target_variant = variant_to_map(QUBO::<f64>::variant());
-    let overhead = lookup_overhead("Knapsack", &source_variant, "QUBO", &target_variant)
+    // Export JSON using the merged rule-example format.
+    let source = ProblemSide::from_problem(&knapsack);
+    let target = ProblemSide::from_problem(qubo);
+    let overhead = lookup_overhead(&source.problem, &source.variant, &target.problem, &target.variant)
         .expect("Knapsack -> QUBO overhead not found");
 
-    let data = ReductionData {
-        source: ProblemSide {
-            problem: Knapsack::NAME.to_string(),
-            variant: source_variant,
-            instance: serde_json::json!({
-                "num_items": knapsack.num_items(),
-                "weights": knapsack.weights(),
-                "values": knapsack.values(),
-                "capacity": knapsack.capacity(),
-            }),
-        },
-        target: ProblemSide {
-            problem: QUBO::<f64>::NAME.to_string(),
-            variant: target_variant,
-            instance: serde_json::json!({
-                "num_vars": qubo.num_vars(),
-            }),
-        },
+    let example = RuleExample {
+        source,
+        target,
         overhead: overhead_to_json(&overhead),
+        solutions,
     };
-
-    let results = ResultData { solutions };
-    write_example("knapsack_to_qubo", &data, &results);
+    write_rule_example("knapsack_to_qubo", &example);
 }
 
 fn main() {
