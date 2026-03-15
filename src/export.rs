@@ -5,11 +5,8 @@ use crate::rules::ReductionGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
-
-pub const EXAMPLES_DIR_ENV: &str = "PROBLEMREDUCTIONS_EXAMPLES_DIR";
+use std::path::Path;
 
 /// One side (source or target) of a reduction.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -156,15 +153,6 @@ pub fn variant_to_map(variant: Vec<(&str, &str)>) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Default output directory for generated example JSON.
-pub fn examples_output_dir() -> PathBuf {
-    if let Some(dir) = env::var_os(EXAMPLES_DIR_ENV) {
-        PathBuf::from(dir)
-    } else {
-        PathBuf::from("docs/paper/examples/generated")
-    }
-}
-
 fn write_json_file<T: Serialize>(dir: &Path, name: &str, payload: &T) {
     fs::create_dir_all(dir).expect("Failed to create examples directory");
     let path = dir.join(format!("{name}.json"));
@@ -178,19 +166,9 @@ pub fn write_rule_example_to(dir: &Path, name: &str, example: &RuleExample) {
     write_json_file(dir, name, example);
 }
 
-/// Write a merged rule example JSON file to the configured output directory.
-pub fn write_rule_example(name: &str, example: &RuleExample) {
-    write_rule_example_to(&examples_output_dir(), name, example);
-}
-
 /// Write a model example JSON file to a target directory.
 pub fn write_model_example_to(dir: &Path, name: &str, example: &ModelExample) {
     write_json_file(dir, name, example);
-}
-
-/// Write a model example JSON file to the configured output directory.
-pub fn write_model_example(name: &str, example: &ModelExample) {
-    write_model_example_to(&examples_output_dir(), name, example);
 }
 
 /// Write the canonical rule database as a wrapped JSON object.

@@ -18,7 +18,7 @@ Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reducti
 Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
 - A canonical example exists in `src/example_db/rule_builders.rs`
-- Example JSON is generated (`make examples`)
+- If the canonical example changed, fixtures are regenerated (`make regenerate-fixtures`)
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Step 1: Load Example Data
@@ -29,8 +29,8 @@ Before using this skill, ensure:
 ```
 
 Where:
-- `load-example(source, target)` looks up the canonical rule entry from the generated rule database
-- The returned record contains `source`, `target`, `overhead`, and `solutions`
+- `load-example(source, target, ...)` looks up the canonical rule entry from `src/example_db/fixtures/examples.json`
+- The returned record contains `source`, `target`, and `solutions`
 - Access fields: `src_tgt.source.instance`, `src_tgt.target.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
 
 ## Step 2: Write the Theorem Body (Rule Statement)
@@ -220,9 +220,6 @@ If this is a new problem not yet in the paper, add to the `display-name` diction
 ## Step 6: Build and Verify
 
 ```bash
-# Regenerate example JSON (if not already done)
-make examples
-
 # Build the paper
 make paper
 ```

@@ -14,11 +14,8 @@
 //! Use `compute_*_db` to regenerate from code (slow, test/CI only).
 
 use crate::error::{ProblemError, Result};
-use crate::export::{
-    examples_output_dir, ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample,
-};
+use crate::export::{ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample};
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 mod model_builders;
 mod rule_builders;
@@ -137,11 +134,6 @@ pub fn find_model_example(problem: &ProblemRef) -> Result<ModelExample> {
             ))
         })
 }
-
-pub fn default_generated_dir() -> PathBuf {
-    examples_output_dir()
-}
-
 #[cfg(test)]
 #[path = "../unit_tests/example_db.rs"]
 mod tests;

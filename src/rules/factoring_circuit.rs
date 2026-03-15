@@ -321,11 +321,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     }
                 })
                 .collect();
-            crate::example_db::specs::assemble_rule_example(
-                &source,
-                target,
-                solutions,
-            )
+            crate::example_db::specs::assemble_rule_example(&source, target, solutions)
         },
     }]
 }

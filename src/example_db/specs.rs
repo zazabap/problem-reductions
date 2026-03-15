@@ -3,9 +3,7 @@
 //! These types describe canonical model and rule examples with metadata
 //! that can be validated against the catalog and reduction registry.
 
-use crate::export::{
-    ModelExample, ProblemSide, RuleExample, SampleEval, SolutionPair,
-};
+use crate::export::{ModelExample, ProblemSide, RuleExample, SampleEval, SolutionPair};
 use crate::models::algebraic::{VariableDomain, ILP};
 use crate::prelude::{OptimizationProblem, Problem, ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};

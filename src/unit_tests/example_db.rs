@@ -3,7 +3,7 @@ use crate::example_db::{
     find_model_example, find_rule_example,
 };
 use crate::export::ProblemRef;
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense, QUBO};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP, QUBO};
 use crate::models::graph::{MaximumMatching, SpinGlass};
 use crate::registry::load_dyn;
 use crate::rules::{registry::reduction_entries, ReductionGraph};
@@ -280,14 +280,6 @@ fn find_model_example_nonexistent_returns_error() {
     );
 }
 
-#[test]
-fn default_generated_dir_returns_path() {
-    use crate::example_db::default_generated_dir;
-    let dir = default_generated_dir();
-    // Should return a valid path (either from env or the default)
-    assert!(!dir.as_os_str().is_empty());
-}
-
 fn problem_json_key(value: &Value) -> String {
     serde_json::to_string(value).expect("json value should serialize")
 }
@@ -309,9 +301,7 @@ fn term_key(term: &Value) -> (u64, String) {
     (variable, problem_json_key(term))
 }
 
-fn graph_edges_mut(
-    object: &mut serde_json::Map<String, Value>,
-) -> Option<&mut Vec<Value>> {
+fn graph_edges_mut(object: &mut serde_json::Map<String, Value>) -> Option<&mut Vec<Value>> {
     let graph = object.get_mut("graph")?.as_object_mut()?;
     if graph.contains_key("inner") {
         return graph
@@ -385,12 +375,13 @@ fn normalize_ilp_instance(instance: &mut Value) {
 }
 
 fn normalize_problem_instance(problem: &ProblemRef, instance: &Value) -> Value {
-    let loaded = load_dyn(&problem.name, &problem.variant, instance.clone()).unwrap_or_else(|err| {
-        panic!(
-            "fixture instance should deserialize for {} {:?}: {}",
-            problem.name, problem.variant, err
-        )
-    });
+    let loaded =
+        load_dyn(&problem.name, &problem.variant, instance.clone()).unwrap_or_else(|err| {
+            panic!(
+                "fixture instance should deserialize for {} {:?}: {}",
+                problem.name, problem.variant, err
+            )
+        });
     let mut normalized = loaded.serialize_json();
     normalize_graph_instance(&problem.name, &mut normalized);
     if problem.name == "ILP" {
@@ -587,7 +578,8 @@ fn verify_model_fixtures_match_computed() {
             json_semantically_equal(&loaded_instance, &computed_instance),
             "model fixture instance mismatch for {} {:?} — regenerate fixtures with: \
              cargo run --release --example regenerate_fixtures --features example-db",
-            loaded_model.problem, loaded_model.variant
+            loaded_model.problem,
+            loaded_model.variant
         );
         assert_eq!(
             loaded_model.samples, computed_model.samples,
@@ -646,8 +638,10 @@ fn verify_rule_fixtures_match_computed() {
             .get(&key)
             .expect("computed fixture key should exist");
 
-        let loaded_source =
-            normalize_problem_instance(&loaded_rule.source.problem_ref(), &loaded_rule.source.instance);
+        let loaded_source = normalize_problem_instance(
+            &loaded_rule.source.problem_ref(),
+            &loaded_rule.source.instance,
+        );
         let computed_source = normalize_problem_instance(
             &computed_rule.source.problem_ref(),
             &computed_rule.source.instance,
@@ -655,10 +649,13 @@ fn verify_rule_fixtures_match_computed() {
         assert!(
             json_semantically_equal(&loaded_source, &computed_source),
             "source instance mismatch for {} -> {} — regenerate fixtures",
-            loaded_rule.source.problem, loaded_rule.target.problem
+            loaded_rule.source.problem,
+            loaded_rule.target.problem
         );
-        let loaded_target =
-            normalize_problem_instance(&loaded_rule.target.problem_ref(), &loaded_rule.target.instance);
+        let loaded_target = normalize_problem_instance(
+            &loaded_rule.target.problem_ref(),
+            &loaded_rule.target.instance,
+        );
         let computed_target = normalize_problem_instance(
             &computed_rule.target.problem_ref(),
             &computed_rule.target.instance,
@@ -666,7 +663,8 @@ fn verify_rule_fixtures_match_computed() {
         assert!(
             json_semantically_equal(&loaded_target, &computed_target),
             "target instance mismatch for {} -> {} — regenerate fixtures",
-            loaded_rule.source.problem, loaded_rule.target.problem
+            loaded_rule.source.problem,
+            loaded_rule.target.problem
         );
         let loaded_solutions: BTreeSet<_> = loaded_rule
             .solutions

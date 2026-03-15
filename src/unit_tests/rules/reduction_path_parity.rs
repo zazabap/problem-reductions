@@ -5,8 +5,8 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
-use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::rules::test_helpers::assert_optimization_round_trip_chain;
+use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

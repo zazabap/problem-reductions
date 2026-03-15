@@ -83,7 +83,10 @@ fn test_write_canonical_example_db() {
     let examples_json: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("examples.json")).unwrap()).unwrap();
 
-    assert_eq!(examples_json["rules"][0]["source"]["problem"], "SourceProblem");
+    assert_eq!(
+        examples_json["rules"][0]["source"]["problem"],
+        "SourceProblem"
+    );
     assert_eq!(examples_json["models"][0]["problem"], "ModelProblem");
     assert!(
         !dir.join("rules.json").exists(),
@@ -138,7 +141,10 @@ fn test_write_example_db_uses_wrapped_json_contract() {
     let examples_json: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("examples.json")).unwrap()).unwrap();
 
-    assert_eq!(examples_json["rules"][0]["source"]["problem"], "SourceProblem");
+    assert_eq!(
+        examples_json["rules"][0]["source"]["problem"],
+        "SourceProblem"
+    );
     assert_eq!(examples_json["models"][0]["problem"], "ModelProblem");
 
     let _ = fs::remove_dir_all(&dir);
@@ -246,32 +252,6 @@ fn model_example_problem_ref() {
     let pref = example.problem_ref();
     assert_eq!(pref.name, "TestProblem");
     assert_eq!(pref.variant["graph"], "SimpleGraph");
-}
-
-#[test]
-fn examples_output_dir_fallback() {
-    // Without PROBLEMREDUCTIONS_EXAMPLES_DIR set, should fallback
-    let dir = examples_output_dir();
-    let expected = std::path::PathBuf::from("docs/paper/examples/generated");
-    // Clean env first to ensure deterministic result
-    if std::env::var_os(EXAMPLES_DIR_ENV).is_none() {
-        assert_eq!(dir, expected);
-    }
-}
-
-#[test]
-fn examples_output_dir_env_override() {
-    // Temporarily set the env var and check it's respected
-    let key = EXAMPLES_DIR_ENV;
-    let old = std::env::var_os(key);
-    std::env::set_var(key, "/tmp/custom_examples");
-    let dir = examples_output_dir();
-    assert_eq!(dir, std::path::PathBuf::from("/tmp/custom_examples"));
-    // Restore
-    match old {
-        Some(v) => std::env::set_var(key, v),
-        None => std::env::remove_var(key),
-    }
 }
 
 #[test]

@@ -41,7 +41,7 @@ make fmt-check      # Check code formatting
 make clippy         # Run clippy lints
 make doc            # Build mdBook documentation (includes reduction graph export)
 make mdbook         # Build and serve mdBook with live reload
-make paper          # Build Typst paper (runs examples + exports first)
+make paper          # Build Typst paper from checked-in example fixtures
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
 make rust-export    # Generate Julia parity test data (mapping stages)
@@ -49,7 +49,6 @@ make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
 make diagrams      # Generate SVG diagrams from Typst (light + dark)
-make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
 make cli           # Build the pred CLI tool (without MCP, fast)

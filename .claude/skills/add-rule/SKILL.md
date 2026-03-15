@@ -162,7 +162,6 @@ Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see refer
 ### 5d. Build and verify
 
 ```bash
-make examples  # Regenerate example JSON
 make paper     # Must compile without errors
 ```
 
