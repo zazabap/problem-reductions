@@ -102,6 +102,41 @@ Use `AskUserQuestion` to confirm:
 > - "I see an issue" — reviewer describes the problem
 > - "Skip" — skip this check
 
+### Step 3b: File whitelist check
+
+Check that the PR only touches files expected for its type. Any file outside the whitelist is flagged for review — it may be a legacy pattern or an unrelated change.
+
+**Whitelist for [Model] PRs:**
+- `src/models/<category>/<name>.rs` — model implementation
+- `src/unit_tests/models/<category>/<name>.rs` — unit tests
+- `src/example_db/model_builders.rs` — canonical example registration
+- `src/example_db/rule_builders.rs` — only if updating nonempty-style assertions
+- `docs/paper/reductions.typ` — paper entry
+- `docs/src/reductions/problem_schemas.json` — schema export
+- `docs/src/reductions/reduction_graph.json` — graph export
+- `tests/suites/trait_consistency.rs` — trait consistency entry
+
+**Whitelist for [Rule] PRs:**
+- `src/rules/<source>_<target>.rs` — reduction implementation
+- `src/rules/mod.rs` — module registration
+- `src/unit_tests/rules/<source>_<target>.rs` — unit tests
+- `src/example_db/rule_builders.rs` — canonical example registration
+- `src/models/<category>/<name>.rs` — only if adding getters needed for overhead expressions
+- `docs/paper/reductions.typ` — paper entry
+- `docs/src/reductions/reduction_graph.json` — graph export
+- `docs/src/reductions/problem_schemas.json` — only if updating field descriptions
+
+If any file falls outside these whitelists, flag it:
+
+> **File Whitelist Check**
+>
+> Found N file(s) outside expected whitelist:
+> - `path/to/file` — [what it does, why it may not belong]
+>
+> These should be reviewed — they may follow a deprecated pattern or be unrelated to this PR.
+
+If all files are whitelisted, report "All files within expected whitelist" and continue.
+
 ### Step 4: Completeness check
 
 Verify the PR includes all required components. Check:
@@ -162,14 +197,16 @@ Present to reviewer:
 > Strengths:
 > - [bullet points]
 >
-> Weaknesses:
-> - [bullet points]
+> Weaknesses (numbered):
+> 1. [issue description — file:line if applicable]
+> 2. [issue description — file:line if applicable]
+> ...
 >
 > Comparable to: [name a similar-quality existing model/rule for reference]
 
 ### Step 6: Final decision
 
-Summarize all findings and ask the reviewer for a decision.
+Summarize all findings and present the numbered issues as selectable options.
 
 Present a summary table:
 
@@ -181,13 +218,16 @@ Present a summary table:
 | Quality | [N%] |
 | PR URL | [link] |
 
-Use `AskUserQuestion`:
+Then present all numbered issues from Step 5 as a multi-select `AskUserQuestion`:
 
-> **What would you like to do with this PR?**
-> - "Merge" — approve and show merge link for browser
-> - "OnHold" — move to OnHold column with a reason comment
-> - "Quick fix" — fix specific issues before merging (describe what to fix)
-> - "Reject" — close the PR with explanation
+> **Which issues should be fixed before merging?** (select all that apply, or "Merge as-is")
+> - "Merge as-is" — no fixes needed
+> - "Fix 1: [short description]" — [one-line summary]
+> - "Fix 2: [short description]" — [one-line summary]
+> - ...
+> - "OnHold" — move to OnHold column with a reason
+
+This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer selects fixes, proceed to Step 7 Quick fix. If "Merge as-is", proceed to Step 7 Merge.
 
 ### Step 7: Execute decision
 
@@ -208,7 +248,7 @@ Use `AskUserQuestion`:
    ```
 
 **If Quick fix:**
-1. Ask the reviewer what needs fixing (use `AskUserQuestion`).
+1. Apply only the fixes the reviewer selected in Step 6.
 2. Checkout the PR branch in a worktree, apply fixes, commit, push.
 3. After push, go back to Step 6 to re-confirm the decision.
 

@@ -21,6 +21,40 @@ class MakeHelpersTests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
+    def test_run_agent_enables_multi_agent_for_codex(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "codex() { printf '%s\\n' \"$@\"; }; "
+                    "RUNNER=codex CODEX_MODEL=test-model "
+                    "run_agent /dev/null 'test prompt'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "exec",
+                "--enable",
+                "multi_agent",
+                "-m",
+                "test-model",
+                "-s",
+                "danger-full-access",
+                "test prompt",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

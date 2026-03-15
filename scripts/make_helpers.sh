@@ -34,6 +34,7 @@ run_agent() {
             -p "$prompt" 2>&1 | tee "$output_file"
     else
         codex exec \
+            --enable multi_agent \
             -m "${CODEX_MODEL:-gpt-5.4}" \
             -s danger-full-access \
             "$prompt" 2>&1 | tee "$output_file"
