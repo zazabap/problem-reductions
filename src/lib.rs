@@ -56,9 +56,8 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-        ShortestCommonSupersequence, SubsetSum,
+        SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
     };
-    pub use crate::models::misc::SequencingWithinIntervals;
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
