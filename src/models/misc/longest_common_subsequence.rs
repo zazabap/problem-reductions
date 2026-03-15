@@ -186,6 +186,22 @@ crate::declare_variants! {
     default opt LongestCommonSubsequence => "2^min_string_length",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "longest_common_subsequence",
+        build: || {
+            // Paper example: s1 = "ABAC", s2 = "BACA", LCS length 3
+            let problem = LongestCommonSubsequence::new(vec![
+                vec![b'A', b'B', b'A', b'C'],
+                vec![b'B', b'A', b'C', b'A'],
+            ]);
+            // Config over s1 (shortest, both len 4): select positions 1,2,3 → "BAC"
+            crate::example_db::specs::optimization_example(problem, vec![vec![0, 1, 1, 1]])
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/longest_common_subsequence.rs"]
 mod tests;
