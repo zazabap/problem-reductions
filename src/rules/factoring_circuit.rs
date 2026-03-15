@@ -324,7 +324,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 target,
-                crate::example_db::specs::direct_overhead::<Factoring, CircuitSAT>(),
                 solutions,
             )
         },

@@ -2,10 +2,9 @@
 //!
 //! The example database has two layers:
 //!
-//! - **Fixtures** (`fixtures/models.json`, `fixtures/rules.json`): pre-computed
-//!   expected results embedded at compile time as JSON Lines, one example per
-//!   line. These are the "stored expected results" used for fast export and
-//!   lookups.
+//! - **Fixtures** (`fixtures/examples.json`): pre-computed expected results
+//!   embedded at compile time as a wrapped JSON object. These are the "stored
+//!   expected results" used for fast export and lookups.
 //!
 //! - **Builders** (`model_builders`, `rule_builders`): code that constructs
 //!   problem instances and computes solutions via BruteForce/ILP. Used only
@@ -16,8 +15,7 @@
 
 use crate::error::{ProblemError, Result};
 use crate::export::{
-    examples_output_dir, parse_model_db_json_lines, parse_rule_db_json_lines, ModelDb,
-    ModelExample, ProblemRef, RuleDb, RuleExample,
+    examples_output_dir, ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample,
 };
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -64,23 +62,39 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
 
 // ---- Fixture loading (fast, used by default) ----
 
-/// Load the model database from the embedded fixture file.
-pub fn build_model_db() -> Result<ModelDb> {
-    static MODELS_JSON: &str = include_str!("fixtures/models.json");
-    let db = parse_model_db_json_lines(MODELS_JSON);
+/// Load the full example database from the embedded fixture file.
+pub fn build_example_db() -> Result<ExampleDb> {
+    static EXAMPLES_JSON: &str = include_str!("fixtures/examples.json");
+    let db: ExampleDb =
+        serde_json::from_str(EXAMPLES_JSON).expect("example fixtures should be valid JSON");
     validate_model_uniqueness(&db.models)?;
-    Ok(db)
-}
-
-/// Load the rule database from the embedded fixture file.
-pub fn build_rule_db() -> Result<RuleDb> {
-    static RULES_JSON: &str = include_str!("fixtures/rules.json");
-    let db = parse_rule_db_json_lines(RULES_JSON);
     validate_rule_uniqueness(&db.rules)?;
     Ok(db)
 }
 
+/// Load the model database from the embedded fixture file.
+pub fn build_model_db() -> Result<ModelDb> {
+    let db = build_example_db()?;
+    Ok(ModelDb { models: db.models })
+}
+
+/// Load the rule database from the embedded fixture file.
+pub fn build_rule_db() -> Result<RuleDb> {
+    let db = build_example_db()?;
+    Ok(RuleDb { rules: db.rules })
+}
+
 // ---- Computation from builders (slow, for regeneration and verification) ----
+
+/// Recompute the full example database from builder code.
+pub fn compute_example_db() -> Result<ExampleDb> {
+    let model_db = compute_model_db()?;
+    let rule_db = compute_rule_db()?;
+    Ok(ExampleDb {
+        models: model_db.models,
+        rules: rule_db.rules,
+    })
+}
 
 /// Recompute the model database from builder code (runs BruteForce).
 pub fn compute_model_db() -> Result<ModelDb> {

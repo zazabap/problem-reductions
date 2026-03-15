@@ -1,10 +1,8 @@
 //! JSON export schema for example payloads.
 
-use crate::expr::Expr;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::ReductionGraph;
 use crate::traits::Problem;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
@@ -53,19 +51,6 @@ pub struct ProblemRef {
     pub variant: BTreeMap<String, String>,
 }
 
-/// One output field mapped to an expression.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct OverheadEntry {
-    pub field: String,
-    #[serde(skip_deserializing, default = "default_expr")]
-    pub expr: Expr,
-    pub formula: String,
-}
-
-fn default_expr() -> Expr {
-    Expr::Const(0.0)
-}
-
 /// One source↔target solution pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
@@ -78,7 +63,6 @@ pub struct SolutionPair {
 pub struct RuleExample {
     pub source: ProblemSide,
     pub target: ProblemSide,
-    pub overhead: Vec<OverheadEntry>,
     pub solutions: Vec<SolutionPair>,
 }
 
@@ -128,23 +112,17 @@ pub struct ModelDb {
     pub models: Vec<ModelExample>,
 }
 
+/// Canonical exported database of model and rule examples.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ExampleDb {
+    pub models: Vec<ModelExample>,
+    pub rules: Vec<RuleExample>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SampleEval {
     pub config: Vec<usize>,
     pub metric: serde_json::Value,
-}
-
-/// Convert a `ReductionOverhead` to JSON-serializable entries.
-pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
-    overhead
-        .output_size
-        .iter()
-        .map(|(field, expr)| OverheadEntry {
-            field: field.to_string(),
-            formula: expr.to_string(),
-            expr: expr.clone(),
-        })
-        .collect()
 }
 
 /// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
@@ -195,50 +173,6 @@ fn write_json_file<T: Serialize>(dir: &Path, name: &str, payload: &T) {
     println!("Exported: {}", path.display());
 }
 
-fn parse_json_lines<T>(json_lines: &str, label: &str) -> Vec<T>
-where
-    T: DeserializeOwned,
-{
-    json_lines
-        .lines()
-        .enumerate()
-        .filter_map(|(index, line)| {
-            let line = line.trim();
-            if line.is_empty() {
-                return None;
-            }
-            Some(serde_json::from_str(line).unwrap_or_else(|err| {
-                panic!("Failed to parse {label} fixture line {}: {err}", index + 1)
-            }))
-        })
-        .collect()
-}
-
-fn write_json_lines_file<T: Serialize>(dir: &Path, name: &str, values: &[T]) {
-    fs::create_dir_all(dir).expect("Failed to create examples directory");
-    let path = dir.join(format!("{name}.json"));
-    let mut json_lines = String::new();
-    for value in values {
-        let line = serde_json::to_string(value).expect("Failed to serialize JSON line");
-        json_lines.push_str(&line);
-        json_lines.push('\n');
-    }
-    fs::write(&path, json_lines).expect("Failed to write example JSON lines");
-    println!("Exported: {}", path.display());
-}
-
-pub(crate) fn parse_rule_db_json_lines(json_lines: &str) -> RuleDb {
-    RuleDb {
-        rules: parse_json_lines(json_lines, "rule"),
-    }
-}
-
-pub(crate) fn parse_model_db_json_lines(json_lines: &str) -> ModelDb {
-    ModelDb {
-        models: parse_json_lines(json_lines, "model"),
-    }
-}
-
 /// Write a merged rule example JSON file.
 pub fn write_rule_example_to(dir: &Path, name: &str, example: &RuleExample) {
     write_json_file(dir, name, example);
@@ -259,14 +193,19 @@ pub fn write_model_example(name: &str, example: &ModelExample) {
     write_model_example_to(&examples_output_dir(), name, example);
 }
 
-/// Write the canonical rule database to `rules.json`.
+/// Write the canonical rule database as a wrapped JSON object.
 pub fn write_rule_db_to(dir: &Path, db: &RuleDb) {
-    write_json_lines_file(dir, "rules", &db.rules);
+    write_json_file(dir, "rules", db);
 }
 
-/// Write the canonical model database to `models.json`.
+/// Write the canonical model database as a wrapped JSON object.
 pub fn write_model_db_to(dir: &Path, db: &ModelDb) {
-    write_json_lines_file(dir, "models", &db.models);
+    write_json_file(dir, "models", db);
+}
+
+/// Write the canonical example database as a wrapped JSON object.
+pub fn write_example_db_to(dir: &Path, db: &ExampleDb) {
+    write_json_file(dir, "examples", db);
 }
 
 #[cfg(test)]
