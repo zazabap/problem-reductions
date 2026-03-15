@@ -16,6 +16,32 @@
     ]
   },
   {
+    "name": "BalancedCompleteBipartiteSubgraph",
+    "description": "Decide whether a bipartite graph contains a K_{k,k} subgraph",
+    "fields": [
+      {
+        "name": "left_size",
+        "type_name": "usize",
+        "description": "Vertices in left partition"
+      },
+      {
+        "name": "right_size",
+        "type_name": "usize",
+        "description": "Vertices in right partition"
+      },
+      {
+        "name": "edges",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Bipartite edges"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Balanced biclique size"
+      }
+    ]
+  },
+  {
     "name": "BicliqueCover",
     "description": "Cover bipartite edges with k bicliques",
     "fields": [

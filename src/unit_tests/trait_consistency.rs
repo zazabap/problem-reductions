@@ -80,6 +80,13 @@ fn test_all_problems_implement_trait_correctly() {
         &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
         "BicliqueCover",
     );
+    check_problem_trait(
+        &BalancedCompleteBipartiteSubgraph::new(
+            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+            2,
+        ),
+        "BalancedCompleteBipartiteSubgraph",
+    );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
 
     let circuit = Circuit::new(vec![Assignment::new(

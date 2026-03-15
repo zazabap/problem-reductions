@@ -17,12 +17,14 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 
+pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod biclique_cover;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
@@ -45,6 +47,7 @@ pub(crate) mod spin_glass;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 
+pub use balanced_complete_bipartite_subgraph::BalancedCompleteBipartiteSubgraph;
 pub use biclique_cover::BicliqueCover;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
@@ -85,6 +88,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
+    specs.extend(balanced_complete_bipartite_subgraph::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs
 }

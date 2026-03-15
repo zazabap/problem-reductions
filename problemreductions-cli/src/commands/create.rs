@@ -725,6 +725,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BicliqueCover::new(graph, k))?, resolved_variant.clone())
         }
 
+        // BalancedCompleteBipartiteSubgraph
+        "BalancedCompleteBipartiteSubgraph" => {
+            let left = args.left.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BalancedCompleteBipartiteSubgraph requires --left, --right, --biedges, and --k\n\n\
+                     Usage: pred create BalancedCompleteBipartiteSubgraph --left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
+                )
+            })?;
+            let right = args.right.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BalancedCompleteBipartiteSubgraph requires --right (right partition size)"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BalancedCompleteBipartiteSubgraph requires --k (balanced biclique size)"
+                )
+            })?;
+            let edges_str = args.biedges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BalancedCompleteBipartiteSubgraph requires --biedges (e.g., 0-0,0-1,1-1)"
+                )
+            })?;
+            let edges = util::parse_edge_pairs(edges_str)?;
+            let graph = BipartiteGraph::new(left, right, edges);
+            (
+                ser(BalancedCompleteBipartiteSubgraph::new(graph, k))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BMF
         "BMF" => {
             let matrix = parse_bool_matrix(args)?;
@@ -1096,6 +1127,93 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     };
 
     emit_problem_output(&output, out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dispatch::ProblemJsonOutput;
+    use problemreductions::models::graph::BalancedCompleteBipartiteSubgraph;
+
+    fn create_args_for_bcbs() -> CreateArgs {
+        CreateArgs {
+            problem: Some("BalancedCompleteBipartiteSubgraph".to_string()),
+            example: None,
+            example_target: None,
+            example_side: ExampleSide::Source,
+            graph: None,
+            weights: None,
+            edge_weights: None,
+            couplings: None,
+            fields: None,
+            clauses: None,
+            num_vars: None,
+            matrix: None,
+            k: Some(3),
+            random: false,
+            num_vertices: None,
+            edge_prob: None,
+            seed: None,
+            target: None,
+            m: None,
+            n: None,
+            positions: None,
+            radius: None,
+            sizes: None,
+            capacity: None,
+            sequence: None,
+            sets: None,
+            universe: None,
+            biedges: Some("0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3".to_string()),
+            left: Some(4),
+            right: Some(4),
+            rank: None,
+            basis: None,
+            target_vec: None,
+            bounds: None,
+            tree: None,
+            required_edges: None,
+            bound: None,
+            pattern: None,
+            strings: None,
+            arcs: None,
+            deadlines: None,
+            precedence_pairs: None,
+            task_lengths: None,
+            deadline: None,
+            num_processors: None,
+            alphabet_size: None,
+        }
+    }
+
+    #[test]
+    fn test_create_balanced_complete_bipartite_subgraph() {
+        let args = create_args_for_bcbs();
+        let output_path =
+            std::env::temp_dir().join(format!("bcbs-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "BalancedCompleteBipartiteSubgraph");
+        assert!(created.variant.is_empty());
+
+        let problem: BalancedCompleteBipartiteSubgraph =
+            serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.left_size(), 4);
+        assert_eq!(problem.right_size(), 4);
+        assert_eq!(problem.num_edges(), 12);
+        assert_eq!(problem.k(), 3);
+
+        let _ = std::fs::remove_file(output_path);
+    }
 }
 
 /// Reject non-unit weights when the resolved variant uses `weight=One`.
