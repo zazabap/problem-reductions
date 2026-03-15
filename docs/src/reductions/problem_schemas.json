@@ -558,6 +558,27 @@
     ]
   },
   {
+    "name": "SequencingWithinIntervals",
+    "description": "Schedule tasks non-overlappingly within their time windows",
+    "fields": [
+      {
+        "name": "release_times",
+        "type_name": "Vec<u64>",
+        "description": "Release time r(t) for each task"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<u64>",
+        "description": "Deadline d(t) for each task"
+      },
+      {
+        "name": "lengths",
+        "type_name": "Vec<u64>",
+        "description": "Processing length l(t) for each task"
+      }
+    ]
+  },
+  {
     "name": "ShortestCommonSupersequence",
     "description": "Find a common supersequence of bounded length for a set of strings",
     "fields": [

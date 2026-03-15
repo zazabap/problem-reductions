@@ -451,6 +451,13 @@
       "complexity": "2^num_variables"
     },
     {
+      "name": "SequencingWithinIntervals",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.SequencingWithinIntervals.html",
+      "complexity": "2^num_tasks"
+    },
+    {
       "name": "ShortestCommonSupersequence",
       "variant": {},
       "category": "misc",
@@ -535,7 +542,7 @@
     },
     {
       "source": 4,
-      "target": 52,
+      "target": 53,
       "overhead": [
         {
           "field": "num_spins",
@@ -699,7 +706,7 @@
     },
     {
       "source": 20,
-      "target": 54,
+      "target": 55,
       "overhead": [
         {
           "field": "num_elements",
@@ -755,7 +762,7 @@
     },
     {
       "source": 24,
-      "target": 52,
+      "target": 53,
       "overhead": [
         {
           "field": "num_spins",
@@ -1201,7 +1208,7 @@
     },
     {
       "source": 47,
-      "target": 51,
+      "target": 52,
       "overhead": [
         {
           "field": "num_spins",
@@ -1286,7 +1293,7 @@
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 51,
+      "source": 52,
       "target": 47,
       "overhead": [
         {
@@ -1297,7 +1304,7 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 52,
+      "source": 53,
       "target": 24,
       "overhead": [
         {
@@ -1312,8 +1319,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 52,
-      "target": 51,
+      "source": 53,
+      "target": 52,
       "overhead": [
         {
           "field": "num_spins",
@@ -1327,7 +1334,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 55,
+      "source": 56,
       "target": 11,
       "overhead": [
         {
@@ -1342,7 +1349,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 55,
+      "source": 56,
       "target": 47,
       "overhead": [
         {
