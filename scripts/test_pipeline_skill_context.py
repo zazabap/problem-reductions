@@ -55,12 +55,114 @@ class PipelineSkillContextTests(unittest.TestCase):
     def test_emit_result_prints_sorted_json_for_all_formats(self) -> None:
         expected_output = '{\n  "a": 2,\n  "b": 1\n}\n'
 
-        for fmt in ["json", "text"]:
+        for fmt in ["json"]:
             with self.subTest(fmt=fmt):
                 stdout = io.StringIO()
                 with redirect_stdout(stdout):
                     pipeline_skill_context.emit_result({"b": 1, "a": 2}, fmt)
                 self.assertEqual(stdout.getvalue(), expected_output)
+
+    def test_emit_result_prints_final_review_text_report(self) -> None:
+        result = {
+            "skill": "final-review",
+            "status": "ready",
+            "selection": {
+                "item_id": "PVTI_22",
+                "pr_number": 615,
+                "issue_number": 117,
+                "title": "[Model] GraphPartitioning",
+            },
+            "pr": {
+                "number": 615,
+                "title": "Fix #117: [Model] GraphPartitioning",
+                "url": "https://github.com/CodingThrust/problem-reductions/pull/615",
+                "comments": {
+                    "counts": {
+                        "human_inline_comments": 1,
+                        "human_issue_comments": 2,
+                        "human_linked_issue_comments": 1,
+                        "human_reviews": 1,
+                    }
+                },
+                "issue_context_text": "Issue #117: Add GraphPartitioning model",
+            },
+            "prep": {
+                "ready": False,
+                "checkout": {"worktree_dir": "/tmp/final-pr-615"},
+                "merge": {"status": "conflicted", "conflicts": ["src/models/graph_partitioning.rs"]},
+            },
+            "review_context": {
+                "subject": {"kind": "model", "name": "GraphPartitioning"},
+                "whitelist": {"ok": True, "violations": []},
+                "completeness": {"ok": False, "missing": ["paper_display_name"]},
+                "changed_files": ["src/models/graph_partitioning.rs", "docs/paper/reductions.typ"],
+                "diff_stat": "2 files changed, 30 insertions(+), 2 deletions(-)",
+            },
+        }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            pipeline_skill_context.emit_result(result, "text")
+
+        rendered = stdout.getvalue()
+        self.assertIn("# Final Review Packet", rendered)
+        self.assertIn("- PR: #615", rendered)
+        self.assertIn("- Board item: `PVTI_22`", rendered)
+        self.assertIn("## Recommendation Seed", rendered)
+        self.assertIn("- Suggested mode: conflicted-review", rendered)
+        self.assertIn("## Deterministic Checks", rendered)
+        self.assertIn("- Completeness: fail", rendered)
+        self.assertIn("- `paper_display_name`", rendered)
+        self.assertIn("## Changed Files", rendered)
+
+    def test_emit_result_prints_review_pipeline_text_report(self) -> None:
+        result = {
+            "skill": "review-pipeline",
+            "status": "ready",
+            "selection": {
+                "item_id": "PVTI_11",
+                "pr_number": 570,
+                "issue_number": 117,
+                "title": "[Model] GraphPartitioning",
+            },
+            "pr": {
+                "number": 570,
+                "title": "Fix #117: [Model] GraphPartitioning",
+                "url": "https://github.com/CodingThrust/problem-reductions/pull/570",
+                "comments": {
+                    "counts": {
+                        "copilot_inline_comments": 2,
+                        "human_inline_comments": 1,
+                        "human_issue_comments": 1,
+                        "human_linked_issue_comments": 1,
+                    }
+                },
+                "issue_context_text": "Issue #117: Add GraphPartitioning model",
+                "ci": {"state": "failure", "failing": 1, "pending": 0},
+                "codecov": {"found": True, "patch_coverage": 84.21},
+            },
+            "prep": {
+                "ready": False,
+                "checkout": {"worktree_dir": "/tmp/review-pr-570"},
+                "merge": {"status": "conflicted", "conflicts": ["src/models/graph_partitioning.rs"]},
+            },
+        }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            pipeline_skill_context.emit_result(result, "text")
+
+        rendered = stdout.getvalue()
+        self.assertIn("# Review Pipeline Packet", rendered)
+        self.assertIn("- PR: #570", rendered)
+        self.assertIn("- Board item: `PVTI_11`", rendered)
+        self.assertIn("## Recommendation Seed", rendered)
+        self.assertIn("- Suggested mode: conflicted-fix", rendered)
+        self.assertIn("- Copilot inline comments: 2", rendered)
+        self.assertIn("- CI state: failure", rendered)
+        self.assertIn("## Merge Prep", rendered)
+        self.assertIn("- Worktree: `/tmp/review-pr-570`", rendered)
+        self.assertIn("## Linked Issue Context", rendered)
 
     def test_build_status_result_normalizes_empty_state(self) -> None:
         self.assertEqual(

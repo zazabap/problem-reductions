@@ -35,7 +35,377 @@ def build_status_result(skill: str, *, status: str, **fields: object) -> dict:
     return result
 
 
+def report_check_status(check: dict | None) -> str:
+    if not check:
+        return "unknown"
+    if check.get("skipped"):
+        return "skipped"
+    return "pass" if check.get("ok") else "fail"
+
+
+def review_pipeline_suggested_mode(result: dict) -> str:
+    status = result.get("status")
+    if status == "empty":
+        return "empty"
+    if status == "needs-user-choice":
+        return "needs-user-choice"
+
+    merge_status = ((result.get("prep") or {}).get("merge") or {}).get("status")
+    if merge_status == "conflicted":
+        return "conflicted-fix"
+    if merge_status == "aborted":
+        return "manual-followup"
+
+    ci_state = ((result.get("pr") or {}).get("ci") or {}).get("state")
+    if ci_state == "failure":
+        return "fix-ci"
+    return "normal-fix"
+
+
+def review_pipeline_seed_items(result: dict) -> list[str]:
+    blockers: list[str] = []
+    prep = result.get("prep") or {}
+    merge_status = (prep.get("merge") or {}).get("status")
+    if merge_status == "conflicted":
+        blockers.append("merge conflicts with main")
+    elif merge_status == "aborted":
+        blockers.append("merge prep aborted")
+
+    pr = result.get("pr") or {}
+    ci_state = (pr.get("ci") or {}).get("state")
+    if ci_state == "failure":
+        blockers.append("CI is failing")
+
+    comment_counts = (pr.get("comments") or {}).get("counts") or {}
+    copilot_count = int(comment_counts.get("copilot_inline_comments", 0))
+    if copilot_count:
+        blockers.append(f"{copilot_count} Copilot inline comments to triage")
+
+    human_count = sum(
+        int(comment_counts.get(key, 0))
+        for key in [
+            "human_inline_comments",
+            "human_issue_comments",
+            "human_linked_issue_comments",
+            "human_reviews",
+        ]
+    )
+    if human_count:
+        blockers.append(f"{human_count} human review items to audit")
+
+    deduped: list[str] = []
+    for blocker in blockers:
+        if blocker not in deduped:
+            deduped.append(blocker)
+    return deduped
+
+
+def render_review_pipeline_text(result: dict) -> str:
+    lines = [
+        "# Review Pipeline Packet",
+        "",
+        "## Selection",
+        f"- Bundle status: {result.get('status')}",
+    ]
+
+    if result.get("status") == "empty":
+        lines.append("- No eligible review-pipeline item is currently available.")
+        return "\n".join(lines) + "\n"
+
+    if result.get("status") == "needs-user-choice":
+        lines.extend(
+            [
+                "",
+                "## Ambiguous PR Options",
+            ]
+        )
+        for option in result.get("options") or []:
+            lines.append(
+                f"- PR #{option.get('number')} [{option.get('state', 'UNKNOWN')}] {option.get('title') or ''}".rstrip()
+            )
+        if result.get("recommendation") is not None:
+            lines.append(f"- Recommended PR: #{result['recommendation']}")
+        return "\n".join(lines) + "\n"
+
+    selection = result.get("selection") or {}
+    pr = result.get("pr") or {}
+    prep = result.get("prep") or {}
+    comments = pr.get("comments") or {}
+    counts = comments.get("counts") or {}
+    ci = pr.get("ci") or {}
+    codecov = pr.get("codecov") or {}
+    checkout = prep.get("checkout") or {}
+    merge = prep.get("merge") or {}
+
+    if selection.get("pr_number") is not None:
+        lines.append(f"- PR: #{selection['pr_number']}")
+    if selection.get("item_id"):
+        lines.append(f"- Board item: `{selection['item_id']}`")
+    if selection.get("issue_number") is not None:
+        lines.append(f"- Linked issue: #{selection['issue_number']}")
+    if pr.get("title") or selection.get("title"):
+        lines.append(f"- Title: {pr.get('title') or selection.get('title')}")
+    if pr.get("url"):
+        lines.append(f"- URL: {pr['url']}")
+
+    lines.extend(
+        [
+            "",
+            "## Recommendation Seed",
+            f"- Suggested mode: {review_pipeline_suggested_mode(result)}",
+        ]
+    )
+    seed_items = review_pipeline_seed_items(result)
+    if seed_items:
+        lines.append("- Attention points:")
+        lines.extend(f"  - {item}" for item in seed_items)
+    else:
+        lines.append("- Attention points: none from deterministic checks")
+
+    lines.extend(
+        [
+            "",
+            "## Comment Summary",
+            f"- Copilot inline comments: {counts.get('copilot_inline_comments', 0)}",
+            f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
+            f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
+            f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
+            f"- Human review bodies: {counts.get('human_reviews', 0)}",
+        ]
+    )
+
+    lines.extend(
+        [
+            "",
+            "## CI / Coverage",
+            f"- CI state: {ci.get('state', 'unknown')}",
+        ]
+    )
+    if ci:
+        lines.append(f"- Failing checks: {ci.get('failing', 0)}")
+        lines.append(f"- Pending checks: {ci.get('pending', 0)}")
+    if codecov.get("found"):
+        lines.append(f"- Patch coverage: {codecov.get('patch_coverage')}%")
+        if codecov.get("project_coverage") is not None:
+            lines.append(f"- Project coverage: {codecov.get('project_coverage')}%")
+
+    lines.extend(
+        [
+            "",
+            "## Merge Prep",
+            f"- Ready: {str(prep.get('ready')).lower()}",
+            f"- Merge status: {merge.get('status', 'unknown')}",
+        ]
+    )
+    if checkout.get("worktree_dir"):
+        lines.append(f"- Worktree: `{checkout['worktree_dir']}`")
+    conflicts = merge.get("conflicts") or []
+    if conflicts:
+        lines.append("- Conflicts:")
+        lines.extend(f"  - `{conflict}`" for conflict in conflicts)
+
+    if pr.get("issue_context_text"):
+        lines.extend(
+            [
+                "",
+                "## Linked Issue Context",
+                pr["issue_context_text"],
+            ]
+        )
+
+    return "\n".join(lines) + "\n"
+
+
+def final_review_suggested_mode(result: dict) -> str:
+    status = result.get("status")
+    if status == "empty":
+        return "empty"
+    if status == "ready-with-warnings":
+        return "warning-fallback"
+
+    merge_status = ((result.get("prep") or {}).get("merge") or {}).get("status")
+    if merge_status == "conflicted":
+        return "conflicted-review"
+    if merge_status == "aborted":
+        return "warning-fallback"
+    return "normal-review"
+
+
+def final_review_seed_items(result: dict) -> list[str]:
+    review_context = result.get("review_context") or {}
+    prep = result.get("prep") or {}
+    warnings = list(result.get("warnings") or [])
+    blockers = list(warnings)
+
+    merge_status = (prep.get("merge") or {}).get("status")
+    if merge_status == "conflicted":
+        blockers.append("merge conflicts with main")
+    elif merge_status == "aborted":
+        blockers.append("merge prep aborted")
+
+    whitelist = review_context.get("whitelist") or {}
+    if whitelist and not whitelist.get("ok"):
+        blockers.append("files outside expected whitelist")
+
+    completeness = review_context.get("completeness") or {}
+    for missing in completeness.get("missing", []):
+        blockers.append(f"missing completeness item: {missing}")
+
+    comment_counts = ((result.get("pr") or {}).get("comments") or {}).get("counts") or {}
+    manual_comment_count = sum(
+        int(comment_counts.get(key, 0))
+        for key in [
+            "human_inline_comments",
+            "human_issue_comments",
+            "human_linked_issue_comments",
+            "human_reviews",
+        ]
+    )
+    if manual_comment_count:
+        blockers.append(
+            f"manual comment audit required for {manual_comment_count} human review items"
+        )
+
+    deduped: list[str] = []
+    for blocker in blockers:
+        if blocker not in deduped:
+            deduped.append(blocker)
+    return deduped
+
+
+def render_final_review_text(result: dict) -> str:
+    selection = result.get("selection") or {}
+    pr = result.get("pr") or {}
+    prep = result.get("prep") or {}
+    review_context = result.get("review_context") or {}
+    subject = review_context.get("subject") or {}
+    comments = pr.get("comments") or {}
+    counts = comments.get("counts") or {}
+    checkout = prep.get("checkout") or {}
+    merge = prep.get("merge") or {}
+
+    lines = [
+        "# Final Review Packet",
+        "",
+        "## Selection",
+        f"- Bundle status: {result.get('status')}",
+    ]
+    if selection.get("pr_number") is not None:
+        lines.append(f"- PR: #{selection['pr_number']}")
+    if selection.get("item_id"):
+        lines.append(f"- Board item: `{selection['item_id']}`")
+    if selection.get("issue_number") is not None:
+        lines.append(f"- Linked issue: #{selection['issue_number']}")
+    if pr.get("title") or selection.get("title"):
+        lines.append(f"- Title: {pr.get('title') or selection.get('title')}")
+    if pr.get("url"):
+        lines.append(f"- URL: {pr['url']}")
+
+    lines.extend(
+        [
+            "",
+            "## Recommendation Seed",
+            f"- Suggested mode: {final_review_suggested_mode(result)}",
+        ]
+    )
+    seed_items = final_review_seed_items(result)
+    if seed_items:
+        lines.append("- Review blockers / attention points:")
+        lines.extend(f"  - {item}" for item in seed_items)
+    else:
+        lines.append("- Review blockers / attention points: none from deterministic checks")
+
+    lines.extend(
+        [
+            "",
+            "## Subject",
+            f"- Kind: {subject.get('kind', 'unknown')}",
+        ]
+    )
+    if subject.get("name"):
+        lines.append(f"- Name: {subject['name']}")
+    if subject.get("source"):
+        lines.append(f"- Source: {subject['source']}")
+    if subject.get("target"):
+        lines.append(f"- Target: {subject['target']}")
+
+    lines.extend(
+        [
+            "",
+            "## Comment Summary",
+            f"- Human reviews: {counts.get('human_reviews', 0)}",
+            f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
+            f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
+            f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
+        ]
+    )
+    if pr.get("issue_context_text"):
+        lines.extend(
+            [
+                "",
+                "### Linked Issue Context",
+                pr["issue_context_text"],
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Merge Prep",
+            f"- Ready: {str(prep.get('ready')).lower()}",
+            f"- Merge status: {merge.get('status', 'unknown')}",
+        ]
+    )
+    if checkout.get("worktree_dir"):
+        lines.append(f"- Worktree: `{checkout['worktree_dir']}`")
+    conflicts = merge.get("conflicts") or []
+    if conflicts:
+        lines.append("- Conflicts:")
+        lines.extend(f"  - `{conflict}`" for conflict in conflicts)
+    warnings = result.get("warnings") or []
+    if warnings:
+        lines.append("- Warnings:")
+        lines.extend(f"  - {warning}" for warning in warnings)
+
+    lines.extend(
+        [
+            "",
+            "## Deterministic Checks",
+            f"- Whitelist: {report_check_status(review_context.get('whitelist'))}",
+            f"- Completeness: {report_check_status(review_context.get('completeness'))}",
+        ]
+    )
+    missing = (review_context.get("completeness") or {}).get("missing") or []
+    if missing:
+        lines.append("- Missing items:")
+        lines.extend(f"  - `{item}`" for item in missing)
+
+    changed_files = review_context.get("changed_files") or []
+    lines.extend(["", "## Changed Files"])
+    if changed_files:
+        lines.extend(f"- `{path}`" for path in changed_files)
+    else:
+        lines.append("- None captured")
+
+    diff_stat = review_context.get("diff_stat")
+    if diff_stat:
+        lines.extend(["", "## Diff Stat", "```text", diff_stat, "```"])
+
+    return "\n".join(lines) + "\n"
+
+
+def render_text(result: dict) -> str:
+    if result.get("skill") == "review-pipeline":
+        return render_review_pipeline_text(result)
+    if result.get("skill") == "final-review":
+        return render_final_review_text(result)
+    return json.dumps(result, indent=2, sort_keys=True) + "\n"
+
+
 def emit_result(result: dict, fmt: str) -> None:
+    if fmt == "text":
+        print(render_text(result), end="")
+        return
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

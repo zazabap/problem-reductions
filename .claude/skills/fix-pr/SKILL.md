@@ -9,41 +9,45 @@ Resolve PR review comments, fix CI failures, and address codecov coverage gaps f
 
 ## Step 1: Gather PR State
 
-Use the shared scripted helpers for deterministic PR metadata, comment, CI, and Codecov collection. Do not rebuild this logic inline with `gh api | python3 -c` unless you are debugging the helper itself.
+Step 1 should be a single report-generation step. Use the shared scripted helper to produce one skill-readable PR context packet. Do not rebuild this logic inline with `gh api | python3 -c` unless you are debugging the helper itself.
 
 ```bash
-# Get one bundled mechanical context object for the current branch PR
-CONTEXT=$(python3 scripts/pipeline_pr.py context --current --format json)
-REPO=$(printf '%s\n' "$CONTEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['repo'])")
-PR=$(printf '%s\n' "$CONTEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['pr_number'])")
-
-# Extract the current head SHA when needed
-HEAD_SHA=$(printf '%s\n' "$CONTEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['head_sha'])")
+REPORT=$(python3 scripts/pipeline_pr.py context --current --format text)
+printf '%s\n' "$REPORT"
 ```
+
+The report should already include:
+- repo, PR number, title, URL, head SHA
+- comment counts
+- CI summary
+- Codecov summary
+- linked issue context
+
+Use the values printed in that report for the rest of this skill. If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 1 manually.
 
 ### 1a. Fetch Review Comments
 
 **Check ALL four sources.** User inline comments are the most commonly missed — do not skip any.
 
-Read the `CONTEXT["comments"]` object and inspect these arrays:
-- `inline_comments` — all inline review comments
-- `reviews` — top-level review bodies
-- `human_issue_comments` — PR conversation comments excluding bots and Codecov
-- `human_linked_issue_comments` — linked issue comments excluding bots
-- `codecov_comments` — PR conversation comments from Codecov only
+Start from the report's `Comment Summary`. It should tell you whether any source is non-empty before you inspect raw threads.
 
-Use `CONTEXT["comments"]["counts"]` to verify whether any source is genuinely empty before assuming there is no feedback.
+If you need the raw comment arrays for detailed triage, rerun `python3 scripts/pipeline_pr.py context --current --format json` and inspect:
+- `comments["inline_comments"]`
+- `comments["reviews"]`
+- `comments["human_issue_comments"]`
+- `comments["human_linked_issue_comments"]`
+- `comments["codecov_comments"]`
 
 ### 1b. Check CI Status
 
-Read `CONTEXT["ci"]`. It includes:
+Read the report's `CI Summary`. The structured JSON fallback includes:
 - `state` — `pending`, `failure`, or `success`
 - `runs` — normalized check-run details
 - `pending` / `failing` / `succeeding` counts
 
 ### 1c. Check Codecov Report
 
-Read `CONTEXT["codecov"]`. It includes:
+Read the report's `Codecov` section. The structured JSON fallback includes:
 - `found` — whether a Codecov comment is present
 - `patch_coverage`
 - `project_coverage`

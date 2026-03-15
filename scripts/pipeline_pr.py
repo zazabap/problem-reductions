@@ -662,9 +662,84 @@ def edit_pr_body(repo: str, pr_number: int, body_file: str) -> None:
     )
 
 
+def render_context_text(result: dict) -> str:
+    comments = result.get("comments") or {}
+    counts = comments.get("counts") or {}
+    ci = result.get("ci") or {}
+    codecov = result.get("codecov") or {}
+
+    lines = [
+        "# PR Context Packet",
+        "",
+        "## Selection",
+        f"- Repo: {result.get('repo', '')}",
+        f"- PR: #{result.get('pr_number')}",
+    ]
+    if result.get("title"):
+        lines.append(f"- Title: {result['title']}")
+    if result.get("url"):
+        lines.append(f"- URL: {result['url']}")
+    if result.get("head_sha"):
+        lines.append(f"- Head SHA: `{result['head_sha']}`")
+    if result.get("linked_issue_number") is not None:
+        lines.append(f"- Linked issue: #{result['linked_issue_number']}")
+
+    lines.extend(
+        [
+            "",
+            "## Comment Summary",
+            f"- Copilot inline comments: {counts.get('copilot_inline_comments', 0)}",
+            f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
+            f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
+            f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
+            f"- Human review bodies: {counts.get('human_reviews', 0)}",
+        ]
+    )
+
+    lines.extend(
+        [
+            "",
+            "## CI Summary",
+            f"- State: {ci.get('state', 'unknown')}",
+        ]
+    )
+    if ci:
+        lines.append(f"- Failing checks: {ci.get('failing', 0)}")
+        lines.append(f"- Pending checks: {ci.get('pending', 0)}")
+        lines.append(f"- Succeeding checks: {ci.get('succeeding', 0)}")
+
+    lines.extend(["", "## Codecov"])
+    if codecov.get("found"):
+        if codecov.get("patch_coverage") is not None:
+            lines.append(f"- Patch coverage: {codecov['patch_coverage']}%")
+        if codecov.get("project_coverage") is not None:
+            lines.append(f"- Project coverage: {codecov['project_coverage']}%")
+        filepaths = codecov.get("filepaths") or []
+        if filepaths:
+            lines.append("- Referenced files:")
+            lines.extend(f"  - `{path}`" for path in filepaths)
+    else:
+        lines.append("- No Codecov comment found")
+
+    if result.get("issue_context_text"):
+        lines.extend(
+            [
+                "",
+                "## Linked Issue Context",
+                result["issue_context_text"],
+            ]
+        )
+
+    return "\n".join(lines) + "\n"
+
+
 def emit_result(result: dict, fmt: str) -> None:
     if fmt == "json":
         print(json.dumps(result, indent=2, sort_keys=True))
+        return
+
+    if "pr_number" in result and "comments" in result:
+        print(render_context_text(result), end="")
         return
 
     if "number" in result:

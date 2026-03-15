@@ -38,28 +38,35 @@ This skill runs **fully autonomously** except for one case: if the scripted `rev
 
 ## Steps
 
-### 0. Load the Review-Pipeline Context Bundle
+### 0. Generate the Review-Pipeline Report
 
-Start from the skill-scoped bundle instead of composing board selection, worktree prep, and PR context manually:
+Step 0 should be a single report-generation step. Do not manually unpack board selection, worktree prep, or PR context with shell snippets.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 STATE_FILE=/tmp/problemreductions-review-selection.json
-set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --state-file "$STATE_FILE" --format json
+set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --state-file "$STATE_FILE" --format text
 if [ -n "${PR:-}" ]; then
   set -- "$@" --pr "$PR"
 fi
-CTX=$("$@")
-STATUS=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
 
-Branch on `STATUS`:
+The report is the Step 0 packet. It should already include:
+- Selection: board item, PR number, linked issue, title, URL
+- Recommendation Seed: suggested mode and deterministic blockers
+- Comment Summary
+- CI / Coverage
+- Merge Prep
+- Linked Issue Context
 
-- `empty`: STOP with `No Review pool PRs are currently eligible for review-pipeline.`
-- `needs-user-choice`: STOP and ask the user which PR is intended. Show `CTX["options"]` and recommend `CTX["recommendation"]` when present.
-- `ready`: continue with the already-claimed board item, prepared worktree, and bundled PR context.
+Branch from the report:
+- `Bundle status: empty` => STOP with `No Review pool PRs are currently eligible for review-pipeline.`
+- `Bundle status: needs-user-choice` => STOP and ask the user which PR is intended
+- `Bundle status: ready` => continue with the already-claimed item and prepared worktree
 
-For `needs-user-choice`, format the prompt like:
+For ambiguous cards, the report should print short options and the recommendation. Format the prompt like:
 
 ```text
 Review pool card links multiple repo PRs:
@@ -67,24 +74,13 @@ Review pool card links multiple repo PRs:
 2. PR #173 — OPEN — Fix #109: Add LCS reduction  (Recommended)
 ```
 
-When `STATUS == ready`, extract the working objects:
-
-```bash
-ITEM_ID=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['item_id'])")
-TITLE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['title'])")
-ISSUE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['selection'].get('issue_number') or '')")
-PR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['pr_number'])")
-PREP=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['prep']))")
-PR_CTX=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['pr']))")
-WORKTREE_DIR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['prep']['checkout']['worktree_dir'])")
-cd "$WORKTREE_DIR"
-```
-
 The bundle already handled the mechanical claim step:
 - normal eligible PRs are claimed through the review queue
 - explicit `--pr` matches on ambiguous cards are treated as deterministic disambiguation and claimed automatically
 
-All subsequent steps run inside the prepared worktree and should read facts from `PREP` and `PR_CTX` instead of re-fetching them by default.
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
+
+All subsequent steps run inside the prepared worktree and should read facts from the report instead of re-fetching them by default.
 
 ### 1a. Resolve Conflicts with Main
 
@@ -94,20 +90,15 @@ All subsequent steps run inside the prepared worktree and should read facts from
 2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
 3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
 
-Read the bundled merge result from `PREP`:
+Read the merge result from the report's `Merge Prep` section.
 
-```bash
-MERGE_STATUS=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(json.load(sys.stdin)['merge']['status'])")
-LIKELY_COMPLEX=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(str(json.load(sys.stdin)['merge']['likely_complex']).lower())")
-```
-
-- If `MERGE_STATUS == clean`: push the merge commit and continue.
+- If the report says the merge status is `clean`: push the merge commit and continue.
 - If there are conflicts:
-  1. Inspect the conflicting files from the `conflicts` array in `PREP["merge"]`.
+  1. Inspect the conflicting files listed in the report.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
   3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If `MERGE_STATUS == conflicted` and `LIKELY_COMPLEX == true` (or the overlap is otherwise too complex to resolve automatically):
+- If the report says the merge status is `conflicted` and the overlap is otherwise too complex to resolve automatically:
   1. Abort the merge: `git merge --abort` if a merge is still in progress
   2. Move the project item back to `Review pool`:
      ```bash
@@ -118,15 +109,12 @@ LIKELY_COMPLEX=$(printf '%s\n' "$PREP" | python3 -c "import sys,json; print(str(
 
 ### 2. Fix Copilot Review Comments
 
-`PR_CTX` already includes the full structured PR context:
-- `PR_CTX["comments"]`
-- `PR_CTX["linked_issue_number"]`
-- `PR_CTX["human_linked_issue_comments"]`
-- `PR_CTX["ci"]`
-- `PR_CTX["codecov"]`
-- `PR_CTX["issue_context_text"]`
+Use the report as the primary mechanical context:
+- `Comment Summary`
+- `CI / Coverage`
+- `Linked Issue Context`
 
-Inspect `PR_CTX["comments"]["copilot_inline_comments"]`. If there are actionable comments: invoke `/fix-pr` to address them, then push:
+Inspect the report's Copilot comment count and linked issue context. If there are actionable comments: invoke `/fix-pr` to address them, then push:
 
 ```bash
 git push
@@ -136,15 +124,7 @@ If Copilot approved with no actionable comments: skip to next step.
 
 ### 2a. Check Issue Comments and Human PR Reviews
 
-Reuse the structured comment data inside `PR_CTX["comments"]`. It already includes:
-- `human_inline_comments`
-- `human_issue_comments`
-- `human_reviews`
-
-Reuse the linked-issue fields in `PR_CTX`:
-- `linked_issue_number`
-- `human_linked_issue_comments`
-- `issue_context_text`
+Reuse the report's `Comment Summary` and `Linked Issue Context` sections. If you need the raw structured comment objects for a corner case, rerun the bundle with `--format json`.
 
 For each actionable comment found:
 

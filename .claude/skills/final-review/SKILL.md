@@ -28,97 +28,67 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Workflow
 
-### Step 0: Load the Final-Review Context Bundle
+### Step 0: Generate the Final-Review Report
 
-Start from the skill-scoped bundle. The happy path should only consume:
-- `CTX["selection"]`
-- `CTX["pr"]`
-- `CTX["prep"]`
-- `CTX["review_context"]`
+Step 0 should be a single report-generation step. Do not manually unpack board selection, PR metadata, merge prep, or deterministic checks with shell snippets.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 STATE_FILE=/tmp/problemreductions-final-review-selection.json
-set -- python3 scripts/pipeline_skill_context.py final-review --repo "$REPO" --state-file "$STATE_FILE" --format json
+set -- python3 scripts/pipeline_skill_context.py final-review --repo "$REPO" --state-file "$STATE_FILE" --format text
 if [ -n "${PR:-}" ]; then
   set -- "$@" --pr "$PR"
 fi
-CTX=$("$@")
-STATUS=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
 
-Branch on `STATUS`:
-- `empty`: report `No items in the Final review column` and stop.
-- `ready`: continue with the full common-path bundle.
-- `ready-with-warnings`: continue only with the narrow warning fallback. Read `CTX["warnings"]` first and keep the fallback limited to whatever data could not be prepared mechanically.
+The report is the Step 0 packet. It should already include:
+- Selection: board item, PR number, linked issue, title, URL
+- Recommendation Seed: suggested mode and deterministic blockers
+- Subject
+- Comment Summary
+- Merge Prep
+- Deterministic Checks
+- Changed Files
+- Diff Stat
 
-Extract the common working objects:
+Branch from the report:
+- `Bundle status: empty` => stop with `No items in the Final review column`
+- `Bundle status: ready` => continue normally
+- `Bundle status: ready-with-warnings` => continue only with the narrow warning fallback described in the report
 
-```bash
-ITEM_ID=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['item_id'])")
-PR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['pr_number'])")
-ISSUE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['selection'].get('issue_number') or '')")
-TITLE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['title'])")
-PR_CTX=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['pr']))")
-PREP=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['prep']))")
-REVIEW_CONTEXT=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin).get('review_context')))")
-```
-
-If `PREP["checkout"]["worktree_dir"]` exists, `cd` into it for any merge-resolution or quick-fix work:
-
-```bash
-WORKTREE_DIR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print((json.load(sys.stdin).get('prep', {}).get('checkout') or {}).get('worktree_dir', ''))")
-if [ -n "$WORKTREE_DIR" ]; then
-  cd "$WORKTREE_DIR"
-fi
-```
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
 
 ### Step 1: Use the Bundled Review Context
 
-`PR_CTX` already includes the mechanical PR data:
-- title, body, URL, mergeability, changed files, commits
-- `comments`
-- linked issue metadata and `issue_context_text`
-- CI summary
-- Codecov summary
-
-`PREP` already includes the review worktree and merge attempt:
-- `PREP["checkout"]`
-- `PREP["merge"]`
-- `PREP["ready"]`
-
-`REVIEW_CONTEXT` is the deterministic review/check payload:
-- `REVIEW_CONTEXT["subject"]`
-- `REVIEW_CONTEXT["whitelist"]`
-- `REVIEW_CONTEXT["completeness"]`
-- `REVIEW_CONTEXT["changed_files"]`
-- `REVIEW_CONTEXT["diff_stat"]`
+Use the text report as the primary mechanical context. Read these sections directly:
+- `Selection`
+- `Recommendation Seed`
+- `Subject`
+- `Comment Summary`
+- `Merge Prep`
+- `Deterministic Checks`
+- `Changed Files`
+- `Diff Stat`
 
 Read the full diff as additional review input:
 
 ```bash
-gh pr diff "$PR"
+gh pr diff <PR from report>
 ```
 
 Run `pred list` (CLI tool, not MCP) to see the surrounding problem/reduction graph context before assessing usefulness.
 
-If `PREP["ready"]` is false, inspect `PREP["merge"]`. The common case is still usable:
-- if `PREP["merge"]["status"] == "conflicted"` but the worktree exists, you still have `REVIEW_CONTEXT`; decide whether to hold for manual resolution or resolve and continue
-- if `STATUS == "ready-with-warnings"` and `REVIEW_CONTEXT` is `null`, treat that as a narrow prep failure path and prefer hold/manual follow-up over reassembling lots of mechanics inside the skill
+If the report says the merge prep is conflicted but reviewable, you can still continue with the deterministic checks and decide whether to resolve or hold.
+
+If the report is in the warning fallback path, keep the fallback narrow. Prefer hold/manual follow-up over reconstructing the whole pipeline inside the skill.
 
 ### Step 1a: Comment Audit (REQUIRED)
 
 Final review must check the comment history before recommending merge.
 
-Read the following from `PR_CTX["comments"]`:
-- `human_issue_comments`
-- `inline_comments`
-- `reviews`
-
-Read the linked-issue discussion from `PR_CTX`:
-- `linked_issue_number`
-- `human_linked_issue_comments`
-- `issue_context_text`
+Use the report's `Comment Summary` and `Linked Issue Context` sections as the starting point. If you need to inspect the underlying comment threads in detail, do that only after reading the report.
 
 Build a list of every actionable comment and classify each as:
 - `addressed`
@@ -187,11 +157,11 @@ Use `AskUserQuestion` to confirm:
 
 ### Step 3b: File whitelist check
 
-Use `REVIEW_CONTEXT["whitelist"]` directly in the common path.
+Use the report's `Deterministic Checks` section directly in the common path.
 
-If `REVIEW_CONTEXT` is `null` because `STATUS == "ready-with-warnings"`, call that out explicitly and keep the fallback narrow: either fix the prep problem first or hold the PR instead of rebuilding the full deterministic pipeline manually inside the skill.
+If the report says whitelist is unavailable because of the warning fallback, call that out explicitly and keep the fallback narrow: either fix the prep problem first or hold the PR instead of rebuilding the deterministic pipeline manually inside the skill.
 
-If any file falls outside `REVIEW_CONTEXT["whitelist"]`, flag it:
+If the report says files fall outside the whitelist, flag it:
 
 > **File Whitelist Check**
 >
@@ -204,9 +174,9 @@ If all files are whitelisted, report "All files within expected whitelist" and c
 
 ### Step 4: Completeness check
 
-Use `REVIEW_CONTEXT["completeness"]` as the deterministic baseline checklist for files, paper entries, examples, variants/overhead forms, and trait-consistency coverage. Then apply maintainer judgment on anything the script cannot prove.
+Use the report's `Deterministic Checks` section as the baseline checklist for files, paper entries, examples, variants/overhead forms, and trait-consistency coverage. Then apply maintainer judgment on anything the script cannot prove.
 
-Read the review subject from `REVIEW_CONTEXT["subject"]` to understand whether the PR is being reviewed as a model, rule, or generic change. If `REVIEW_CONTEXT` is `null`, that is a rare prep-failure path and should usually push you toward hold/manual follow-up rather than a full merge recommendation.
+Read the review subject from the report's `Subject` section to understand whether the PR is being reviewed as a model, rule, or generic change. If the deterministic checks are unavailable because of the warning fallback, that should usually push you toward hold/manual follow-up rather than a full merge recommendation.
 
 Verify the PR includes all required components. Check:
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import io
 import unittest
+from contextlib import redirect_stdout
 from unittest import mock
 
 from pipeline_pr import (
@@ -9,6 +11,7 @@ from pipeline_pr import (
     build_linked_issue_result,
     build_snapshot,
     create_pr,
+    emit_result,
     edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
@@ -322,6 +325,50 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertEqual(context["codecov"]["patch_coverage"], 92.0)
         self.assertEqual(context["linked_issue_number"], 117)
         self.assertIn("GraphPartitioning", context["issue_context_text"])
+
+    def test_emit_result_prints_context_text_report(self) -> None:
+        context = {
+            "repo": "CodingThrust/problem-reductions",
+            "pr_number": 570,
+            "title": "Fix #117: Add GraphPartitioning model",
+            "url": "https://github.com/CodingThrust/problem-reductions/pull/570",
+            "head_sha": "abc123",
+            "comments": {
+                "counts": {
+                    "copilot_inline_comments": 2,
+                    "human_inline_comments": 1,
+                    "human_issue_comments": 1,
+                    "human_linked_issue_comments": 1,
+                    "human_reviews": 1,
+                }
+            },
+            "ci": {"state": "failure", "failing": 1, "pending": 0},
+            "codecov": {
+                "found": True,
+                "patch_coverage": 84.21,
+                "project_coverage": 91.3,
+                "filepaths": ["src/models/graph/graph_partitioning.rs"],
+            },
+            "linked_issue_number": 117,
+            "issue_context_text": "# [Model] GraphPartitioning\n\nImplement the model.",
+        }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            emit_result(context, "text")
+
+        rendered = stdout.getvalue()
+        self.assertIn("# PR Context Packet", rendered)
+        self.assertIn("- PR: #570", rendered)
+        self.assertIn("- Repo: CodingThrust/problem-reductions", rendered)
+        self.assertIn("- Head SHA: `abc123`", rendered)
+        self.assertIn("## Comment Summary", rendered)
+        self.assertIn("- Copilot inline comments: 2", rendered)
+        self.assertIn("## CI Summary", rendered)
+        self.assertIn("- State: failure", rendered)
+        self.assertIn("## Codecov", rendered)
+        self.assertIn("- Patch coverage: 84.21%", rendered)
+        self.assertIn("## Linked Issue Context", rendered)
 
     @mock.patch("pipeline_pr.build_linked_issue_context")
     @mock.patch("pipeline_pr.build_comments_summary")
