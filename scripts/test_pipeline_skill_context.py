@@ -332,13 +332,150 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
         )
 
-    def test_build_final_review_context_is_not_implemented_yet(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            pipeline_skill_context.build_final_review_context(
-                repo="CodingThrust/problem-reductions",
-                pr_number=None,
-                state_file=Path("/tmp/problemreductions-final-review-state.json"),
-            )
+    def test_build_final_review_context_reports_empty_queue(self) -> None:
+        result = pipeline_skill_context.build_final_review_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=None,
+            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+            selection_fetcher=lambda **kwargs: None,
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "skill": "final-review",
+                "status": "empty",
+            },
+        )
+
+    def test_build_final_review_context_returns_ready_bundle_for_clean_prep(self) -> None:
+        selection = {
+            "item_id": "PVTI_22",
+            "number": 615,
+            "issue_number": 117,
+            "pr_number": 615,
+            "status": "Final review",
+            "title": "[Model] GraphPartitioning",
+        }
+        prep = {
+            "ready": True,
+            "checkout": {
+                "worktree_dir": "/tmp/final-pr-615",
+                "base_sha": "abc123",
+                "head_sha": "def456",
+            },
+            "merge": {"status": "clean", "conflicts": [], "likely_complex": False},
+        }
+        pr_context = {
+            "number": 615,
+            "title": "Fix #117: [Model] GraphPartitioning",
+        }
+        review_context = {
+            "subject": {"kind": "model", "name": "GraphPartitioning"},
+            "whitelist": {"ok": True},
+            "completeness": {"ok": True},
+        }
+
+        result = pipeline_skill_context.build_final_review_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=None,
+            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+            selection_fetcher=lambda **kwargs: selection,
+            pr_context_builder=lambda repo, pr_number: pr_context,
+            review_preparer=lambda repo, pr_number: prep,
+            review_context_builder=lambda *, prep, pr_context: review_context,
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "skill": "final-review",
+                "status": "ready",
+                "selection": selection,
+                "pr": pr_context,
+                "prep": prep,
+                "review_context": review_context,
+            },
+        )
+
+    def test_build_final_review_context_keeps_review_context_on_conflicted_prep(self) -> None:
+        selection = {
+            "item_id": "PVTI_23",
+            "number": 620,
+            "issue_number": 118,
+            "pr_number": 620,
+            "status": "Final review",
+            "title": "[Rule] BinPacking to ILP",
+        }
+        prep = {
+            "ready": False,
+            "checkout": {
+                "worktree_dir": "/tmp/final-pr-620",
+                "base_sha": "abc123",
+                "head_sha": "def456",
+            },
+            "merge": {
+                "status": "conflicted",
+                "conflicts": ["src/rules/binpacking_ilp.rs"],
+                "likely_complex": False,
+            },
+        }
+        review_context = {
+            "subject": {"kind": "rule", "name": "binpacking_ilp"},
+            "whitelist": {"ok": True},
+            "completeness": {"ok": True},
+        }
+
+        result = pipeline_skill_context.build_final_review_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=620,
+            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+            selection_fetcher=lambda **kwargs: selection,
+            pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+            review_preparer=lambda repo, pr_number: prep,
+            review_context_builder=lambda *, prep, pr_context: review_context,
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["prep"]["merge"]["status"], "conflicted")
+        self.assertEqual(result["review_context"], review_context)
+
+    def test_build_final_review_context_returns_warning_state_on_prep_failure(self) -> None:
+        selection = {
+            "item_id": "PVTI_24",
+            "number": 621,
+            "issue_number": 119,
+            "pr_number": 621,
+            "status": "Final review",
+            "title": "[Model] FlowShopScheduling",
+        }
+
+        def fail_prepare(repo: str, pr_number: int) -> dict:
+            raise RuntimeError("checkout failed")
+
+        result = pipeline_skill_context.build_final_review_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=621,
+            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+            selection_fetcher=lambda **kwargs: selection,
+            pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+            review_preparer=fail_prepare,
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "skill": "final-review",
+                "status": "ready-with-warnings",
+                "selection": selection,
+                "pr": {"number": 621},
+                "prep": {"ready": False, "error": "checkout failed"},
+                "review_context": None,
+                "warnings": [
+                    "failed to prepare final-review worktree: checkout failed",
+                ],
+            },
+        )
 
 
 if __name__ == "__main__":
