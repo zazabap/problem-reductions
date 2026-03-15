@@ -122,6 +122,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'C', b'B']]),
+        "LongestCommonSubsequence",
+    );
 }
 
 #[test]
@@ -205,6 +209,10 @@ fn test_direction() {
     );
     assert_eq!(
         MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
+        Direction::Maximize
+    );
+    assert_eq!(
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'B']]).direction(),
         Direction::Maximize
     );
 }
