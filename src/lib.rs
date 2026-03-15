@@ -58,7 +58,7 @@ pub mod prelude {
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
         ShortestCommonSupersequence, SubsetSum,
     };
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
