@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+import io
+import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from pipeline_board import (
@@ -14,7 +17,9 @@ from pipeline_board import (
     ack_item,
     build_recovery_plan,
     normalize_status_name,
+    print_next_item,
     process_snapshot,
+    select_next_entry,
 )
 
 
@@ -282,6 +287,140 @@ class PipelineBoardStatusTests(unittest.TestCase):
         self.assertEqual(normalize_status_name("under review"), STATUS_UNDER_REVIEW)
         self.assertEqual(normalize_status_name("on-hold"), STATUS_ON_HOLD)
         self.assertEqual(normalize_status_name("done"), STATUS_DONE)
+
+
+class PipelineBoardOutputTests(unittest.TestCase):
+    def test_select_next_entry_honors_requested_number(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "ready-state.json"
+            entry = select_next_entry(
+                "ready",
+                {
+                    "items": [
+                        make_issue_item("PVTI_1", 101, title="[Model] A"),
+                        make_issue_item("PVTI_2", 102, title="[Model] B"),
+                    ]
+                },
+                state_file,
+                target_number=102,
+            )
+            self.assertEqual(
+                entry,
+                {
+                    "item_id": "PVTI_2",
+                    "number": 102,
+                    "issue_number": 102,
+                    "pr_number": None,
+                    "status": STATUS_READY,
+                    "title": "[Model] B",
+                },
+            )
+
+    def test_select_next_entry_includes_ready_issue_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "ready-state.json"
+            entry = select_next_entry(
+                "ready",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_1",
+                            101,
+                            title="[Model] ExactCoverBy3Sets",
+                        )
+                    ]
+                },
+                state_file,
+            )
+            self.assertEqual(
+                entry,
+                {
+                    "item_id": "PVTI_1",
+                    "number": 101,
+                    "issue_number": 101,
+                    "pr_number": None,
+                    "status": STATUS_READY,
+                    "title": "[Model] ExactCoverBy3Sets",
+                },
+            )
+
+    def test_select_next_entry_includes_review_metadata(self) -> None:
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(issue_number, 117)
+            return 570
+
+        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return "OPEN"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-state.json"
+            entry = select_next_entry(
+                "review",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_10",
+                            117,
+                            status="Review pool",
+                            title="[Model] GraphPartitioning",
+                        )
+                    ]
+                },
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                review_fetcher=fake_review_fetcher,
+                pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+            self.assertEqual(
+                entry,
+                {
+                    "item_id": "PVTI_10",
+                    "number": 570,
+                    "issue_number": 117,
+                    "pr_number": 570,
+                    "status": STATUS_REVIEW_POOL,
+                    "title": "[Model] GraphPartitioning",
+                },
+            )
+
+    def test_print_next_item_json_emits_rich_payload(self) -> None:
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            rc = print_next_item(
+                {
+                    "item_id": "PVTI_20",
+                    "number": 615,
+                    "issue_number": 101,
+                    "pr_number": 615,
+                    "status": STATUS_FINAL_REVIEW,
+                    "title": "[Model] MinimumFeedbackVertexSet",
+                },
+                mode="final-review",
+                fmt="json",
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            json.loads(buffer.getvalue()),
+            {
+                "mode": "final-review",
+                "item_id": "PVTI_20",
+                "number": 615,
+                "issue_number": 101,
+                "pr_number": 615,
+                "status": STATUS_FINAL_REVIEW,
+                "title": "[Model] MinimumFeedbackVertexSet",
+            },
+        )
 
 
 if __name__ == "__main__":

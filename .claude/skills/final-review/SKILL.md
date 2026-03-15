@@ -30,15 +30,35 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ### Step 0: Discover "Final review" PRs
 
-If a specific PR number was given, use it directly. Otherwise:
+Use the board helper to select or validate the target PR and capture structured metadata:
 
-1. Fetch all project board items:
-   ```bash
-   gh project item-list 8 --owner CodingThrust --limit 500 --format json
-   ```
-2. Filter items where `Status == "Final review"`. Items may be Issues (with linked PRs) or PRs directly.
-3. If none found, report "No items in the Final review column" and stop.
-4. Pick the first one. If the item is an Issue, find the linked PR by searching open PRs for `Fix #<issue_number>` in the title. Print title, PR number, issue number, and URL.
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+STATE_FILE=/tmp/problemreductions-final-review-selection.json
+```
+
+If a specific PR number was given:
+
+```bash
+NEXT=$(python3 scripts/pipeline_board.py next final-review "$STATE_FILE" --repo "$REPO" --number <number> --format json)
+```
+
+Otherwise:
+
+```bash
+NEXT=$(python3 scripts/pipeline_board.py next final-review "$STATE_FILE" --repo "$REPO" --format json)
+```
+
+If the command exits with status 1, report `No items in the Final review column` and stop.
+
+Extract the board item and PR metadata from `NEXT`:
+
+```bash
+ITEM_ID=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
+PR=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])")
+ISSUE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or '')")
+TITLE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+```
 
 ### Step 1: Gather PR context
 

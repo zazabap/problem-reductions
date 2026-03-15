@@ -206,6 +206,27 @@ def linked_repo_pr_numbers(item: dict, repo: str) -> list[int]:
     return linked_pr_numbers(item, repo)
 
 
+def entry_title(item: dict) -> str | None:
+    content = item.get("content") or {}
+    return content.get("title") or item.get("title")
+
+
+def build_entry(
+    item: dict,
+    *,
+    number: int,
+    issue_number: int | None = None,
+    pr_number: int | None = None,
+) -> dict:
+    return {
+        "number": number,
+        "issue_number": issue_number,
+        "pr_number": pr_number,
+        "status": item.get("status"),
+        "title": entry_title(item),
+    }
+
+
 def ready_entries(board_data: dict) -> dict[str, dict]:
     entries = {}
     for item in board_data.get("items", []):
@@ -217,7 +238,12 @@ def ready_entries(board_data: dict) -> dict[str, dict]:
         if number is None:
             continue
 
-        entries[item_identity(item)] = {"number": int(number)}
+        issue_number = int(number)
+        entries[item_identity(item)] = build_entry(
+            item,
+            number=issue_number,
+            issue_number=issue_number,
+        )
     return entries
 
 
@@ -268,7 +294,13 @@ def review_entries(
 
         reviews = review_fetcher(repo, pr_number)
         if has_copilot_review(reviews):
-            entries[item_identity(item)] = {"number": pr_number}
+            issue_number = int(number) if item_type == "Issue" else None
+            entries[item_identity(item)] = build_entry(
+                item,
+                number=pr_number,
+                issue_number=issue_number,
+                pr_number=pr_number,
+            )
     return entries
 
 
@@ -318,7 +350,13 @@ def final_review_entries(
         if pr_number is None:
             continue
 
-        entries[item_identity(item)] = {"number": pr_number}
+        issue_number = int(number) if item_type == "Issue" else None
+        entries[item_identity(item)] = build_entry(
+            item,
+            number=pr_number,
+            issue_number=issue_number,
+            pr_number=pr_number,
+        )
     return entries
 
 
@@ -366,7 +404,33 @@ def process_snapshot(
     review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
 ) -> tuple[str, int] | None:
+    next_entry = select_next_entry(
+        mode,
+        board_data,
+        state_file,
+        repo,
+        review_fetcher,
+        pr_resolver,
+        pr_state_fetcher,
+        target_number,
+    )
+    if next_entry is None:
+        return None
+    return str(next_entry["item_id"]), int(next_entry["number"])
+
+
+def select_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+) -> dict | None:
     state = load_state(state_file)
     previous_visible = state["visible"]
     current_visible = current_entries(
@@ -391,11 +455,28 @@ def process_snapshot(
     state["pending"] = pending
     save_state(state_file, state)
 
+    if target_number is not None:
+        matching_item_id = next(
+            (
+                item_id
+                for item_id, entry in current_visible.items()
+                if int(entry["number"]) == target_number
+            ),
+            None,
+        )
+        if matching_item_id is None:
+            return None
+        entry = dict(current_visible[matching_item_id])
+        entry["item_id"] = matching_item_id
+        return entry
+
     if not pending:
         return None
 
     item_id = pending[0]
-    return item_id, int(current_visible[item_id]["number"])
+    entry = dict(current_visible[item_id])
+    entry["item_id"] = item_id
+    return entry
 
 
 def ack_item(state_file: Path, item_id: str) -> None:
@@ -630,7 +711,7 @@ def apply_plan(
 
 
 def print_next_item(
-    next_item: tuple[str, int] | None,
+    next_item: dict | None,
     *,
     mode: str,
     fmt: str = "text",
@@ -638,19 +719,11 @@ def print_next_item(
     if next_item is None:
         return 1
 
-    item_id, number = next_item
     if fmt == "json":
-        print(
-            json.dumps(
-                {
-                    "mode": mode,
-                    "item_id": item_id,
-                    "number": number,
-                }
-            )
-        )
+        payload = {"mode": mode, **next_item}
+        print(json.dumps(payload))
     else:
-        print(f"{item_id}\t{number}")
+        print(f"{next_item['item_id']}\t{next_item['number']}")
     return 0
 
 
@@ -665,6 +738,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     next_parser.add_argument("--owner", default="CodingThrust")
     next_parser.add_argument("--project-number", type=int, default=8)
     next_parser.add_argument("--limit", type=int, default=500)
+    next_parser.add_argument("--number", type=int)
     next_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     ack_parser = subparsers.add_parser("ack")
@@ -700,7 +774,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"--repo is required in {args.mode} mode")
 
     board_data = fetch_board_items(args.owner, args.project_number, args.limit)
-    next_item = process_snapshot(
+    next_item = select_next_entry(
         args.mode,
         board_data,
         args.state_file,
@@ -708,6 +782,7 @@ def main(argv: list[str] | None = None) -> int:
         review_fetcher=fetch_pr_reviews,
         pr_resolver=resolve_issue_pr,
         pr_state_fetcher=fetch_pr_state,
+        target_number=args.number,
     )
     return print_next_item(next_item, mode=args.mode, fmt=args.format)
 
