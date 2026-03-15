@@ -2,13 +2,12 @@ use crate::example_db::{
     build_model_db, build_rule_db, compute_model_db, compute_rule_db, find_model_example,
     find_rule_example,
 };
-use crate::export::{lookup_overhead, ProblemRef, EXAMPLE_DB_VERSION};
+use crate::export::{lookup_overhead, ProblemRef};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
 fn test_build_model_db_contains_curated_examples() {
     let db = build_model_db().expect("model db should build");
-    assert_eq!(db.version, EXAMPLE_DB_VERSION);
     assert!(!db.models.is_empty(), "model db should not be empty");
     assert!(
         db.models

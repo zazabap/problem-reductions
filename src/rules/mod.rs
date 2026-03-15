@@ -36,6 +36,8 @@ pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
 mod traits;
 pub(crate) mod travelingsalesman_qubo;
+#[cfg(test)]
+pub(crate) mod test_helpers;
 
 pub mod unitdiskmapping;
 

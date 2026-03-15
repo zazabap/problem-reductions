@@ -107,7 +107,6 @@ fn test_write_canonical_example_dbs() {
     fs::create_dir_all(&dir).unwrap();
 
     let rule_db = RuleDb {
-        version: EXAMPLE_DB_VERSION,
         rules: vec![RuleExample {
             source: ProblemSide {
                 problem: "SourceProblem".to_string(),
@@ -124,7 +123,6 @@ fn test_write_canonical_example_dbs() {
         }],
     };
     let model_db = ModelDb {
-        version: EXAMPLE_DB_VERSION,
         models: vec![ModelExample {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
@@ -137,15 +135,13 @@ fn test_write_canonical_example_dbs() {
     write_rule_db_to(&dir, &rule_db);
     write_model_db_to(&dir, &model_db);
 
-    let rules_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.join("rules.json")).unwrap()).unwrap();
-    let models_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.join("models.json")).unwrap()).unwrap();
+    let rules_json = fs::read_to_string(dir.join("rules.json")).unwrap();
+    let models_json = fs::read_to_string(dir.join("models.json")).unwrap();
+    let parsed_rules = parse_rule_db_json_lines(&rules_json);
+    let parsed_models = parse_model_db_json_lines(&models_json);
 
-    assert_eq!(rules_json["version"], EXAMPLE_DB_VERSION);
-    assert_eq!(rules_json["rules"][0]["source"]["problem"], "SourceProblem");
-    assert_eq!(models_json["version"], EXAMPLE_DB_VERSION);
-    assert_eq!(models_json["models"][0]["problem"], "ModelProblem");
+    assert_eq!(parsed_rules.rules[0].source.problem, "SourceProblem");
+    assert_eq!(parsed_models.models[0].problem, "ModelProblem");
 
     let _ = fs::remove_dir_all(&dir);
 }

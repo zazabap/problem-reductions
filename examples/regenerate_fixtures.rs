@@ -1,13 +1,15 @@
 /// Regenerate example database fixture files from builder code.
 ///
 /// This binary recomputes all model and rule examples using BruteForce/ILP
-/// and writes the results to `src/example_db/fixtures/`. Run this in release
-/// mode after changing any model or rule to update the stored expected results:
+/// and writes them to `src/example_db/fixtures/` as JSON Lines, one example per
+/// line. Run this in release mode after changing any model or rule to update
+/// the stored expected results:
 ///
 /// ```
 /// cargo run --release --example regenerate_fixtures --features example-db
 /// ```
 use problemreductions::example_db::{compute_model_db, compute_rule_db};
+use problemreductions::export::{write_model_db_to, write_rule_db_to};
 use std::fs;
 use std::path::Path;
 
@@ -21,11 +23,8 @@ fn main() {
     let models_path = fixtures_dir.join("models.json");
     let rules_path = fixtures_dir.join("rules.json");
 
-    let models_json = serde_json::to_string(&model_db).expect("Failed to serialize models");
-    let rules_json = serde_json::to_string(&rule_db).expect("Failed to serialize rules");
-
-    fs::write(&models_path, &models_json).expect("Failed to write models fixture");
-    fs::write(&rules_path, &rules_json).expect("Failed to write rules fixture");
+    write_model_db_to(&fixtures_dir, &model_db);
+    write_rule_db_to(&fixtures_dir, &rule_db);
 
     println!(
         "Regenerated fixtures: {} rule examples, {} model examples",

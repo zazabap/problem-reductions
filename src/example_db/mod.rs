@@ -3,8 +3,9 @@
 //! The example database has two layers:
 //!
 //! - **Fixtures** (`fixtures/models.json`, `fixtures/rules.json`): pre-computed
-//!   expected results embedded at compile time. These are the "stored expected
-//!   results" used for fast export and lookups.
+//!   expected results embedded at compile time as JSON Lines, one example per
+//!   line. These are the "stored expected results" used for fast export and
+//!   lookups.
 //!
 //! - **Builders** (`model_builders`, `rule_builders`): code that constructs
 //!   problem instances and computes solutions via BruteForce/ILP. Used only
@@ -15,7 +16,8 @@
 
 use crate::error::{ProblemError, Result};
 use crate::export::{
-    examples_output_dir, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample, EXAMPLE_DB_VERSION,
+    examples_output_dir, parse_model_db_json_lines, parse_rule_db_json_lines, ModelDb,
+    ModelExample, ProblemRef, RuleDb, RuleExample,
 };
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -65,8 +67,7 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
 /// Load the model database from the embedded fixture file.
 pub fn build_model_db() -> Result<ModelDb> {
     static MODELS_JSON: &str = include_str!("fixtures/models.json");
-    let db: ModelDb =
-        serde_json::from_str(MODELS_JSON).expect("embedded models fixture should parse");
+    let db = parse_model_db_json_lines(MODELS_JSON);
     validate_model_uniqueness(&db.models)?;
     Ok(db)
 }
@@ -74,8 +75,7 @@ pub fn build_model_db() -> Result<ModelDb> {
 /// Load the rule database from the embedded fixture file.
 pub fn build_rule_db() -> Result<RuleDb> {
     static RULES_JSON: &str = include_str!("fixtures/rules.json");
-    let db: RuleDb =
-        serde_json::from_str(RULES_JSON).expect("embedded rules fixture should parse");
+    let db = parse_rule_db_json_lines(RULES_JSON);
     validate_rule_uniqueness(&db.rules)?;
     Ok(db)
 }
@@ -87,10 +87,7 @@ pub fn compute_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
     validate_model_uniqueness(&models)?;
-    Ok(ModelDb {
-        version: EXAMPLE_DB_VERSION,
-        models,
-    })
+    Ok(ModelDb { models })
 }
 
 /// Recompute the rule database from builder code (runs BruteForce/ILP).
@@ -98,10 +95,7 @@ pub fn compute_rule_db() -> Result<RuleDb> {
     let mut rules = rule_builders::build_rule_examples();
     rules.sort_by_key(rule_key);
     validate_rule_uniqueness(&rules)?;
-    Ok(RuleDb {
-        version: EXAMPLE_DB_VERSION,
-        rules,
-    })
+    Ok(RuleDb { rules })
 }
 
 pub fn find_rule_example(source: &ProblemRef, target: &ProblemRef) -> Result<RuleExample> {
