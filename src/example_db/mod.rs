@@ -62,8 +62,8 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
 /// Load the full example database from the embedded fixture file.
 pub fn build_example_db() -> Result<ExampleDb> {
     static EXAMPLES_JSON: &str = include_str!("fixtures/examples.json");
-    let db: ExampleDb =
-        serde_json::from_str(EXAMPLES_JSON).expect("example fixtures should be valid JSON");
+    let db: ExampleDb = serde_json::from_str(EXAMPLES_JSON)
+        .map_err(|e| ProblemError::SerializationError(format!("invalid example fixture: {e}")))?;
     validate_model_uniqueness(&db.models)?;
     validate_rule_uniqueness(&db.rules)?;
     Ok(db)
@@ -107,6 +107,12 @@ pub fn compute_rule_db() -> Result<RuleDb> {
     rules.sort_by_key(rule_key);
     validate_rule_uniqueness(&rules)?;
     Ok(RuleDb { rules })
+}
+
+#[cfg(test)]
+pub(crate) fn computed_rule_db_for_tests() -> &'static RuleDb {
+    static DB: std::sync::OnceLock<RuleDb> = std::sync::OnceLock::new();
+    DB.get_or_init(|| compute_rule_db().expect("compute should succeed"))
 }
 
 pub fn find_rule_example(source: &ProblemRef, target: &ProblemRef) -> Result<RuleExample> {
