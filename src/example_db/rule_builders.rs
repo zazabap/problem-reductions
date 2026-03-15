@@ -11,7 +11,9 @@ pub fn build_rule_examples() -> Vec<RuleExample> {
 mod tests {
     #[test]
     fn builds_all_canonical_rule_examples() {
-        let examples = &crate::example_db::computed_rule_db_for_tests().rules;
+        let examples = crate::example_db::compute_rule_db()
+            .expect("compute should succeed")
+            .rules;
 
         assert!(!examples.is_empty());
         assert!(examples

@@ -151,6 +151,74 @@ fn test_write_example_db_uses_wrapped_json_contract() {
 }
 
 #[test]
+fn test_write_example_db_uses_one_line_per_example_entry() {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let dir = std::env::temp_dir().join(format!(
+        "problemreductions-export-db-lines-test-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+
+    let db = ExampleDb {
+        models: vec![ModelExample {
+            problem: "ModelProblem".to_string(),
+            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+            instance: serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]}),
+            samples: vec![SampleEval {
+                config: vec![1, 0, 1],
+                metric: serde_json::json!({"Valid": 2}),
+            }],
+            optimal: vec![],
+        }],
+        rules: vec![RuleExample {
+            source: ProblemSide {
+                problem: "SourceProblem".to_string(),
+                variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+                instance: serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]}),
+            },
+            target: ProblemSide {
+                problem: "TargetProblem".to_string(),
+                variant: variant_to_map(vec![("weight", "i32")]),
+                instance: serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]}),
+            },
+            solutions: vec![SolutionPair {
+                source_config: vec![1, 0, 1],
+                target_config: vec![0, 1, 1, 0],
+            }],
+        }],
+    };
+    write_example_db_to(&dir, &db);
+
+    let text = fs::read_to_string(dir.join("examples.json")).unwrap();
+    let model_line = text
+        .lines()
+        .find(|line| line.contains("\"problem\":\"ModelProblem\""))
+        .expect("model entry should appear on a single line");
+    let rule_line = text
+        .lines()
+        .find(|line| line.contains("\"problem\":\"SourceProblem\""))
+        .expect("rule entry should appear on a single line");
+
+    assert!(
+        model_line.trim().starts_with('{')
+            && model_line.trim().trim_end_matches(',').ends_with('}'),
+        "model entry should be serialized as one compact JSON object line"
+    );
+    assert!(
+        rule_line.trim().starts_with('{')
+            && rule_line.trim().trim_end_matches(',').ends_with('}'),
+        "rule entry should be serialized as one compact JSON object line"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn rule_example_serialization_omits_overhead() {
     let example = RuleExample {
         source: ProblemSide {

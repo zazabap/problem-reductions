@@ -161,6 +161,36 @@ fn write_json_file<T: Serialize>(dir: &Path, name: &str, payload: &T) {
     println!("Exported: {}", path.display());
 }
 
+fn render_compact_array<T: Serialize>(items: &[T]) -> String {
+    if items.is_empty() {
+        "[]".to_string()
+    } else {
+        let rows = items
+            .iter()
+            .map(|item| {
+                format!(
+                    "    {}",
+                    serde_json::to_string(item).expect("Failed to serialize example entry")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",\n");
+        format!("[\n{rows}\n  ]")
+    }
+}
+
+fn write_example_db_file(dir: &Path, db: &ExampleDb) {
+    fs::create_dir_all(dir).expect("Failed to create examples directory");
+    let path = dir.join("examples.json");
+    let json = format!(
+        "{{\n  \"models\": {},\n  \"rules\": {}\n}}\n",
+        render_compact_array(&db.models),
+        render_compact_array(&db.rules)
+    );
+    fs::write(&path, json).expect("Failed to write example JSON");
+    println!("Exported: {}", path.display());
+}
+
 /// Write a merged rule example JSON file.
 pub fn write_rule_example_to(dir: &Path, name: &str, example: &RuleExample) {
     write_json_file(dir, name, example);
@@ -183,7 +213,7 @@ pub fn write_model_db_to(dir: &Path, db: &ModelDb) {
 
 /// Write the canonical example database as a wrapped JSON object.
 pub fn write_example_db_to(dir: &Path, db: &ExampleDb) {
-    write_json_file(dir, "examples", db);
+    write_example_db_file(dir, db);
 }
 
 #[cfg(test)]

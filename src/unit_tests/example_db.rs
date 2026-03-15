@@ -1,5 +1,5 @@
 use crate::example_db::{
-    build_example_db, build_model_db, build_rule_db, compute_model_db, computed_rule_db_for_tests,
+    build_example_db, build_model_db, build_rule_db, compute_model_db, compute_rule_db,
     find_model_example, find_rule_example,
 };
 use crate::export::ProblemRef;
@@ -191,7 +191,7 @@ fn test_rule_examples_store_single_solution_pair() {
 
 #[test]
 fn test_computed_rule_examples_store_single_solution_pair() {
-    let db = computed_rule_db_for_tests();
+    let db = compute_rule_db().expect("computed rule db should build");
     for rule in &db.rules {
         assert_eq!(
             rule.solutions.len(),
@@ -246,7 +246,7 @@ fn canonical_rule_example_ids_are_unique() {
 
 #[test]
 fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
-    let computed = computed_rule_db_for_tests();
+    let computed = compute_rule_db().expect("computed rule db should build");
     let example_keys: BTreeSet<_> = computed
         .rules
         .iter()
@@ -631,7 +631,7 @@ fn verify_model_fixtures_match_computed() {
 #[test]
 fn verify_rule_fixtures_match_computed() {
     let loaded = build_rule_db().expect("fixture should load");
-    let computed = computed_rule_db_for_tests();
+    let computed = compute_rule_db().expect("computed rule db should build");
     assert_eq!(
         loaded.rules.len(),
         computed.rules.len(),

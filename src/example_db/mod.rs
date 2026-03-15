@@ -109,12 +109,6 @@ pub fn compute_rule_db() -> Result<RuleDb> {
     Ok(RuleDb { rules })
 }
 
-#[cfg(test)]
-pub(crate) fn computed_rule_db_for_tests() -> &'static RuleDb {
-    static DB: std::sync::OnceLock<RuleDb> = std::sync::OnceLock::new();
-    DB.get_or_init(|| compute_rule_db().expect("compute should succeed"))
-}
-
 pub fn find_rule_example(source: &ProblemRef, target: &ProblemRef) -> Result<RuleExample> {
     let db = build_rule_db()?;
     db.rules
