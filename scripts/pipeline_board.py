@@ -1226,6 +1226,7 @@ def main(argv: list[str] | None = None) -> int:
                 fetch_pr_reviews,
                 resolve_issue_pr,
                 fetch_pr_info,
+                batch_pr_fetcher=batch_fetch_prs_with_reviews,
             )
             return print_candidate_list(args.mode, items, fmt=args.format)
         raise SystemExit(f"Unsupported list mode: {args.mode}")
