@@ -6,7 +6,9 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
+use problemreductions::models::graph::{
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths,
+};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     PaintShop, ShortestCommonSupersequence, SubsetSum,
@@ -25,6 +27,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.source.is_none()
+        && args.sink.is_none()
+        && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -241,6 +246,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "LengthBoundedDisjointPaths" => {
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+        }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
@@ -281,17 +289,19 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
+            let flag_name =
+                problem_help_flag_name(canonical, &field.name, &field.type_name, is_geometry);
             // For geometry variants, show --positions instead of --graph
             if field.type_name == "G" && is_geometry {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({hint})", "positions", field.description);
+                eprintln!("  --{:<16} {} ({hint})", flag_name, field.description);
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
             } else if field.type_name == "DirectedGraph" {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
@@ -319,6 +329,69 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn problem_help_flag_name(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> String {
+    if field_type == "G" && is_geometry {
+        return "positions".to_string();
+    }
+    if field_type == "DirectedGraph" {
+        return "arcs".to_string();
+    }
+    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
+        return "bound".to_string();
+    }
+    field_name.replace('_', "-")
+}
+
+fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
+    match usage {
+        Some(usage) => anyhow::anyhow!("{message}\n\n{usage}"),
+        None => anyhow::anyhow!("{message}"),
+    }
+}
+
+fn validate_length_bounded_disjoint_paths_args(
+    num_vertices: usize,
+    source: usize,
+    sink: usize,
+    num_paths_required: usize,
+    bound: i64,
+    usage: Option<&str>,
+) -> Result<usize> {
+    let max_length = usize::try_from(bound).map_err(|_| {
+        lbdp_validation_error(
+            "--bound must be a nonnegative integer for LengthBoundedDisjointPaths",
+            usage,
+        )
+    })?;
+    if source >= num_vertices || sink >= num_vertices {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be valid graph vertices",
+            usage,
+        ));
+    }
+    if source == sink {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be distinct",
+            usage,
+        ));
+    }
+    if num_paths_required == 0 {
+        return Err(lbdp_validation_error(
+            "--num-paths-required must be positive",
+            usage,
+        ));
+    }
+    if max_length == 0 {
+        return Err(lbdp_validation_error("--bound must be positive", usage));
+    }
+    Ok(max_length)
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -410,6 +483,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        "LengthBoundedDisjointPaths" => {
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
+            })?;
+            let num_paths_required = args.num_paths_required.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
+            })?;
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                graph.num_vertices(),
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                Some(usage),
+            )?;
+
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // IsomorphicSpanningTree (graph + tree)
@@ -1753,6 +1865,47 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // LengthBoundedDisjointPaths (graph only, with path defaults)
+        "LengthBoundedDisjointPaths" => {
+            let num_vertices = if num_vertices < 2 {
+                eprintln!(
+                    "Warning: LengthBoundedDisjointPaths requires at least 2 vertices; rounding {} up to 2",
+                    num_vertices
+                );
+                2
+            } else {
+                num_vertices
+            };
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source = args.source.unwrap_or(0);
+            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let num_paths_required = args.num_paths_required.unwrap_or(1);
+            let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                num_vertices,
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                None,
+            )?;
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                variant,
+            )
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -1861,4 +2014,30 @@ fn create_random(
     };
 
     emit_problem_output(&output, out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::problem_help_flag_name;
+
+    #[test]
+    fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
+        assert_eq!(
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_length", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_preserves_generic_field_kebab_case() {
+        assert_eq!(
+            problem_help_flag_name(
+                "LengthBoundedDisjointPaths",
+                "num_paths_required",
+                "usize",
+                false,
+            ),
+            "num-paths-required"
+        );
+    }
 }
