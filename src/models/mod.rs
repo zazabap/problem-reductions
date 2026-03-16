@@ -25,4 +25,6 @@ pub use misc::{
     MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
     SubsetSum,
 };
-pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis};
+pub use set::{
+    ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, PrimeAttributeName, SetBasis,
+};

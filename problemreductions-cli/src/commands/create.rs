@@ -90,6 +90,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.deps.is_none()
+        && args.query.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -295,6 +297,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "PrimeAttributeName" => {
+            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -1542,6 +1547,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // PrimeAttributeName
+        "PrimeAttributeName" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --universe, --deps, and --query\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let deps_str = args.deps.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --deps\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let query = args.query.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --query\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let dependencies = parse_deps(deps_str)?;
+            for (i, (lhs, rhs)) in dependencies.iter().enumerate() {
+                for &attr in lhs.iter().chain(rhs.iter()) {
+                    if attr >= universe {
+                        bail!(
+                            "Dependency {} references attribute {} outside universe of size {}",
+                            i,
+                            attr,
+                            universe
+                        );
+                    }
+                }
+            }
+            if query >= universe {
+                bail!(
+                    "Query attribute {} is outside universe of size {}",
+                    query,
+                    universe
+                );
+            }
+            (
+                ser(PrimeAttributeName::new(universe, dependencies, query))?,
+                resolved_variant.clone(),
+            )
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -1965,6 +2016,33 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+/// Parse a dependency string as semicolon-separated `lhs>rhs` pairs.
+/// E.g., "0,1>2,3;2,3>0,1"
+fn parse_deps(s: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    s.split(';')
+        .map(|dep| {
+            let parts: Vec<&str> = dep.split('>').collect();
+            if parts.len() != 2 {
+                bail!("Invalid dependency format '{}': expected 'lhs>rhs'", dep);
+            }
+            let lhs = parse_index_list(parts[0])?;
+            let rhs = parse_index_list(parts[1])?;
+            Ok((lhs, rhs))
+        })
+        .collect()
+}
+
+/// Parse a comma-separated list of usize indices.
+fn parse_index_list(s: &str) -> Result<Vec<usize>> {
+    s.split(',')
+        .map(|x| {
+            x.trim()
+                .parse::<usize>()
+                .map_err(|e| anyhow::anyhow!("Invalid index '{}': {}", x.trim(), e))
         })
         .collect()
 }
