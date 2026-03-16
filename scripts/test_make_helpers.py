@@ -463,7 +463,8 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 2, proc.stderr)
-        self.assertIn("max_age:3600", proc.stderr)
+        # Above threshold: cache is reused but max_age is still the poll interval
+        self.assertIn("max_age:600", proc.stderr)
 
     def test_watch_and_dispatch_invalidates_cache_when_pending_below_threshold(self) -> None:
         if shutil.which("dash") is None:
@@ -487,7 +488,8 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 2, proc.stderr)
-        self.assertIn("max_age:120", proc.stderr)
+        # Below threshold: cache is invalidated but max_age is still the poll interval
+        self.assertIn("max_age:600", proc.stderr)
 
     def test_watch_and_dispatch_requests_copilot_reviews_in_review_mode(self) -> None:
         if shutil.which("dash") is None:
@@ -559,8 +561,8 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 2, proc.stderr)
-        # pending_count=0 < threshold=5, so cache should be invalidated (short TTL)
-        self.assertIn("max_age:120", proc.stderr)
+        # pending_count=0 < threshold=5, so cache should be invalidated; max_age = poll interval
+        self.assertIn("max_age:600", proc.stderr)
 
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:

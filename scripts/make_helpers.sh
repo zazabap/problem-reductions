@@ -272,13 +272,12 @@ except (FileNotFoundError, json.JSONDecodeError, ValueError):
     print(0)
 " "$state_file" 2>/dev/null || echo 0)
 
-        if [ "$pending_count" -ge "$cache_threshold" ]; then
-            # Enough pending items — reuse cached board (1h TTL)
-            board_max_age=3600
-        else
-            # Running low — invalidate cache and fetch fresh board
+        # Always fetch a reasonably fresh board to avoid dispatching items
+        # that moved out of the target column since the last fetch.
+        board_max_age=$interval
+        if [ "$pending_count" -lt "$cache_threshold" ]; then
+            # Running low — invalidate cache to discover new items immediately
             rm -f "$board_cache"
-            board_max_age=120
 
             # For review mode, request Copilot reviews on PRs that don't have one yet
             if [ "$mode" = "review" ] && [ -n "$repo" ]; then
