@@ -61,13 +61,14 @@ run_agent() {
 # --- Project board ---
 
 # Detect the next eligible item and preserve retryable state in a queue.
-#   poll_project_items <mode> <state-file> [repo] [number] [format]
+#   poll_project_items <mode> <state-file> [repo] [number] [format] [board-cache]
 poll_project_items() {
     mode=$1
     state_file=$2
     repo=${3-}
     number=${4-}
     fmt=${5-text}
+    board_cache=${6-}
 
     set -- scripts/pipeline_board.py next "$mode" "$state_file" --format "$fmt"
     if [ -n "$repo" ]; then
@@ -75,6 +76,9 @@ poll_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    if [ -n "$board_cache" ]; then
+        set -- "$@" --board-cache "$board_cache"
     fi
     python3 "$@"
 }
@@ -205,10 +209,15 @@ cleanup_pipeline_worktree() {
 }
 
 # Request Copilot review on all Review pool PRs that don't have one yet.
-#   request_copilot_reviews <repo>
+#   request_copilot_reviews <repo> [board-cache]
 request_copilot_reviews() {
     repo=$1
-    prs=$(python3 scripts/pipeline_board.py list review --repo "$repo" --format json \
+    board_cache=${2-}
+    cache_args=""
+    if [ -n "$board_cache" ]; then
+        cache_args="--board-cache $board_cache"
+    fi
+    prs=$(python3 scripts/pipeline_board.py list review --repo "$repo" --format json $cache_args \
         | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -235,16 +244,20 @@ watch_and_dispatch() {
     interval=${POLL_INTERVAL:-600}
 
     state_file=$(mktemp /tmp/problemreductions-${mode}-state.XXXXXX)
-    trap 'rm -f "$state_file"' EXIT INT TERM
+    board_cache="/tmp/problemreductions-${mode}-board-cache.json"
+    trap 'rm -f "$state_file" "$board_cache"' EXIT INT TERM
 
     echo "Watching for new ${label} (polling every $((interval / 60))m)..."
     while true; do
+        # Invalidate board cache at the start of each iteration
+        rm -f "$board_cache"
+
         # For review mode, request Copilot reviews on PRs that don't have one yet
         if [ "$mode" = "review" ] && [ -n "$repo" ]; then
-            request_copilot_reviews "$repo"
+            request_copilot_reviews "$repo" "$board_cache"
         fi
 
-        next_item=$(poll_project_items "$mode" "$state_file" "$repo")
+        next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache")
         status=$?
         if [ "$status" -eq 0 ]; then
             item_id=$(printf '%s\n' "$next_item" | cut -f1)

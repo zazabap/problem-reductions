@@ -1001,8 +1001,11 @@ def build_project_pipeline_context(
     existing_problem_finder: Callable[[Path], set[str]] | None = None,
 ) -> dict:
     board_fetcher = board_fetcher or fetch_project_board_data
+    _custom_issue_fetcher = issue_fetcher is not None
     issue_fetcher = issue_fetcher or pipeline_checks.fetch_issue
-    batch_issue_fetcher = batch_issue_fetcher or pipeline_board.batch_fetch_issues
+    # Only use batch fetcher when no custom per-item fetcher was injected (e.g. tests)
+    if batch_issue_fetcher is None and not _custom_issue_fetcher:
+        batch_issue_fetcher = pipeline_board.batch_fetch_issues
     existing_problem_finder = existing_problem_finder or scan_existing_problems
 
     board_data = board_fetcher(repo)
@@ -1022,14 +1025,17 @@ def build_project_pipeline_context(
         key=lambda pair: pair[1]["issue_number"],
     )
 
-    # Batch-fetch all issue data in one API call
-    all_issue_numbers = [int(entry["issue_number"]) for _, entry in ready_entries_items]
-    issues_cache = batch_issue_fetcher(repo, all_issue_numbers)
+    # Batch-fetch all issue data in one API call when batch fetcher is available
+    if batch_issue_fetcher is not None:
+        all_issue_numbers = [int(entry["issue_number"]) for _, entry in ready_entries_items]
+        issues_cache = batch_issue_fetcher(repo, all_issue_numbers)
 
-    def _fetch_one(repo: str, n: int) -> dict:
-        if n in issues_cache:
-            return issues_cache[n]
-        return issue_fetcher(repo, n)
+        def _fetch_one(repo: str, n: int) -> dict:
+            if n in issues_cache:
+                return issues_cache[n]
+            return issue_fetcher(repo, n)
+    else:
+        _fetch_one = issue_fetcher
 
     ready_issues = [
         classify_project_issue(

@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,8 +71,29 @@ def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 
-def fetch_board_items(owner: str, project_number: int, limit: int) -> dict:
-    return json.loads(
+def fetch_board_items(
+    owner: str,
+    project_number: int,
+    limit: int,
+    *,
+    cache_file: Path | None = None,
+    cache_max_age: float = 120,
+) -> dict:
+    """Fetch project board items, optionally using a file cache.
+
+    When *cache_file* is set and the file exists and is younger than
+    *cache_max_age* seconds, the cached JSON is returned without an API call.
+    Otherwise the board is fetched from GitHub and written to the cache file.
+    """
+    if cache_file is not None:
+        try:
+            age = time.time() - cache_file.stat().st_mtime
+            if age < cache_max_age:
+                return json.loads(cache_file.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    data = json.loads(
         run_gh(
             "project",
             "item-list",
@@ -84,6 +106,12 @@ def fetch_board_items(owner: str, project_number: int, limit: int) -> dict:
             str(limit),
         )
     )
+
+    if cache_file is not None:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(json.dumps(data))
+
+    return data
 
 
 def fetch_pr_reviews(repo: str, pr_number: int) -> list[dict]:
@@ -1130,6 +1158,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     next_parser.add_argument("--limit", type=int, default=500)
     next_parser.add_argument("--number", type=int)
     next_parser.add_argument("--format", choices=["text", "json"], default="text")
+    next_parser.add_argument("--board-cache", type=Path, default=None)
 
     claim_parser = subparsers.add_parser("claim-next")
     claim_parser.add_argument("mode", choices=["ready", "review"])
@@ -1142,6 +1171,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     claim_parser.add_argument("--format", choices=["text", "json"], default="json")
     claim_parser.add_argument("--project-id", default=PROJECT_ID)
     claim_parser.add_argument("--field-id", default=STATUS_FIELD_ID)
+    claim_parser.add_argument("--board-cache", type=Path, default=None)
 
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("state_file", type=Path)
@@ -1154,6 +1184,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     list_parser.add_argument("--project-number", type=int, default=8)
     list_parser.add_argument("--limit", type=int, default=500)
     list_parser.add_argument("--format", choices=["text", "json"], default="text")
+    list_parser.add_argument("--board-cache", type=Path, default=None)
 
     move_parser = subparsers.add_parser("move")
     move_parser.add_argument("item_id")
@@ -1183,7 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "claim-next":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in claim-next review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
         claim_result = claim_next_entry(
             args.mode,
             board_data,
@@ -1205,7 +1236,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in list review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
         if args.mode == "ready":
             items = status_items(board_data, STATUS_READY)
             return print_candidate_list(args.mode, items, fmt=args.format)
@@ -1234,7 +1265,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode in {"review", "final-review"} and not args.repo:
         raise SystemExit(f"--repo is required in {args.mode} mode")
 
-    board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+    board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
     next_item = select_next_entry(
         args.mode,
         board_data,
