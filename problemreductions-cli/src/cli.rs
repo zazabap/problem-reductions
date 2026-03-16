@@ -223,6 +223,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
@@ -418,7 +419,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)

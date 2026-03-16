@@ -92,6 +92,7 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
@@ -534,6 +535,56 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   }),
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
+]
+
+#problem-def("BoundedComponentSpanningForest")[
+  Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(gt.eq 0)$, a positive integer $K <= |V|$, and a positive bound $B$, determine whether there exists a partition of $V$ into $t$ non-empty sets $V_1, dots, V_t$ with $1 <= t <= K$ such that each induced subgraph $G[V_i]$ is connected and each part satisfies $sum_(v in V_i) w(v) <= B$.
+][
+Bounded Component Spanning Forest appears as ND10 in Garey and Johnson @garey1979. It asks for a decomposition into a bounded number of connected pieces, each with bounded total weight, so it naturally captures contiguous districting and redistricting-style constraints where each district must remain connected while respecting a population cap. A direct exhaustive search over component labels gives an $O^*(K^n)$ baseline, but subset-DP techniques via inclusion-exclusion improve the exact running time to $O^*(3^n)$ @bjorklund2009.
+
+*Example.* Consider the graph on vertices ${v_0, v_1, dots, v_7}$ with edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_4)$, $(v_4, v_5)$, $(v_5, v_6)$, $(v_6, v_7)$, $(v_0, v_7)$, $(v_1, v_5)$, $(v_2, v_6)$; vertex weights $(2, 3, 1, 2, 3, 1, 2, 1)$; component limit $K = 3$; and bound $B = 6$. The partition
+$V_1 = {v_0, v_1, v_7}$,
+$V_2 = {v_2, v_3, v_4}$,
+$V_3 = {v_5, v_6}$
+is feasible: each set induces a connected subgraph, the component weights are $2 + 3 + 1 = 6$, $1 + 2 + 3 = 6$, and $1 + 2 = 3$, and exactly three non-empty components are used. Therefore this instance is a YES instance.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // 8 vertices in a circular layout (radius 1.6)
+    let r = 1.6
+    let verts = range(8).map(k => {
+      let angle = 90deg - k * 45deg
+      (calc.cos(angle) * r, calc.sin(angle) * r)
+    })
+    let weights = (2, 3, 1, 2, 3, 1, 2, 1)
+    let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(0,7),(1,5),(2,6))
+    // Partition: V1={0,1,7} blue, V2={2,3,4} green, V3={5,6} red
+    let partition = (0, 0, 1, 1, 1, 2, 2, 0)
+    let comp-colors = (graph-colors.at(0), graph-colors.at(2), graph-colors.at(1))
+    // Draw edges: bold colored for intra-component, gray for cross-component
+    for (u, v) in edges {
+      if partition.at(u) == partition.at(v) {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 2pt + comp-colors.at(partition.at(u)))
+      } else {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 1pt + luma(180))
+      }
+    }
+    // Draw nodes colored by partition, with weight labels
+    for (k, pos) in verts.enumerate() {
+      let c = comp-colors.at(partition.at(k))
+      g-node(pos, name: "v" + str(k),
+        fill: c,
+        label: text(fill: white)[$v_#k$])
+      let angle = 90deg - k * 45deg
+      let lpos = (calc.cos(angle) * (r + 0.5), calc.sin(angle) * (r + 0.5))
+      content(lpos, text(7pt)[$w = #(weights.at(k))$])
+    }
+  }),
+  caption: [Bounded Component Spanning Forest on 8 vertices with $K = 3$ and $B = 6$. The partition $V_1 = {v_0, v_1, v_7}$ (blue, weight 6), $V_2 = {v_2, v_3, v_4}$ (green, weight 6), $V_3 = {v_5, v_6}$ (red, weight 3) is feasible. Bold colored edges are intra-component; gray edges cross components.],
+) <fig:bcsf>
 ]
 #{
   let x = load-model-example("LengthBoundedDisjointPaths")
