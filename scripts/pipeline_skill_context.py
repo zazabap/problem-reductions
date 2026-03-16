@@ -1177,11 +1177,19 @@ def build_review_pipeline_context(
     if matching_candidate.get("eligibility") != "eligible":
         return build_status_result("review-pipeline", status="empty")
 
-    selection = claim_entry(
-        repo=repo,
-        state_file=state_file,
-        pr_number=pr_number,
-    )
+    if claim_entry is not None:
+        selection = claim_entry(
+            repo=repo,
+            state_file=state_file,
+            pr_number=pr_number,
+        )
+    else:
+        selection = pipeline_board.claim_entry_from_entries(
+            "review",
+            pipeline_board.eligible_review_candidate_entries(candidates),
+            state_file,
+            target_number=pr_number,
+        )
     if selection is None:
         return build_status_result("review-pipeline", status="empty")
 
