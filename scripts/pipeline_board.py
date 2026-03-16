@@ -424,7 +424,36 @@ def review_entries(
     review_fetcher: Callable[[str, int], list[dict]],
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_state_fetcher: Callable[[str, int], str],
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> dict[str, dict]:
+    pr_cache: dict[int, dict] = {}
+    if batch_pr_fetcher is not None:
+        all_pr_numbers: list[int] = []
+        for item in board_data.get("items", []):
+            if item.get("status") != STATUS_REVIEW_POOL:
+                continue
+            content = item.get("content") or {}
+            number = content.get("number")
+            if number is None:
+                continue
+            if content.get("type") == "PullRequest":
+                all_pr_numbers.append(int(number))
+            else:
+                all_pr_numbers.extend(linked_pr_numbers(item, repo))
+        if all_pr_numbers:
+            pr_cache = batch_pr_fetcher(repo, all_pr_numbers)
+
+    def _get_pr_state(pr_num: int) -> str:
+        if pr_num in pr_cache:
+            return str(pr_cache[pr_num].get("state", ""))
+        return pr_state_fetcher(repo, pr_num)
+
+    def _get_reviews(pr_num: int) -> list[dict]:
+        if pr_num in pr_cache:
+            return pr_cache[pr_num].get("reviews", [])
+        return review_fetcher(repo, pr_num)
+
     entries = {}
     for item in board_data.get("items", []):
         if item.get("status") != STATUS_REVIEW_POOL:
@@ -439,7 +468,7 @@ def review_entries(
         pr_number: int | None
         if item_type == "PullRequest":
             pr_number = int(number)
-            if pr_state_fetcher(repo, pr_number) != "OPEN":
+            if _get_pr_state(pr_number) != "OPEN":
                 continue
         elif item_type == "Issue":
             linked_numbers = linked_pr_numbers(item, repo)
@@ -447,7 +476,7 @@ def review_entries(
                 continue
             if len(linked_numbers) == 1:
                 pr_number = linked_numbers[0]
-                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                if _get_pr_state(pr_number) != "OPEN":
                     continue
             else:
                 if pr_resolver is None:
@@ -455,7 +484,7 @@ def review_entries(
                 pr_number = pr_resolver(repo, int(number))
                 if pr_number is None:
                     continue
-                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                if _get_pr_state(pr_number) != "OPEN":
                     continue
         else:
             pr_number = None
@@ -463,7 +492,7 @@ def review_entries(
         if pr_number is None:
             continue
 
-        reviews = review_fetcher(repo, pr_number)
+        reviews = _get_reviews(pr_number)
         if has_copilot_review(reviews):
             issue_number = int(number) if item_type == "Issue" else None
             entries[item_identity(item)] = build_entry(
@@ -646,7 +675,31 @@ def final_review_entries(
     repo: str,
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_state_fetcher: Callable[[str, int], str],
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> dict[str, dict]:
+    pr_cache: dict[int, dict] = {}
+    if batch_pr_fetcher is not None:
+        all_pr_numbers: list[int] = []
+        for item in board_data.get("items", []):
+            if item.get("status") != STATUS_FINAL_REVIEW:
+                continue
+            content = item.get("content") or {}
+            number = content.get("number")
+            if number is None:
+                continue
+            if content.get("type") == "PullRequest":
+                all_pr_numbers.append(int(number))
+            else:
+                all_pr_numbers.extend(linked_pr_numbers(item, repo))
+        if all_pr_numbers:
+            pr_cache = batch_pr_fetcher(repo, all_pr_numbers)
+
+    def _get_pr_state(pr_num: int) -> str:
+        if pr_num in pr_cache:
+            return str(pr_cache[pr_num].get("state", ""))
+        return pr_state_fetcher(repo, pr_num)
+
     entries = {}
     for item in board_data.get("items", []):
         if item.get("status") != STATUS_FINAL_REVIEW:
@@ -661,7 +714,7 @@ def final_review_entries(
         pr_number: int | None
         if item_type == "PullRequest":
             pr_number = int(number)
-            if pr_state_fetcher(repo, pr_number) != "OPEN":
+            if _get_pr_state(pr_number) != "OPEN":
                 continue
         elif item_type == "Issue":
             linked_numbers = linked_pr_numbers(item, repo)
@@ -669,7 +722,7 @@ def final_review_entries(
                 continue
             if len(linked_numbers) == 1:
                 pr_number = linked_numbers[0]
-                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                if _get_pr_state(pr_number) != "OPEN":
                     continue
             else:
                 if pr_resolver is None:
@@ -679,7 +732,7 @@ def final_review_entries(
                 pr_number = pr_resolver(repo, int(number))
                 if pr_number is None:
                     continue
-                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                if _get_pr_state(pr_number) != "OPEN":
                     continue
         else:
             pr_number = None
@@ -704,6 +757,8 @@ def current_entries(
     review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> dict[str, dict]:
     if mode == "ready":
         return ready_entries(board_data)
@@ -718,6 +773,7 @@ def current_entries(
             review_fetcher,
             pr_resolver,
             pr_state_fetcher,
+            batch_pr_fetcher=batch_pr_fetcher,
         )
     if mode == "final-review":
         if repo is None:
@@ -729,6 +785,7 @@ def current_entries(
             repo,
             pr_resolver,
             pr_state_fetcher,
+            batch_pr_fetcher=batch_pr_fetcher,
         )
     raise ValueError(f"Unsupported mode: {mode}")
 
@@ -742,6 +799,8 @@ def process_snapshot(
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> tuple[str, int] | None:
     next_entry = select_next_entry(
         mode,
@@ -752,6 +811,7 @@ def process_snapshot(
         pr_resolver,
         pr_state_fetcher,
         target_number,
+        batch_pr_fetcher=batch_pr_fetcher,
     )
     if next_entry is None:
         return None
@@ -812,6 +872,8 @@ def select_next_entry(
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> dict | None:
     current_visible = current_entries(
         mode,
@@ -820,6 +882,7 @@ def select_next_entry(
         review_fetcher,
         pr_resolver,
         pr_state_fetcher,
+        batch_pr_fetcher=batch_pr_fetcher,
     )
     return select_entry_from_entries(
         current_visible,
@@ -1057,6 +1120,8 @@ def claim_next_entry(
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
     mover: Callable[[str, str], None] | None = None,
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> dict | None:
     current_visible = current_entries(
         mode,
@@ -1065,6 +1130,7 @@ def claim_next_entry(
         review_fetcher=review_fetcher,
         pr_resolver=pr_resolver,
         pr_state_fetcher=pr_state_fetcher,
+        batch_pr_fetcher=batch_pr_fetcher,
     )
     return claim_entry_from_entries(
         mode,
@@ -1213,6 +1279,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     next_parser.add_argument("--number", type=int)
     next_parser.add_argument("--format", choices=["text", "json"], default="text")
     next_parser.add_argument("--board-cache", type=Path, default=None)
+    next_parser.add_argument("--board-cache-max-age", type=float, default=120)
 
     claim_parser = subparsers.add_parser("claim-next")
     claim_parser.add_argument("mode", choices=["ready", "review"])
@@ -1226,6 +1293,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     claim_parser.add_argument("--project-id", default=PROJECT_ID)
     claim_parser.add_argument("--field-id", default=STATUS_FIELD_ID)
     claim_parser.add_argument("--board-cache", type=Path, default=None)
+    claim_parser.add_argument("--board-cache-max-age", type=float, default=120)
 
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("state_file", type=Path)
@@ -1242,6 +1310,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     list_parser.add_argument("--limit", type=int, default=500)
     list_parser.add_argument("--format", choices=["text", "json"], default="text")
     list_parser.add_argument("--board-cache", type=Path, default=None)
+    list_parser.add_argument("--board-cache-max-age", type=float, default=120)
 
     move_parser = subparsers.add_parser("move")
     move_parser.add_argument("item_id")
@@ -1271,7 +1340,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "claim-next":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in claim-next review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache, cache_max_age=args.board_cache_max_age)
         if args.mode == "review":
             review_entries_map = eligible_review_candidate_entries(
                 review_candidates(
@@ -1317,7 +1386,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in list review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache, cache_max_age=args.board_cache_max_age)
         if args.mode == "ready":
             items = status_items(board_data, STATUS_READY)
             return print_candidate_list(args.mode, items, fmt=args.format)
@@ -1353,7 +1422,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode in {"review", "final-review"} and not args.repo:
         raise SystemExit(f"--repo is required in {args.mode} mode")
 
-    board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
+    board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache, cache_max_age=args.board_cache_max_age)
     if args.mode == "review":
         review_entries_map = eligible_review_candidate_entries(
             review_candidates(
@@ -1380,6 +1449,7 @@ def main(argv: list[str] | None = None) -> int:
             pr_resolver=resolve_issue_pr,
             pr_state_fetcher=fetch_pr_state,
             target_number=args.number,
+            batch_pr_fetcher=batch_fetch_prs_with_reviews,
         )
     return print_next_item(next_item, mode=args.mode, fmt=args.format)
 
