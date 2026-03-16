@@ -85,6 +85,10 @@ poll_project_items() {
     if [ -n "$board_cache_max_age" ]; then
         set -- "$@" --board-cache-max-age "$board_cache_max_age"
     fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
+    fi
     python3 "$@"
 }
 
@@ -120,6 +124,10 @@ claim_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
     fi
     python3 "$@"
 }
@@ -258,15 +266,15 @@ watch_and_dispatch() {
         pending_count=$(python3 -c "
 import json, sys
 try:
-    state = json.load(open('$state_file'))
+    state = json.load(open(sys.argv[1]))
     print(len(state.get('pending', [])))
 except (FileNotFoundError, json.JSONDecodeError, ValueError):
     print(0)
-" 2>/dev/null || echo 0)
+" "$state_file" 2>/dev/null || echo 0)
 
         if [ "$pending_count" -ge "$cache_threshold" ]; then
-            # Enough pending items — reuse cached board (24h TTL)
-            board_max_age=86400
+            # Enough pending items — reuse cached board (1h TTL)
+            board_max_age=3600
         else
             # Running low — invalidate cache and fetch fresh board
             rm -f "$board_cache"
