@@ -288,7 +288,7 @@ Completed: 2/2 | All moved to Final review
 | PR not in Review pool column | Verify status before processing; STOP if not Review pool |
 | Processing a closed PR from a stale issue card | Require PR state `OPEN`; skip stale closed PRs |
 | Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
-| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
+| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; if absent, request with `gh copilot-review <PR>` and wait |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
 | Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
