@@ -6,6 +6,8 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
+from unittest.mock import patch
+
 from pipeline_board import (
     STATUS_DONE,
     STATUS_FINAL_REVIEW,
@@ -15,6 +17,8 @@ from pipeline_board import (
     STATUS_REVIEW_POOL,
     STATUS_UNDER_REVIEW,
     ack_item,
+    batch_fetch_issues,
+    batch_fetch_prs_with_reviews,
     claim_next_entry,
     build_recovery_plan,
     normalize_status_name,
@@ -696,6 +700,186 @@ class PipelineBoardStatusListTests(unittest.TestCase):
                 }
             ],
         )
+
+
+class ReviewCandidatesBatchTests(unittest.TestCase):
+    def test_review_candidates_uses_batch_fetcher(self) -> None:
+        """When batch_pr_fetcher is provided, individual fetchers are NOT called."""
+
+        def fail_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            raise AssertionError("should not be called when batch is available")
+
+        def fail_pr_info_fetcher(repo: str, pr_number: int) -> dict:
+            raise AssertionError("should not be called when batch is available")
+
+        def fake_batch_pr_fetcher(
+            repo: str, pr_numbers: list[int]
+        ) -> dict[int, dict]:
+            return {
+                570: {
+                    "number": 570,
+                    "state": "OPEN",
+                    "title": "Fix #117",
+                    "url": "https://github.com/o/r/pull/570",
+                    "reviews": [
+                        {
+                            "author": {"login": "copilot-pull-request-reviewer"},
+                            "state": "COMMENTED",
+                        },
+                    ],
+                }
+            }
+
+        candidates = review_candidates(
+            {
+                "items": [
+                    make_pr_item("PVTI_1", 570, status="Review pool"),
+                ]
+            },
+            "CodingThrust/problem-reductions",
+            fail_review_fetcher,
+            None,
+            fail_pr_info_fetcher,
+            batch_pr_fetcher=fake_batch_pr_fetcher,
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["eligibility"], "eligible")
+
+    def test_review_candidates_batch_falls_back_for_resolved_prs(self) -> None:
+        """pr_resolver results are not in the batch cache, so individual fetchers are used."""
+        resolve_called = []
+
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            resolve_called.append(issue_number)
+            return 580
+
+        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            return [
+                {
+                    "author": {"login": "copilot-pull-request-reviewer"},
+                    "state": "COMMENTED",
+                }
+            ]
+
+        def fake_pr_info_fetcher(repo: str, pr_number: int) -> dict:
+            return {"number": 580, "state": "OPEN", "title": "Fix #120"}
+
+        def fake_batch_pr_fetcher(
+            repo: str, pr_numbers: list[int]
+        ) -> dict[int, dict]:
+            # No linked PRs known ahead of time for this issue
+            return {}
+
+        candidates = review_candidates(
+            {
+                "items": [
+                    make_issue_item(
+                        "PVTI_2", 120, status="Review pool", title="[Model] Foo"
+                    ),
+                ]
+            },
+            "CodingThrust/problem-reductions",
+            fake_review_fetcher,
+            fake_pr_resolver,
+            fake_pr_info_fetcher,
+            batch_pr_fetcher=fake_batch_pr_fetcher,
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["eligibility"], "eligible")
+        self.assertEqual(resolve_called, [120])
+
+
+class BatchFetchTests(unittest.TestCase):
+    def test_batch_fetch_prs_with_reviews_builds_correct_query(self) -> None:
+        fake_response = {
+            "data": {
+                "repository": {
+                    "pr_42": {
+                        "number": 42,
+                        "state": "OPEN",
+                        "title": "Fix foo",
+                        "url": "https://github.com/o/r/pull/42",
+                        "reviews": {
+                            "nodes": [
+                                {
+                                    "author": {"login": "copilot-pull-request-reviewer"},
+                                    "state": "COMMENTED",
+                                },
+                            ]
+                        },
+                    },
+                    "pr_99": {
+                        "number": 99,
+                        "state": "CLOSED",
+                        "title": "Old PR",
+                        "url": "https://github.com/o/r/pull/99",
+                        "reviews": {"nodes": []},
+                    },
+                }
+            }
+        }
+
+        with patch(
+            "pipeline_board.run_gh", return_value=json.dumps(fake_response)
+        ) as mock_gh:
+            result = batch_fetch_prs_with_reviews(
+                "CodingThrust/problem-reductions", [42, 99]
+            )
+
+        self.assertEqual(set(result.keys()), {42, 99})
+        self.assertEqual(result[42]["state"], "OPEN")
+        self.assertEqual(
+            result[42]["reviews"][0]["author"]["login"],
+            "copilot-pull-request-reviewer",
+        )
+        self.assertEqual(result[99]["state"], "CLOSED")
+        self.assertEqual(result[99]["reviews"], [])
+
+        mock_gh.assert_called_once()
+        call_args = mock_gh.call_args[0]
+        self.assertEqual(call_args[0], "api")
+        self.assertEqual(call_args[1], "graphql")
+
+    def test_batch_fetch_prs_with_reviews_empty_list(self) -> None:
+        result = batch_fetch_prs_with_reviews(
+            "CodingThrust/problem-reductions", []
+        )
+        self.assertEqual(result, {})
+
+    def test_batch_fetch_issues_builds_correct_query(self) -> None:
+        fake_response = {
+            "data": {
+                "repository": {
+                    "issue_42": {
+                        "number": 42,
+                        "title": "[Model] Foo",
+                        "body": "## Definition\n...",
+                        "state": "OPEN",
+                        "url": "https://github.com/o/r/issues/42",
+                        "labels": {"nodes": [{"name": "Model"}]},
+                        "comments": {"nodes": [{"body": "looks good"}]},
+                    },
+                }
+            }
+        }
+
+        with patch(
+            "pipeline_board.run_gh", return_value=json.dumps(fake_response)
+        ) as mock_gh:
+            result = batch_fetch_issues("CodingThrust/problem-reductions", [42])
+
+        self.assertEqual(set(result.keys()), {42})
+        self.assertEqual(result[42]["title"], "[Model] Foo")
+        self.assertEqual(result[42]["state"], "OPEN")
+        self.assertEqual(result[42]["labels"], [{"name": "Model"}])
+        self.assertEqual(result[42]["comments"], [{"body": "looks good"}])
+        mock_gh.assert_called_once()
+
+    def test_batch_fetch_issues_empty_list(self) -> None:
+        result = batch_fetch_issues("CodingThrust/problem-reductions", [])
+        self.assertEqual(result, {})
 
 
 if __name__ == "__main__":

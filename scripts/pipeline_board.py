@@ -124,6 +124,96 @@ def fetch_pr_info(repo: str, pr_number: int) -> dict:
     return data
 
 
+def batch_fetch_prs_with_reviews(repo: str, pr_numbers: list[int]) -> dict[int, dict]:
+    """Fetch PR info + reviews for multiple PRs in a single GraphQL call.
+
+    Returns dict keyed by PR number with keys: number, state, title, url, reviews.
+    """
+    if not pr_numbers:
+        return {}
+
+    owner, name = repo.split("/", 1)
+
+    fragments = []
+    for n in pr_numbers:
+        fragments.append(
+            f"pr_{n}: pullRequest(number: {n}) {{"
+            f"  number state title url"
+            f"  reviews(last: 50) {{ nodes {{ author {{ login }} state }} }}"
+            f"}}"
+        )
+
+    query = (
+        f'query {{ repository(owner: "{owner}", name: "{name}") {{'
+        + " ".join(fragments)
+        + "}}"
+    )
+
+    raw = json.loads(run_gh("api", "graphql", "-f", f"query={query}"))
+    repo_data = raw.get("data", {}).get("repository", {})
+
+    result: dict[int, dict] = {}
+    for n in pr_numbers:
+        pr_data = repo_data.get(f"pr_{n}")
+        if pr_data is None:
+            continue
+        reviews_nodes = pr_data.get("reviews", {}).get("nodes", [])
+        result[n] = {
+            "number": pr_data["number"],
+            "state": pr_data["state"],
+            "title": pr_data.get("title", ""),
+            "url": pr_data.get("url", ""),
+            "reviews": reviews_nodes,
+        }
+    return result
+
+
+def batch_fetch_issues(repo: str, issue_numbers: list[int]) -> dict[int, dict]:
+    """Fetch issue metadata for multiple issues in a single GraphQL call.
+
+    Returns dict keyed by issue number with keys: number, title, body, state, url, labels, comments.
+    """
+    if not issue_numbers:
+        return {}
+
+    owner, name = repo.split("/", 1)
+
+    fragments = []
+    for n in issue_numbers:
+        fragments.append(
+            f"issue_{n}: issue(number: {n}) {{"
+            f"  number title body state url"
+            f"  labels(first: 20) {{ nodes {{ name }} }}"
+            f"  comments(first: 50) {{ nodes {{ body }} }}"
+            f"}}"
+        )
+
+    query = (
+        f'query {{ repository(owner: "{owner}", name: "{name}") {{'
+        + " ".join(fragments)
+        + "}}"
+    )
+
+    raw = json.loads(run_gh("api", "graphql", "-f", f"query={query}"))
+    repo_data = raw.get("data", {}).get("repository", {})
+
+    result: dict[int, dict] = {}
+    for n in issue_numbers:
+        issue_data = repo_data.get(f"issue_{n}")
+        if issue_data is None:
+            continue
+        result[n] = {
+            "number": issue_data["number"],
+            "title": issue_data.get("title", ""),
+            "body": issue_data.get("body", ""),
+            "state": issue_data.get("state", ""),
+            "url": issue_data.get("url", ""),
+            "labels": issue_data.get("labels", {}).get("nodes", []),
+            "comments": issue_data.get("comments", {}).get("nodes", []),
+        }
+    return result
+
+
 def resolve_issue_pr(repo: str, issue_number: int) -> int | None:
     data = json.loads(
         run_gh(
@@ -363,7 +453,37 @@ def review_candidates(
     review_fetcher: Callable[[str, int], list[dict]],
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_info_fetcher: Callable[[str, int], dict],
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> list[dict]:
+    # Pre-fetch all known PR numbers in one batch if batch fetcher is available
+    pr_cache: dict[int, dict] = {}
+    if batch_pr_fetcher is not None:
+        all_pr_numbers: list[int] = []
+        for item in board_data.get("items", []):
+            if item.get("status") != STATUS_REVIEW_POOL:
+                continue
+            content = item.get("content") or {}
+            number = content.get("number")
+            if number is None:
+                continue
+            if content.get("type") == "PullRequest":
+                all_pr_numbers.append(int(number))
+            else:
+                all_pr_numbers.extend(linked_pr_numbers(item, repo))
+        if all_pr_numbers:
+            pr_cache = batch_pr_fetcher(repo, all_pr_numbers)
+
+    def _get_pr_info(pr_num: int) -> dict:
+        if pr_num in pr_cache:
+            return pr_cache[pr_num]
+        return pr_info_fetcher(repo, pr_num)
+
+    def _get_reviews(pr_num: int) -> list[dict]:
+        if pr_num in pr_cache:
+            return pr_cache[pr_num].get("reviews", [])
+        return review_fetcher(repo, pr_num)
+
     candidates = []
     for item in board_data.get("items", []):
         if item.get("status") != STATUS_REVIEW_POOL:
@@ -381,7 +501,7 @@ def review_candidates(
 
         if item_type == "PullRequest":
             pr_number = int(number)
-            pr_info = pr_info_fetcher(repo, pr_number)
+            pr_info = _get_pr_info(pr_number)
             state = pr_info.get("state")
             base_entry.update({"number": pr_number, "pr_number": pr_number})
             if state != "OPEN":
@@ -394,7 +514,7 @@ def review_candidates(
                 candidates.append(base_entry)
                 continue
 
-            reviews = review_fetcher(repo, pr_number)
+            reviews = _get_reviews(pr_number)
             if has_copilot_review(reviews):
                 base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
             else:
@@ -413,7 +533,7 @@ def review_candidates(
         base_entry["issue_number"] = issue_number
         linked_numbers = linked_pr_numbers(item, repo)
         if len(linked_numbers) > 1:
-            linked_infos = [pr_info_fetcher(repo, pr_number) for pr_number in linked_numbers]
+            linked_infos = [_get_pr_info(pr_number) for pr_number in linked_numbers]
             open_numbers = [
                 int(info["number"])
                 for info in linked_infos
@@ -442,7 +562,7 @@ def review_candidates(
 
         if len(linked_numbers) == 1:
             pr_number = linked_numbers[0]
-            pr_info = pr_info_fetcher(repo, pr_number)
+            pr_info = _get_pr_info(pr_number)
             state = pr_info.get("state")
             base_entry.update({"number": pr_number, "pr_number": pr_number})
             if state != "OPEN":
@@ -471,7 +591,7 @@ def review_candidates(
                 continue
             base_entry.update({"number": pr_number, "pr_number": pr_number})
 
-        reviews = review_fetcher(repo, pr_number)
+        reviews = _get_reviews(pr_number)
         if has_copilot_review(reviews):
             base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
         else:

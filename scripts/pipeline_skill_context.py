@@ -609,6 +609,7 @@ def fetch_review_candidates(repo: str) -> list[dict]:
         pipeline_board.fetch_pr_reviews,
         pipeline_board.resolve_issue_pr,
         pipeline_board.fetch_pr_info,
+        batch_pr_fetcher=pipeline_board.batch_fetch_prs_with_reviews,
     )
 
 
@@ -996,10 +997,12 @@ def build_project_pipeline_context(
     repo_root: Path,
     board_fetcher: Callable[[str], dict] | None = None,
     issue_fetcher: Callable[[str, int], dict] | None = None,
+    batch_issue_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
     existing_problem_finder: Callable[[Path], set[str]] | None = None,
 ) -> dict:
     board_fetcher = board_fetcher or fetch_project_board_data
     issue_fetcher = issue_fetcher or pipeline_checks.fetch_issue
+    batch_issue_fetcher = batch_issue_fetcher or pipeline_board.batch_fetch_issues
     existing_problem_finder = existing_problem_finder or scan_existing_problems
 
     board_data = board_fetcher(repo)
@@ -1014,17 +1017,28 @@ def build_project_pipeline_context(
     existing_problems = existing_problem_finder(repo_root)
     pending_rule_counts = build_pending_rule_counts(ready_entries, in_progress_entries)
 
+    ready_entries_items = sorted(
+        pipeline_board.ready_entries(board_data).items(),
+        key=lambda pair: pair[1]["issue_number"],
+    )
+
+    # Batch-fetch all issue data in one API call
+    all_issue_numbers = [int(entry["issue_number"]) for _, entry in ready_entries_items]
+    issues_cache = batch_issue_fetcher(repo, all_issue_numbers)
+
+    def _fetch_one(repo: str, n: int) -> dict:
+        if n in issues_cache:
+            return issues_cache[n]
+        return issue_fetcher(repo, n)
+
     ready_issues = [
         classify_project_issue(
             dict(entry, item_id=item_id),
-            issue=issue_fetcher(repo, int(entry["issue_number"])),
+            issue=_fetch_one(repo, int(entry["issue_number"])),
             existing_problems=existing_problems,
             pending_rule_counts=pending_rule_counts,
         )
-        for item_id, entry in sorted(
-            pipeline_board.ready_entries(board_data).items(),
-            key=lambda pair: pair[1]["issue_number"],
-        )
+        for item_id, entry in ready_entries_items
     ]
 
     requested_issue = None
