@@ -14,7 +14,8 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+    MultiprocessorScheduling, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
+    SubsetSum,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -226,7 +227,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
-        "Vec<u64>" => "comma-separated integers: 1,2,3",
+        "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<usize>" => "comma-separated indices: 0,2,4",
         "Vec<(usize, usize, W)>" | "Vec<(usize,usize,W)>" => {
@@ -288,6 +289,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
@@ -1286,6 +1288,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MultiprocessorScheduling
+        "MultiprocessorScheduling" => {
+            let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MultiprocessorScheduling requires --lengths, --num-processors, and --deadline\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --num-processors\n\n{usage}")
+            })?;
+            if num_processors == 0 {
+                bail!("MultiprocessorScheduling requires --num-processors > 0\n\n{usage}");
+            }
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --deadline\n\n{usage}")
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            (
+                ser(MultiprocessorScheduling::new(
+                    lengths,
+                    num_processors,
+                    deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumMultiwayCut
         "MinimumMultiwayCut" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -1708,7 +1738,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
-
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 

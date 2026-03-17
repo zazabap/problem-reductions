@@ -887,6 +887,68 @@ fn test_create_mis() {
 }
 
 #[test]
+fn test_create_multiprocessor_scheduling() {
+    let output_file = std::env::temp_dir().join("pred_test_create_multiprocessor_scheduling.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([4, 5, 3, 2, 6]));
+    assert_eq!(json["data"]["num_processors"], 2);
+    assert_eq!(json["data"]["deadline"], 10);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_multiprocessor_scheduling_rejects_zero_processors() {
+    let output = pred()
+        .args([
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "0",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "zero processors should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("requires --num-processors > 0"),
+        "expected a validation error for zero processors, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_x3c_alias() {
     let output_file = std::env::temp_dir().join("pred_test_create_x3c.json");
     let output = pred()
@@ -3911,6 +3973,64 @@ fn test_inspect_json_output() {
 }
 
 #[test]
+fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_mps_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_inspect_mps_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .expect("solvers should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        solvers,
+        vec!["brute-force"],
+        "unexpected solvers: {solvers:?}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
 fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
     let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
@@ -4312,6 +4432,91 @@ fn test_create_factoring_missing_bits() {
         stderr.contains("--m"),
         "expected '--m' in error, got: {stderr}"
     );
+}
+
+#[test]
+fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_eval_multiprocessor_zero_processors.json");
+    std::fs::write(
+        &problem_file,
+        r#"{
+  "type": "MultiprocessorScheduling",
+  "variant": {},
+  "data": {
+    "lengths": [1, 2],
+    "num_processors": 0,
+    "deadline": 5
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected positive integer, got 0"),
+        "stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+
+    std::fs::remove_file(&problem_file).ok();
 }
 
 // ---- Timeout tests (H3) ----
@@ -5093,6 +5298,22 @@ fn test_create_sequencing_within_intervals() {
     );
     assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_multiprocessor_scheduling() {
+    let output = pred()
+        .args(["create", "--example", "MultiprocessorScheduling"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
 }
 
 #[test]

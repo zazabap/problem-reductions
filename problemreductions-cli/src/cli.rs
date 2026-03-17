@@ -243,6 +243,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
+  MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
@@ -276,6 +277,7 @@ Examples:
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
@@ -432,7 +434,7 @@ pub struct CreateArgs {
     /// Release times for SequencingWithinIntervals (comma-separated, e.g., "0,0,5")
     #[arg(long)]
     pub release_times: Option<String>,
-    /// Processing lengths for SequencingWithinIntervals (comma-separated, e.g., "3,1,1")
+    /// Processing lengths (comma-separated, e.g., "4,5,3,2,6")
     #[arg(long)]
     pub lengths: Option<String>,
     /// Terminal vertices for SteinerTree or MinimumMultiwayCut (comma-separated indices, e.g., "0,2,4")
@@ -474,10 +476,10 @@ pub struct CreateArgs {
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling
+    /// Deadline for FlowShopScheduling or MultiprocessorScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling
+    /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)

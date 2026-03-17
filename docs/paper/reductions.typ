@@ -114,6 +114,7 @@
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
@@ -2376,6 +2377,75 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
   ) <fig:flowshop>
 ]
+
+#{
+  let x = load-model-example("MultiprocessorScheduling")
+  let lengths = x.instance.lengths
+  let num-processors = x.instance.num_processors
+  let deadline = x.instance.deadline
+  let assignment = x.optimal.at(0).config
+  let tasks-by-processor = range(num-processors).map(p =>
+    range(lengths.len()).filter(i => assignment.at(i) == p)
+  )
+  let loads = tasks-by-processor.map(tasks => tasks.map(i => lengths.at(i)).sum())
+  let max-x = (num-processors - 1) * 1.8 + 1.0
+  [
+    #problem-def("MultiprocessorScheduling")[
+      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$, a number $m in ZZ^+$ of identical processors, and a deadline $D in ZZ^+$, determine whether there exists an assignment $p: T -> {1, dots, m}$ such that for every processor $i in {1, dots, m}$ we have $sum_(t in T: p(t) = i) ell(t) <= D$.
+    ][
+      Multiprocessor Scheduling is problem SS8 in Garey & Johnson @garey1979. Their original formulation uses start times on identical processors, but because tasks are independent and non-preemptive, any feasible schedule can be packed contiguously on each processor. The model implemented here therefore uses processor-assignment variables, and feasibility reduces to checking that every processor's total load is at most $D$. For fixed $m$, dynamic programming over load vectors gives pseudo-polynomial algorithms; for general $m$, the best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
+
+      *Example.* Let $T = {t_1, dots, t_5}$ with lengths $(4, 5, 3, 2, 6)$, $m = 2$, and $D = 10$. The satisfying assignment $(1, 2, 2, 2, 1)$ places $t_1$ and $t_5$ on processor 1 and $t_2, t_3, t_4$ on processor 2. The verifier computes the processor loads $4 + 6 = 10$ and $5 + 3 + 2 = 10$, so both meet the deadline exactly.
+
+      #figure({
+        canvas(length: 1cm, {
+          let scale = 0.25
+          let width = 1.0
+          let gap = 0.8
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+          )
+
+          for p in range(num-processors) {
+            let x0 = p * (width + gap)
+            draw.rect((x0, 0), (x0 + width, deadline * scale), stroke: 0.8pt + black)
+            let y = 0
+            for task in tasks-by-processor.at(p) {
+              let len = lengths.at(task)
+              let col = colors.at(task)
+              draw.rect(
+                (x0, y),
+                (x0 + width, y + len * scale),
+                fill: col.transparentize(25%),
+                stroke: 0.4pt + col,
+              )
+              draw.content(
+                (x0 + width / 2, y + len * scale / 2),
+                text(7pt, fill: white)[$t_#(task + 1)$],
+              )
+              y += len * scale
+            }
+            draw.content((x0 + width / 2, -0.3), text(8pt)[$P_#(p + 1)$])
+            draw.content((x0 + width / 2, deadline * scale + 0.25), text(7pt)[$L_#(p + 1) = #loads.at(p)$])
+          }
+
+          draw.line(
+            (-0.15, deadline * scale),
+            (max-x + 0.15, deadline * scale),
+            stroke: (dash: "dashed", paint: luma(150), thickness: 0.5pt),
+          )
+          draw.content((-0.45, deadline * scale), text(7pt)[$D$])
+        })
+      },
+      caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
+      ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("SequencingWithinIntervals")
