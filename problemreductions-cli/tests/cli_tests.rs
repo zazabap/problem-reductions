@@ -107,6 +107,49 @@ fn test_show_variant_info() {
 }
 
 #[test]
+fn test_show_balanced_complete_bipartite_subgraph_complexity() {
+    let output = pred()
+        .args(["show", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("1.3803^num_vertices"),
+        "expected updated complexity metadata, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+    let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "BalancedCompleteBipartiteSubgraph",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    std::fs::write(&tmp, create.stdout).unwrap();
+
+    let solve = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!solve.status.success());
+    let stderr = String::from_utf8(solve.stderr).unwrap();
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(tmp).ok();
+}
+
+#[test]
 fn test_path() {
     let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
@@ -207,6 +250,22 @@ fn test_show_includes_fields() {
     assert!(stdout.contains("Fields"));
     assert!(stdout.contains("graph"));
     assert!(stdout.contains("weights"));
+}
+
+#[test]
+fn test_create_balanced_complete_bipartite_subgraph_help_uses_bipartite_flags() {
+    let output = pred()
+        .args(["create", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--left"), "stderr: {stderr}");
+    assert!(stderr.contains("--right"), "stderr: {stderr}");
+    assert!(stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--left-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--right-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edges"), "stderr: {stderr}");
 }
 
 #[test]
