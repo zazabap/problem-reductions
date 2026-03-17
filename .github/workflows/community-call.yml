@@ -64,9 +64,6 @@ jobs:
 
           {
             echo 'AGENDA<<EOF'
-            build_section "Review pool" "Ready for review"
-            build_section "Final review" "Final review"
-            build_section "Ready" "Up next"
             build_section "OnHold" "On hold"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
