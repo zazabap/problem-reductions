@@ -10,10 +10,15 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-import pipeline_board
-import pipeline_checks
-import pipeline_pr
-import pipeline_worktree
+# Ensure sibling modules are importable regardless of how this file is invoked
+# (as a script, as ``python3 scripts/pipeline_skill_context.py``, or via
+# ``from scripts.pipeline_skill_context import ...``).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import pipeline_board  # noqa: E402
+import pipeline_checks  # noqa: E402
+import pipeline_pr  # noqa: E402
+import pipeline_worktree  # noqa: E402
 
 
 PROJECT_BOARD_NUMBER = 8
@@ -426,8 +431,6 @@ def render_review_implementation_text(result: dict) -> str:
     review_context = result.get("review_context") or {}
     scope = review_context.get("scope") or {}
     subject = review_context.get("subject") or {}
-    current_pr = result.get("current_pr") or {}
-
     lines = [
         "# Review Implementation Packet",
         "",
@@ -485,24 +488,6 @@ def render_review_implementation_text(result: dict) -> str:
     diff_stat = review_context.get("diff_stat")
     if diff_stat:
         lines.extend(["", "## Diff Stat", "```text", diff_stat, "```"])
-
-    lines.extend(["", "## Current PR"])
-    if current_pr:
-        lines.append(f"- Repo: {current_pr.get('repo')}")
-        if current_pr.get("pr_number") is not None:
-            lines.append(f"- PR: #{current_pr['pr_number']}")
-        if current_pr.get("title"):
-            lines.append(f"- Title: {current_pr['title']}")
-        if current_pr.get("url"):
-            lines.append(f"- URL: {current_pr['url']}")
-        if current_pr.get("linked_issue_number") is not None:
-            lines.append(f"- Linked issue: #{current_pr['linked_issue_number']}")
-    else:
-        lines.append("- No current PR detected for this branch.")
-
-    issue_context_text = current_pr.get("issue_context_text")
-    if issue_context_text:
-        lines.extend(["", "## Linked Issue Context", issue_context_text])
 
     return "\n".join(lines) + "\n"
 
@@ -813,26 +798,6 @@ def default_review_implementation_context_builder(
     )
 
 
-def fetch_current_review_implementation_pr() -> dict | None:
-    try:
-        repo = pipeline_pr.fetch_current_repo()
-        current = pipeline_pr.fetch_current_pr_data_for_repo(repo)
-        pr_number = current.get("number")
-        if pr_number is None:
-            return None
-        pr_context = pipeline_pr.build_pr_context(repo, int(pr_number))
-        return {
-            "repo": repo,
-            "pr_number": int(pr_number),
-            "title": pr_context.get("title"),
-            "url": pr_context.get("url"),
-            "head_ref_name": pr_context.get("head_ref_name"),
-            "linked_issue_number": pr_context.get("linked_issue_number"),
-            "issue_context_text": pr_context.get("issue_context_text"),
-        }
-    except Exception:
-        return None
-
 
 def build_review_implementation_context(
     *,
@@ -846,7 +811,6 @@ def build_review_implementation_context(
     diff_stat_getter: Callable[[Path, str, str], str] | None = None,
     changed_files_getter: Callable[[Path, str, str], list[str]] | None = None,
     added_files_getter: Callable[[Path, str, str], list[str]] | None = None,
-    current_pr_fetcher: Callable[[], dict | None] | None = None,
     review_context_builder: Callable[..., dict] | None = None,
 ) -> dict:
     merge_base_getter = merge_base_getter or (
@@ -880,7 +844,6 @@ def build_review_implementation_context(
             f"{base_sha}..{head_sha}",
         )
     )
-    current_pr_fetcher = current_pr_fetcher or fetch_current_review_implementation_pr
     review_context_builder = review_context_builder or default_review_implementation_context_builder
 
     base_sha = merge_base_getter(repo_root)
@@ -888,7 +851,6 @@ def build_review_implementation_context(
     diff_stat = diff_stat_getter(repo_root, base_sha, head_sha)
     changed_files = changed_files_getter(repo_root, base_sha, head_sha)
     added_files = added_files_getter(repo_root, base_sha, head_sha)
-    current_pr = current_pr_fetcher()
     review_context = review_context_builder(
         repo_root,
         diff_stat=diff_stat,
@@ -909,7 +871,6 @@ def build_review_implementation_context(
             "head_sha": head_sha,
         },
         "review_context": review_context,
-        "current_pr": current_pr,
     }
 
 
