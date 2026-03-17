@@ -13,7 +13,7 @@ jobs:
       - name: Collect agenda from project board
         id: agenda
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_READ_TOKEN }}
         run: |
           # Fetch issues in "Review pool", "Final review", and "Ready" columns
           QUERY='query {
