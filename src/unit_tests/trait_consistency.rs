@@ -102,6 +102,10 @@ fn test_all_problems_implement_trait_correctly() {
         ),
         "StrongConnectivityAugmentation",
     );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
+    );
 }
 
 #[test]

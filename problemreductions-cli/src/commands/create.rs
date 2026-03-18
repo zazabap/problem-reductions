@@ -14,8 +14,8 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
-    SubsetSum,
+    MultiprocessorScheduling, PaintShop, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -94,6 +94,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
+        && args.dependencies.is_none()
+        && args.num_attributes.is_none()
+        && args.source_string.is_none()
+        && args.target_string.is_none()
+        && args.capacities.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -230,6 +241,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<(Vec<usize>, Vec<usize>)>" => "semicolon-separated dependencies: \"0,1>2;0,2>3\"",
         "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<usize>" => "comma-separated indices: 0,2,4",
@@ -320,7 +332,16 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "LongestCommonSubsequence" => {
+            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+        }
+        "MinimumCardinalityKey" => {
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "StringToStringCorrection" => {
+            "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
         _ => "",
     }
 }
@@ -330,6 +351,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
@@ -358,6 +380,10 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("LongestCommonSubsequence", "strings") => {
+            "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
+        }
+        ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         _ => type_format_hint(type_name, graph_type),
     }
@@ -408,12 +434,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 );
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    help_flag_name(canonical, &field.name),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -450,10 +471,15 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
-    if canonical == "StaffScheduling" && field_name == "shifts_per_schedule" {
-        return "k".to_string();
+    if canonical == "StringToStringCorrection" {
+        return match field_name {
+            "source" => "source-string".to_string(),
+            "target" => "target-string".to_string(),
+            "bound" => "bound".to_string(),
+            _ => help_flag_name(canonical, field_name),
+        };
     }
-    field_name.replace('_', "-")
+    help_flag_name(canonical, field_name)
 }
 
 fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
@@ -1211,6 +1237,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumCardinalityKey
+        "MinimumCardinalityKey" => {
+            let num_attributes = args.num_attributes.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            })?;
+            let deps_str = args.dependencies.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --dependencies (e.g., \"0,1>2;0,2>3\")"
+                )
+            })?;
+            let dependencies = parse_dependencies(deps_str)?;
+            (
+                ser(problemreductions::models::set::MinimumCardinalityKey::new(
+                    num_attributes,
+                    dependencies,
+                    k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BicliqueCover
         "BicliqueCover" => {
             let usage = "pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2";
@@ -1248,18 +1301,85 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
+            let usage =
+                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LCS requires --strings\n\n\
-                     Usage: pred create LCS --strings \"ABAC;BACA\""
-                )
+                anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let strings: Vec<Vec<u8>> = strings_str
-                .split(';')
-                .map(|s| s.trim().as_bytes().to_vec())
-                .collect();
+            let bound_i64 = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
+            })?;
+            anyhow::ensure!(
+                bound_i64 >= 0,
+                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
+                bound_i64
+            );
+            let bound = bound_i64 as usize;
+
+            let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
+            let comma_mode = segments.iter().any(|segment| segment.contains(','));
+
+            let (strings, inferred_alphabet_size): (Vec<Vec<usize>>, usize) = if comma_mode {
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        if segment.is_empty() {
+                            return Ok(Vec::new());
+                        }
+                        segment
+                            .split(',')
+                            .map(|value| {
+                                value.trim().parse::<usize>().map_err(|e| {
+                                    anyhow::anyhow!("Invalid LCS alphabet index: {}", e)
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let inferred = strings
+                    .iter()
+                    .flat_map(|string| string.iter())
+                    .copied()
+                    .max()
+                    .map(|value| value + 1)
+                    .unwrap_or(0);
+                (strings, inferred)
+            } else {
+                let mut encoding = BTreeMap::new();
+                let mut next_symbol = 0usize;
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        segment
+                            .as_bytes()
+                            .iter()
+                            .map(|byte| {
+                                let entry = encoding.entry(*byte).or_insert_with(|| {
+                                    let current = next_symbol;
+                                    next_symbol += 1;
+                                    current
+                                });
+                                *entry
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                (strings, next_symbol)
+            };
+
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred_alphabet_size);
+            anyhow::ensure!(
+                alphabet_size >= inferred_alphabet_size,
+                "--alphabet-size {} is smaller than the inferred alphabet size ({})",
+                alphabet_size,
+                inferred_alphabet_size
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || (bound == 0 && strings.iter().all(|string| string.is_empty())),
+                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty and --bound > 0.\n\n{usage}"
+            );
             (
-                ser(LongestCommonSubsequence::new(strings))?,
+                ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1779,6 +1899,99 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
+
+        // SequencingWithReleaseTimesAndDeadlines
+        "SequencingWithReleaseTimesAndDeadlines" => {
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --lengths, --release-times, and --deadlines\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let release_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --release-times\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --deadlines\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let release_times: Vec<u64> = util::parse_comma_list(release_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            if lengths.len() != release_times.len() || lengths.len() != deadlines.len() {
+                bail!(
+                    "All three lists must have the same length: lengths={}, release_times={}, deadlines={}",
+                    lengths.len(),
+                    release_times.len(),
+                    deadlines.len()
+                );
+            }
+            (
+                ser(SequencingWithReleaseTimesAndDeadlines::new(
+                    lengths,
+                    release_times,
+                    deadlines,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // StringToStringCorrection
+        "StringToStringCorrection" => {
+            let usage = "Usage: pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2";
+            let source_str = args.source_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --source-string\n\n{usage}")
+            })?;
+            let target_str = args.target_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
+                })?,
+                "StringToStringCorrection",
+                usage,
+            )?;
+            let parse_symbols = |s: &str| -> Result<Vec<usize>> {
+                if s.trim().is_empty() {
+                    return Ok(Vec::new());
+                }
+                s.split(',')
+                    .map(|v| v.trim().parse::<usize>().context("invalid symbol index"))
+                    .collect()
+            };
+            let source = parse_symbols(source_str)?;
+            let target = parse_symbols(target_str)?;
+            let inferred = source
+                .iter()
+                .chain(target.iter())
+                .copied()
+                .max()
+                .map_or(0, |m| m + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than max symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(StringToStringCorrection::new(
+                    alphabet_size,
+                    source,
+                    target,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -2260,6 +2473,39 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+/// Parse `--dependencies` as semicolon-separated "lhs>rhs" pairs.
+/// E.g., "0,1>2;0,2>3;1,3>4;2,4>5" means {0,1}->{2}, {0,2}->{3}, etc.
+fn parse_dependencies(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    fn parse_dependency_side(side: &str) -> Result<Vec<usize>> {
+        if side.trim().is_empty() {
+            return Ok(vec![]);
+        }
+        side.split(',')
+            .map(|s| {
+                s.trim()
+                    .parse::<usize>()
+                    .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
+            })
+            .collect()
+    }
+
+    input
+        .split(';')
+        .map(|dep| {
+            let parts: Vec<&str> = dep.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid dependency format: expected 'lhs>rhs', got '{}'",
+                    dep.trim()
+                );
+            }
+            let lhs = parse_dependency_side(parts[0])?;
+            let rhs = parse_dependency_side(parts[1])?;
+            Ok((lhs, rhs))
         })
         .collect()
 }
@@ -2958,6 +3204,7 @@ fn create_random(
 #[cfg(test)]
 mod tests {
     use super::create;
+    use super::help_flag_hint;
     use super::help_flag_name;
     use super::parse_bool_rows;
     use super::problem_help_flag_name;
@@ -2984,6 +3231,43 @@ mod tests {
                 false,
             ),
             "num-paths-required"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_uses_problem_specific_lcs_strings_hint() {
+        assert_eq!(
+            help_flag_hint(
+                "LongestCommonSubsequence",
+                "strings",
+                "Vec<Vec<usize>>",
+                None,
+            ),
+            "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
+        );
+    }
+
+    #[test]
+    fn test_problem_help_uses_string_to_string_correction_cli_flags() {
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "source", "Vec<usize>", false),
+            "source-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "target", "Vec<usize>", false),
+            "target-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "bound", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_keeps_generic_vec_vec_usize_hint_for_other_models() {
+        assert_eq!(
+            help_flag_hint("SetBasis", "sets", "Vec<Vec<usize>>", None),
+            "semicolon-separated sets: \"0,1;1,2;0,2\""
         );
     }
 
@@ -3160,6 +3444,10 @@ mod tests {
             deadline: None,
             num_processors: None,
             alphabet_size: None,
+            dependencies: None,
+            num_attributes: None,
+            source_string: None,
+            target_string: None,
             schedules: None,
             requirements: None,
             num_workers: None,
