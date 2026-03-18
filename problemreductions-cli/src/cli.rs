@@ -13,7 +13,8 @@ Typical workflow:
   pred evaluate problem.json --config 1,0,1,0
 
 Piping (use - to read from stdin):
-  pred create MIS --graph 0-1,1-2 | pred solve -
+  pred create MIS --graph 0-1,1-2 | pred solve -                    # when an ILP reduction path exists
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
   pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
 
@@ -257,6 +258,7 @@ Flags by problem type:
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
+  StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
 
@@ -275,6 +277,7 @@ Examples:
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
@@ -447,7 +450,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, SCS, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
@@ -492,9 +495,15 @@ pub struct CreateArgs {
     /// Number of available workers for StaffScheduling
     #[arg(long)]
     pub num_workers: Option<u64>,
-    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    /// Alphabet size for SCS or StringToStringCorrection (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
+    #[arg(long)]
+    pub source_string: Option<String>,
+    /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
+    #[arg(long)]
+    pub target_string: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -504,7 +513,8 @@ Examples:
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
-  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
@@ -518,6 +528,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
+Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
+`StringToStringCorrection`, currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc

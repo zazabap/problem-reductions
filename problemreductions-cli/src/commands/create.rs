@@ -15,7 +15,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
-    SubsetSum,
+    StringToStringCorrection, SubsetSum,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -94,6 +94,15 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
+        && args.source_string.is_none()
+        && args.target_string.is_none()
+        && args.capacities.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -321,6 +330,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "StringToStringCorrection" => {
+            "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
         _ => "",
     }
 }
@@ -408,12 +420,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 );
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    help_flag_name(canonical, &field.name),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -450,10 +457,15 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
-    if canonical == "StaffScheduling" && field_name == "shifts_per_schedule" {
-        return "k".to_string();
+    if canonical == "StringToStringCorrection" {
+        return match field_name {
+            "source" => "source-string".to_string(),
+            "target" => "target-string".to_string(),
+            "bound" => "bound".to_string(),
+            _ => help_flag_name(canonical, field_name),
+        };
     }
-    field_name.replace('_', "-")
+    help_flag_name(canonical, field_name)
 }
 
 fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
@@ -1779,6 +1791,58 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
+
+        // StringToStringCorrection
+        "StringToStringCorrection" => {
+            let usage = "Usage: pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2";
+            let source_str = args.source_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --source-string\n\n{usage}")
+            })?;
+            let target_str = args.target_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
+                })?,
+                "StringToStringCorrection",
+                usage,
+            )?;
+            let parse_symbols = |s: &str| -> Result<Vec<usize>> {
+                if s.trim().is_empty() {
+                    return Ok(Vec::new());
+                }
+                s.split(',')
+                    .map(|v| v.trim().parse::<usize>().context("invalid symbol index"))
+                    .collect()
+            };
+            let source = parse_symbols(source_str)?;
+            let target = parse_symbols(target_str)?;
+            let inferred = source
+                .iter()
+                .chain(target.iter())
+                .copied()
+                .max()
+                .map_or(0, |m| m + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than max symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(StringToStringCorrection::new(
+                    alphabet_size,
+                    source,
+                    target,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -2988,6 +3052,22 @@ mod tests {
     }
 
     #[test]
+    fn test_problem_help_uses_string_to_string_correction_cli_flags() {
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "source", "Vec<usize>", false),
+            "source-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "target", "Vec<usize>", false),
+            "target-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "bound", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
     fn test_problem_help_uses_k_for_staff_scheduling() {
         assert_eq!(
             help_flag_name("StaffScheduling", "shifts_per_schedule"),
@@ -3160,6 +3240,8 @@ mod tests {
             deadline: None,
             num_processors: None,
             alphabet_size: None,
+            source_string: None,
+            target_string: None,
             schedules: None,
             requirements: None,
             num_workers: None,

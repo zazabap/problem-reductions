@@ -11,6 +11,7 @@
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
+//! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
@@ -24,6 +25,7 @@ pub(crate) mod paintshop;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
 mod staff_scheduling;
+pub(crate) mod string_to_string_correction;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
@@ -37,6 +39,7 @@ pub use paintshop::PaintShop;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use staff_scheduling::StaffScheduling;
+pub use string_to_string_correction::StringToStringCorrection;
 pub use subset_sum::SubsetSum;
 
 #[cfg(feature = "example-db")]
@@ -48,6 +51,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
     specs
 }
