@@ -9,8 +9,9 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
 use problemreductions::models::graph::{
-    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, LengthBoundedDisjointPaths,
-    MinimumMultiwayCut, MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+    LengthBoundedDisjointPaths, MinimumMultiwayCut, MultipleChoiceBranching, SteinerTree,
+    StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
@@ -288,6 +289,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
@@ -538,6 +540,9 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
+    if canonical == "GeneralizedHex" && field_name == "target" {
+        return "sink".to_string();
+    }
     if canonical == "StringToStringCorrection" {
         return match field_name {
             "source" => "source-string".to_string(),
@@ -694,6 +699,29 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Generalized Hex (graph + source + sink)
+        "GeneralizedHex" => {
+            let usage =
+                "Usage: pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let num_vertices = graph.num_vertices();
+            let source = args
+                .source
+                .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --source\n\n{usage}"))?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --sink\n\n{usage}"))?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!("GeneralizedHex requires distinct --source and --sink\n\n{usage}");
+            }
+            (
+                ser(GeneralizedHex::new(graph, source, sink))?,
                 resolved_variant.clone(),
             )
         }
@@ -3631,6 +3659,26 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // GeneralizedHex (graph only, with source/sink defaults)
+        "GeneralizedHex" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source = args.source.unwrap_or(0);
+            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let usage = "Usage: pred create GeneralizedHex --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] [--source 0] [--sink 5]";
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!("GeneralizedHex requires distinct --source and --sink\n\n{usage}");
+            }
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(GeneralizedHex::new(graph, source, sink))?, variant)
+        }
+
         // LengthBoundedDisjointPaths (graph only, with path defaults)
         "LengthBoundedDisjointPaths" => {
             let num_vertices = if num_vertices < 2 {
@@ -3771,7 +3819,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
-             HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath)"
+             HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
 
@@ -3786,15 +3834,26 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
-    use super::create;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use clap::Parser;
+
     use super::help_flag_hint;
     use super::help_flag_name;
     use super::parse_bool_rows;
-    use super::problem_help_flag_name;
     use super::*;
     use crate::cli::{Cli, Commands};
-    use clap::Parser;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use crate::output::OutputConfig;
+
+    fn temp_output_path(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{}_{}.json", name, suffix))
+    }
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -3981,6 +4040,72 @@ mod tests {
             err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
             "expected row-length validation error, got: {err}"
         );
+    }
+
+    #[test]
+    fn test_create_generalized_hex_serializes_problem_json() {
+        let output = temp_output_path("generalized_hex_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "GeneralizedHex",
+            "--graph",
+            "0-1,0-2,0-3,1-4,2-4,3-4,4-5",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "GeneralizedHex");
+        assert_eq!(json["variant"]["graph"], "SimpleGraph");
+        assert_eq!(json["data"]["source"], 0);
+        assert_eq!(json["data"]["target"], 5);
+    }
+
+    #[test]
+    fn test_create_generalized_hex_requires_sink() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "GeneralizedHex",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--source",
+            "0",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err.to_string().contains("GeneralizedHex requires --sink"));
     }
 
     fn empty_args() -> CreateArgs {

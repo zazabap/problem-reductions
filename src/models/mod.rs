@@ -15,14 +15,14 @@ pub use algebraic::{
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
-    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-    MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
+    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
+    MaximumIndependentSet, MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet,
+    MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
+    MultipleChoiceBranching, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
+    PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
