@@ -10,6 +10,7 @@
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
+//! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
@@ -26,6 +27,7 @@ mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
 mod precedence_constrained_scheduling;
+mod rectilinear_picture_compression;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
@@ -43,6 +45,7 @@ pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
+pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
@@ -58,6 +61,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
+    specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());

@@ -14,9 +14,9 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition,
+    MultiprocessorScheduling, PaintShop, RectilinearPictureCompression,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -335,6 +335,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "RectilinearPictureCompression" => {
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+        }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
         "ComparativeContainment" => {
@@ -370,6 +373,8 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
+        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
@@ -1466,6 +1471,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // RectilinearPictureCompression
+        "RectilinearPictureCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RectilinearPictureCompression requires --matrix and --k\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                )
+            })?;
+            (
+                ser(RectilinearPictureCompression::new(matrix, k))?,
+                resolved_variant.clone(),
+            )
         }
 
         // ConsecutiveOnesSubmatrix
@@ -2942,7 +2962,7 @@ fn parse_schedules(args: &CreateArgs, usage: &str) -> Result<Vec<Vec<bool>>> {
 }
 
 fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
-    rows_str
+    let matrix: Vec<Vec<bool>> = rows_str
         .split(';')
         .map(|row| {
             row.trim()
@@ -2956,7 +2976,16 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
                 })
                 .collect()
         })
-        .collect()
+        .collect::<Result<_>>()?;
+
+    if let Some(expected_width) = matrix.first().map(Vec::len) {
+        anyhow::ensure!(
+            matrix.iter().all(|row| row.len() == expected_width),
+            "All rows in --matrix must have the same length"
+        );
+    }
+
+    Ok(matrix)
 }
 
 fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
@@ -3692,7 +3721,11 @@ mod tests {
         let result = std::panic::catch_unwind(|| create(&args, &out));
         assert!(result.is_ok(), "create should return an error, not panic");
         let err = result.unwrap().unwrap_err().to_string();
-        assert!(err.contains("schedule 1 has 6 periods, expected 7"));
+        // parse_bool_rows catches ragged rows before validate_staff_scheduling_args
+        assert!(
+            err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
+            "expected row-length validation error, got: {err}"
+        );
     }
 
     fn empty_args() -> CreateArgs {
