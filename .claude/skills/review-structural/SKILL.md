@@ -85,6 +85,16 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
 
+## Step 2b: Blacklisted File Check
+
+Scan the PR's changed files for auto-generated files that must never be committed:
+- `docs/src/reductions/reduction_graph.json`
+- `docs/src/reductions/problem_schemas.json`
+- `src/example_db/fixtures/examples.json` (legacy path, deleted on main)
+- `docs/paper/data/examples.json` (current output path, gitignored)
+
+If any of these files appear in the diff, report **FAIL — blacklisted auto-generated file committed**. These files are rebuilt by CI/`make doc`/`make paper` and must not be in PRs.
+
 ## Step 3: Build Check
 
 Run:

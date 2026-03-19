@@ -45,14 +45,22 @@ GitHub Project board IDs (for `gh project item-edit`):
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 ```
 
-If a specific PR number was provided (`/final-review 42`), use it directly. Otherwise, pick the first open PR from the Final review column:
+If a specific PR number was provided (`/final-review 42`), use it directly. Otherwise, find the first item from the Final review column:
 
 ```bash
-# List items in Final review column
+# List items in Final review column (returns issues, not PRs)
 python3 scripts/pipeline_board.py list final-review --repo "$REPO" --format json
 ```
 
-Pick the first open PR from the list. Extract the `PR` number and `ITEM_ID` for later board moves.
+The board tracks **issues**, not PRs. For each issue in the list, find the associated **open** PR:
+
+```bash
+gh pr list --repo "$REPO" --state open --search "Fix #<ISSUE_NUMBER>" --json number,title,headRefName
+```
+
+**Skip stale items**: if an issue has no open PR (the PR was already merged or doesn't exist), move it to Done (`python3 scripts/pipeline_board.py move <ITEM_ID> done`) and try the next issue. Do not spend time investigating why the board item is stale.
+
+Extract the `PR` number from the first matched open PR and its `ITEM_ID` from the board list.
 
 **0b. Create worktree and check out the PR branch:**
 
@@ -71,11 +79,13 @@ git fetch origin main
 git merge origin/main --no-edit
 ```
 
-- **Merge clean** — merge commit is ready locally. Continue with the review.
-- **Merge conflicted** — note the conflicts. Continue with the review; decide whether to resolve or hold in Step 5.
+- **Merge clean** — merge commit is ready locally. Run `cargo check` to verify the merge didn't introduce API incompatibilities (e.g., functions renamed/removed on main that the PR still calls). If `cargo check` fails, fix the compile errors before proceeding.
+- **Merge conflicted** — most conflicts in this codebase are "both sides added new entries in ordered lists" (in `mod.rs`, `lib.rs`, `create.rs`, `dispatch.rs`, `reductions.typ`). These are mechanical: keep both sides, maintain alphabetical order. Delegate to a subagent for resolution, then run `cargo check` to verify. Continue with the review; if conflicts are too complex, decide whether to hold in Step 5.
 - **Merge failed** — note the error and continue.
 
 **0d. Sanity check**: verify the diff touches `src/models/` or `src/rules/` (for model/rule PRs). If the diff only contains unrelated files, STOP and flag the mismatch.
+
+**0e. Documentation build check**: if the PR touches `docs/paper/reductions.typ`, `docs/paper/references.bib`, or example specs, run `make paper` to verify the Typst paper compiles with the merged code. If compilation fails, check whether the error is in files touched by this PR. If not, note "pre-existing paper error from [source model/rule]" and continue — do not block the review on errors from other merged PRs. Only fix errors caused by this PR.
 
 ### Step 1: Gather Context
 
@@ -99,12 +109,14 @@ IMPL_REPORT=$(python3 scripts/pipeline_skill_context.py review-implementation --
 printf '%s\n' "$IMPL_REPORT"
 ```
 
+If any deterministic check shows `fail` or `skipped` without clear explanation, fall back to `gh pr diff "$PR"` for the actual PR file list and perform the corresponding check manually against those files only (not the full merge range). The `review-implementation` script may scope to base→HEAD across the full merge, which includes unrelated changes from main. Do not silently accept partial results.
+
 ### Step 1b: Walk Through Agentic Review Findings
 
-The `review-pipeline` skill already posted a structured **Agentic Review Report** as a PR comment (structural check, quality check, agentic feature tests). Read it:
+The `review-pipeline` skill already posted a structured **Review Pipeline Report** as a PR comment (structural check, quality check, agentic feature tests). Read it:
 
 ```bash
-gh pr view "$PR" --json comments --jq '.comments[] | select(.body | contains("Agentic Review Report")) | .body'
+gh pr view "$PR" --json comments --jq '.comments[] | select(.body | contains("Review Pipeline Report")) | .body'
 ```
 
 **Do not re-evaluate from scratch.** Walk through each finding from the agentic review report with the reviewer:
@@ -201,10 +213,11 @@ Verify the PR includes all required components:
 - [ ] Unit tests (`src/unit_tests/models/...`)
 - [ ] `declare_variants!` macro with explicit `opt`/`sat` solver-kind markers and intended default variant
 - [ ] Schema / registry entry for CLI-facing model creation (`ProblemSchemaEntry`)
-- [ ] Canonical model example function in the model file
+- [ ] `canonical_model_example_specs()` function in the model file (gated by `#[cfg(feature = "example-db")]`) and registered in the category `mod.rs` example chain
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
 - [ ] Aliases: if provided, verify they are standard literature abbreviations (not made up); if empty, confirm no well-known abbreviation is missing; check no conflict with existing aliases
+- [ ] After merge-with-main, verify no stale manual dispatch arms remain in `dispatch.rs` or `problem_name.rs` (main uses registry-based dispatch via `load_dyn` / `find_problem_type_by_alias`)
 
 **For [Rule] PRs:**
 - [ ] Reduction implementation (`src/rules/...`)
@@ -249,6 +262,38 @@ Use `AskUserQuestion` with your recommendation:
 > - Reviewer flags additional gaps or overrides — agent updates the fix plan accordingly
 > - "Skip" — skip this check
 
+### Step 4b: Issue consistency check
+
+**This is a critical step.** Read the linked issue and the implementation side by side, verifying each of the following. Do NOT delegate this to a subagent — read the actual PR files yourself.
+
+| Check | What to compare |
+|-------|-----------------|
+| **Mathematical definition** | Does `evaluate()` implement exactly the condition stated in the issue? Watch for subtle differences (e.g., "at least 2 of 3 edges" vs "all 3 edges"). |
+| **Variable encoding** | Does `dims()` match the issue's `dims()` specification? |
+| **Complexity string** | Does `declare_variants!` use the same complexity expression as the issue? |
+| **Test YES instance** | Does a unit test construct the same graph/weights/parameters as the issue's YES example? |
+| **Test NO instance** | Does a unit test construct the same instance as the issue's NO example (if provided)? |
+| **Solution match** | Does the test verify the same partition/solution as the issue's stated answer? |
+| **Paper definition** | Does the paper's `problem-def` match the issue's mathematical definition? |
+| **Brute-force verification** | Does a brute-force test independently confirm the expected answer? |
+
+Report results:
+
+> **Issue Consistency Check**
+>
+> | Check | Result |
+> |-------|--------|
+> | Mathematical definition | [Match / Mismatch — details] |
+> | Variable encoding | [Match / Mismatch] |
+> | Complexity string | [Match / Mismatch] |
+> | Test YES instance | [Match / Mismatch] |
+> | Test NO instance | [Match / Mismatch / N/A] |
+> | Solution match | [Match / Mismatch] |
+> | Paper definition | [Match / Mismatch] |
+> | Brute-force verification | [Present / Missing] |
+
+If any mismatch is found, use `AskUserQuestion` with your recommendation and the specific discrepancy. If all checks pass, report the positive result and continue.
+
 ### Step 5: Quality review
 
 Review the PR's code quality. Focus on issues that matter, not percentile scores.
@@ -275,7 +320,13 @@ Present to reviewer:
 >
 > Notable observations: [optional — unusual design choices, clever techniques, or patterns that diverge from the codebase. Omit if nothing stands out.]
 
-### Step 6: Confirm issues and fix plan
+### Step 6: Triage and fix
+
+Classify each issue from Steps 1b–5 into two categories:
+
+**Mechanical fixes** — issues with an obvious, unambiguous fix (e.g., alphabetical ordering, `cargo fmt`, removing blacklisted files, updating a renamed API call, fixing a merge conflict). Apply these immediately without asking. Commit and report what was done.
+
+**Uncertain fixes** — issues where the correct action is unclear, involves design judgment, or could change behavior (e.g., incorrect algorithm, missing edge case handling, questionable mathematical correctness, ambiguous issue compliance). Present these to the reviewer using `AskUserQuestion`.
 
 Summarize all findings from Steps 1b–5:
 
@@ -288,31 +339,35 @@ Summarize all findings from Steps 1b–5:
 | Merge confidence | [High/Medium/Low] |
 | PR URL | [link] |
 
-Then list all issues found (from Steps 1b–5) with the fix plan for each. Use `AskUserQuestion` to confirm:
+Then report:
 
-> **Issues found and proposed fixes:**
+> **Mechanical fixes applied:**
+> - [list each fix already committed, or "None"]
 >
-> [List each using the issue presentation format. If no issues: "No issues found."]
+> **Issues requiring reviewer input:**
+> For each uncertain issue, present fix options with pros/cons and a recommendation:
+> **N. [Short title]** (`file:line`)
+> - **Option A**: [description] — Pros: ... / Cons: ...
+> - **Option B**: [description] — Pros: ... / Cons: ...
+> - **Recommendation**: Option [X] — [one-sentence justification]
 >
-> **Should I proceed with these fixes?**
-> - "Yes" — apply all fixes, commit (do not push yet)
-> - "Adjust" — reviewer specifies which fixes to change, add, or drop; agent revises and re-presents
-> - "Skip fixes" — continue to final decision without fixing
-> - "Hold" — too many issues; move to OnHold (go to Step 8)
+> If no uncertain issues: "No uncertain issues."
 
-Quick fixes during final review are normal — they get squash-merged with the PR.
+If there are uncertain issues, use `AskUserQuestion` with your recommendations for the reviewer to confirm or override.
+
+If all issues were mechanical and already fixed, skip the question and proceed to Step 7.
 
 ### Step 7: Final decision
 
-After fixes are applied (or skipped), ask the reviewer for the final decision:
+If all issues were mechanical and already fixed (no uncertain issues remain), skip the question and proceed directly to Step 8 (Push and fix CI). Only ask the reviewer when there are uncertain issues or when the recommendation is OnHold.
 
-Use `AskUserQuestion`:
+Use `AskUserQuestion` only when needed:
 
 > My recommendation: **[Push and fix CI / OnHold]** — [one-sentence justification]
 >
 > **Final decision:**
-> - "Push and fix CI" — I will push all commits, fix any CI failures, then present the merge link
-> - "OnHold" — move to OnHold column with a reason
+> - **1** — Push and fix CI: push all commits, fix any CI failures, then present the merge link
+> - **2** — OnHold: move to OnHold column with a reason
 
 ### Step 8: Execute decision
 
@@ -322,7 +377,7 @@ Use `AskUserQuestion`:
    cd <worktree path>
    git push
    ```
-2. Wait for CI to complete. If CI fails, fix the issues, commit, and push again. Repeat until CI passes. Common CI issues during final review are expected — just fix them.
+2. Wait for CI — but **do not poll excessively**. Check once after ~60 seconds. If CI hasn't triggered or is still pending, run `make check` locally (fmt + clippy + test). If local checks pass, proceed to step 4 immediately and note "CI pending, local checks pass" when presenting the merge link. The reviewer can admin-merge or wait for CI at their discretion. Do not spend more than 1–2 CI poll attempts. If CI does run and fails, fix the issues, commit, and push again.
 3. If any follow-up items were noted during the review, post them as a comment:
    ```bash
    COMMENT_FILE=$(mktemp)
@@ -352,6 +407,8 @@ Use `AskUserQuestion`:
      pred solve reduced.json MaximumIndependentSet
      ```
    - [ ] **Implementation (Optional)**: spot-check the source files changed in this PR for correctness
+
+   💬 Join the discussion on [Zulip](https://julialang.zulipchat.com/#narrow/channel/365542-problem-reductions) — feel free to ask questions or leave feedback there.
    EOF
    gh issue comment <ISSUE_NUMBER> --body-file "$COMMENT_FILE"
    rm -f "$COMMENT_FILE"
