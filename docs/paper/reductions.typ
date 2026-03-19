@@ -111,6 +111,7 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
+  "Partition": [Partition],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
@@ -2932,6 +2933,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+
+#problem-def("Partition")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = sum_(a in A without A') s(a)$.
+][
+  One of Karp's 21 NP-complete problems @karp1972, listed as SP12 in Garey & Johnson @garey1979. Partition is the special case of Subset Sum where the target equals half the total sum. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n dot B_"total")$ pseudo-polynomial time, where $B_"total" = sum_i s(a_i)$. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Schroeppel and Shamir (1981).
+
+  *Example.* Let $A = {3, 1, 1, 2, 2, 1}$ ($n = 6$, total sum $= 10$). Setting $A' = {3, 2}$ (indices 0, 3) gives sum $3 + 2 = 5 = 10 slash 2$, and $A without A' = {1, 1, 2, 1}$ also sums to 5. Hence a balanced partition exists.
+]
 
 #{
   let x = load-model-example("ShortestCommonSupersequence")

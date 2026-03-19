@@ -11,6 +11,7 @@
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
@@ -34,6 +35,7 @@ mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
+pub(crate) mod partition;
 mod precedence_constrained_scheduling;
 mod rectilinear_picture_compression;
 pub(crate) mod resource_constrained_scheduling;
@@ -57,6 +59,7 @@ pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
+pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
@@ -78,6 +81,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
+    specs.extend(partition::canonical_model_example_specs());
     specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());

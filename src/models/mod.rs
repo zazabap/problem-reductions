@@ -29,7 +29,7 @@ pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
     FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PrecedenceConstrainedScheduling, QueryArg,
+    MultiprocessorScheduling, PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SequencingToMinimizeMaximumCumulativeCost, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
