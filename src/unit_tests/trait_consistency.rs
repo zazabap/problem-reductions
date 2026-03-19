@@ -88,6 +88,7 @@ fn test_all_problems_implement_trait_correctly() {
         "BalancedCompleteBipartiteSubgraph",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition");
     check_problem_trait(
         &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
         "QuadraticAssignment",
