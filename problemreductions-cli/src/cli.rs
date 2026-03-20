@@ -271,9 +271,10 @@ Flags by problem type:
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  RectilinearPictureCompression   --matrix (0/1), --k
+  SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
   SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
-  RectilinearPictureCompression   --matrix (0/1), --k
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -375,7 +376,7 @@ pub struct CreateArgs {
     /// Target value (for Factoring and SubsetSum)
     #[arg(long)]
     pub target: Option<String>,
-    /// Bits for first factor (for Factoring)
+    /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
     #[arg(long)]
     pub m: Option<usize>,
     /// Bits for second factor (for Factoring)
@@ -516,10 +517,10 @@ pub struct CreateArgs {
     /// Storage costs for MultipleCopyFileAllocation (comma-separated, e.g., "1,1,1,1")
     #[arg(long)]
     pub storage: Option<String>,
-    /// Deadlines for scheduling problems (comma-separated, e.g., "5,5,5,3,3")
+    /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
-    /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
+    /// Precedence pairs for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
     /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
@@ -534,7 +535,7 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
+    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -708,7 +709,38 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
 
 #[cfg(test)]
 mod tests {
+    use super::Cli;
     use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_create_help_mentions_scheduling_with_individual_deadlines_shared_flags() {
+        let mut cmd = Cli::command();
+        let create = cmd
+            .find_subcommand_mut("create")
+            .expect("create subcommand");
+        let mut help = Vec::new();
+        create
+            .write_long_help(&mut help)
+            .expect("render create help");
+        let help = String::from_utf8(help).expect("utf8 help");
+
+        assert!(help.contains(
+            "Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+        ));
+        assert!(help.contains(
+            "Precedence pairs for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+        ));
+        assert!(
+            help.contains(
+                "Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+            ),
+            "create help should describe --num-processors for both scheduling models"
+        );
+        assert!(help.contains(
+            "SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]"
+        ));
+    }
 
     #[test]
     fn test_create_parses_biconnectivity_augmentation_flags() {

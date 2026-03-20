@@ -18,9 +18,10 @@ use problemreductions::models::misc::{
     FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -480,6 +481,10 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("FlowShopScheduling", "num_processors")
+        | ("SchedulingWithIndividualDeadlines", "num_processors") => {
+            return "num-processors/--m".to_string();
+        }
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
         ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
@@ -539,6 +544,7 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("SequencingWithinIntervals", "release_times") => "comma-separated integers: 0,0,5",
         ("PrimeAttributeName", "dependencies") => {
             "semicolon-separated dependencies: \"0,1>2,3;2,3>0,1\""
         }
@@ -555,6 +561,26 @@ fn help_flag_hint(
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn resolve_processor_count_flags(
+    problem_name: &str,
+    usage: &str,
+    num_processors: Option<usize>,
+    m_alias: Option<usize>,
+) -> Result<Option<usize>> {
+    match (num_processors, m_alias) {
+        (Some(num_processors), Some(m_alias)) => {
+            anyhow::ensure!(
+                num_processors == m_alias,
+                "{problem_name} received conflicting processor counts: --num-processors={num_processors} but --m={m_alias}\n\n{usage}"
+            );
+            Ok(Some(num_processors))
+        }
+        (Some(num_processors), None) => Ok(Some(num_processors)),
+        (None, Some(m_alias)) => Ok(Some(m_alias)),
+        (None, None) => Ok(None),
+    }
 }
 
 fn validate_sequencing_within_intervals_inputs(
@@ -2068,6 +2094,75 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // SchedulingWithIndividualDeadlines
+        "SchedulingWithIndividualDeadlines" => {
+            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]";
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and a processor count (--num-processors or --m)\n\n{usage}"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n{usage}"
+                )
+            })?;
+            let num_processors = resolve_processor_count_flags(
+                "SchedulingWithIndividualDeadlines",
+                usage,
+                args.num_processors,
+                args.m,
+            )?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --num-processors or --m\n\n{usage}"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            anyhow::ensure!(
+                deadlines.len() == num_tasks,
+                "deadlines length ({}) must equal num_tasks ({})",
+                deadlines.len(),
+                num_tasks
+            );
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(SchedulingWithIndividualDeadlines::new(
+                    num_tasks,
+                    num_processors,
+                    deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SequencingToMinimizeWeightedTardiness
         "SequencingToMinimizeWeightedTardiness" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -2217,15 +2312,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .split(';')
                 .map(|row| util::parse_comma_list(row.trim()))
                 .collect::<Result<Vec<_>>>()?;
-            let num_processors = if let Some(np) = args.num_processors {
-                np
-            } else if let Some(m) = args.m {
-                m
-            } else if let Some(first) = task_lengths.first() {
-                first.len()
-            } else {
-                bail!("Cannot infer num_processors from empty task list; use --num-processors");
-            };
+            let num_processors = resolve_processor_count_flags(
+                "FlowShopScheduling",
+                "Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3",
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| task_lengths.first().map(Vec::len))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty task list; use --num-processors"
+                )
+            })?;
             for (j, row) in task_lengths.iter().enumerate() {
                 if row.len() != num_processors {
                     bail!(
@@ -4286,6 +4384,18 @@ mod tests {
     }
 
     #[test]
+    fn test_help_flag_name_mentions_m_alias_for_scheduling_processors() {
+        assert_eq!(
+            help_flag_name("SchedulingWithIndividualDeadlines", "num_processors"),
+            "num-processors/--m"
+        );
+        assert_eq!(
+            help_flag_name("FlowShopScheduling", "num_processors"),
+            "num-processors/--m"
+        );
+    }
+
+    #[test]
     fn test_ensure_attribute_indices_in_range_rejects_out_of_range_index() {
         let err = ensure_attribute_indices_in_range(&[0, 4], 3, "Functional dependency '0:4' rhs")
             .unwrap_err();
@@ -4293,6 +4403,45 @@ mod tests {
             err.to_string().contains("out of range"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "3",
+            "--deadlines",
+            "1,1,2",
+            "--m",
+            "2",
+        ])
+        .expect("parse create command");
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create subcommand");
+        };
+
+        let out = OutputConfig {
+            output: Some(
+                std::env::temp_dir()
+                    .join("pred_test_create_scheduling_with_individual_deadlines_m_alias.json"),
+            ),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        create(&args, &out).expect("`--m` should satisfy --num-processors alias");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(out.output.as_ref().unwrap()).unwrap())
+                .unwrap();
+        std::fs::remove_file(out.output.as_ref().unwrap()).ok();
+
+        assert_eq!(created["type"], "SchedulingWithIndividualDeadlines");
+        assert_eq!(created["data"]["num_processors"], 2);
     }
 
     #[test]
