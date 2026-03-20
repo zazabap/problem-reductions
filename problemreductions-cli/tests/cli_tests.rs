@@ -382,6 +382,31 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_evaluate_consecutive_block_minimization_rejects_inconsistent_dimensions() {
+    let problem_json = r#"{
+        "type": "ConsecutiveBlockMinimization",
+        "data": {
+            "matrix": [[true]],
+            "num_rows": 1,
+            "num_cols": 2,
+            "bound": 1
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_eval_cbm_invalid_dims.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "0,1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("num_cols must match matrix column count"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
 fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
     let problem_json = r#"{
         "type": "MultipleChoiceBranching",
@@ -410,7 +435,6 @@ fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_pan
         stderr.contains("partition"),
         "stderr should mention the invalid partition: {stderr}"
     );
-
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -612,6 +636,47 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
     assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsecutiveBlockMinimization",
+            "--matrix",
+            "[[true],[true,false]]",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("all matrix rows must have the same length"));
+    assert!(stderr.contains("Usage: pred create ConsecutiveBlockMinimization"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_help_mentions_json_matrix_format() {
+    let output = pred()
+        .args(["create", "ConsecutiveBlockMinimization"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("JSON 2D bool array"));
+    assert!(stderr.contains("[[true,false,true],[false,true,true]]"));
+}
+
+#[test]
+fn test_create_help_mentions_consecutive_block_minimization_matrix_format() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ConsecutiveBlockMinimization"));
+    assert!(stdout.contains("JSON 2D bool array"));
 }
 
 #[test]
@@ -1095,7 +1160,7 @@ fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
             "RectilinearPictureCompression",
             "--matrix",
             "1,1;1,1",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -1501,12 +1566,11 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(
         stderr.contains("semicolon-separated dependencies"),
         "stderr: {stderr}"
     );
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1519,7 +1583,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
             "1",
             "--dependencies",
             ">0",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -1534,7 +1598,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumCardinalityKey");
     assert_eq!(json["data"]["num_attributes"], 1);
-    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["bound"], 1);
     assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
     assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
 }
@@ -1547,7 +1611,7 @@ fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
             "MinimumCardinalityKey",
             "--dependencies",
             "0>0",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -2616,7 +2680,6 @@ fn test_create_string_to_string_correction_help_uses_cli_flags() {
     assert!(stderr.contains("--source-string"), "stderr: {stderr}");
     assert!(stderr.contains("--target-string"), "stderr: {stderr}");
     assert!(stderr.contains("--bound"), "stderr: {stderr}");
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3060,7 +3123,7 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
 }
 
 #[test]
-fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
+fn test_create_rectilinear_picture_compression_help_uses_bound_flag() {
     let output = pred()
         .args(["create", "RectilinearPictureCompression"])
         .output()
@@ -3072,12 +3135,8 @@ fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
         "expected '--matrix' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--k"),
-        "expected '--k' in help output, got: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--bound-k"),
-        "help should advertise the actual CLI flag name, got: {stderr}"
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
     );
 }
 
@@ -3089,7 +3148,7 @@ fn test_create_rectilinear_picture_compression_rejects_ragged_matrix() {
             "RectilinearPictureCompression",
             "--matrix",
             "1,0;1",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -3160,12 +3219,8 @@ fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
         "expected '--matrix' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--k"),
-        "expected '--k' in help output, got: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--bound-k"),
-        "help should not advertise schema field names: {stderr}"
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
     );
     assert!(
         stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
@@ -3266,7 +3321,7 @@ fn test_create_consecutive_ones_submatrix_succeeds() {
             "ConsecutiveOnesSubmatrix",
             "--matrix",
             "1,1,0,1;1,0,1,1;0,1,1,0",
-            "--k",
+            "--bound",
             "3",
         ])
         .output()
@@ -3279,7 +3334,7 @@ fn test_create_consecutive_ones_submatrix_succeeds() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "ConsecutiveOnesSubmatrix");
-    assert_eq!(json["data"]["bound_k"], 3);
+    assert_eq!(json["data"]["bound"], 3);
     assert_eq!(
         json["data"]["matrix"][0],
         serde_json::json!([true, true, false, true])

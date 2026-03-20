@@ -7,7 +7,9 @@ use crate::problem_name::{
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
+use problemreductions::models::algebraic::{
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix, BMF,
+};
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
@@ -342,7 +344,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         }
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
-        "Vec<Vec<bool>>" => "semicolon-separated binary rows: \"1,1,0;0,1,1\"",
+        "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" | "W::Sum" => "integer",
         "u64" => "integer",
@@ -431,7 +433,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
-            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
         }
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
@@ -449,7 +451,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
         }
         "PrimeAttributeName" => {
             "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
@@ -458,12 +460,15 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
-        "SequencingToMinimizeMaximumCumulativeCost" => {
-            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+        "ConsecutiveBlockMinimization" => {
+            "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
-        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
+        }
+        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
@@ -489,12 +494,11 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
             return "num-processors/--m".to_string();
         }
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
-        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
+        ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
-        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
-        ("ConsecutiveOnesSubmatrix", "bound_k") => return "k".to_string(),
+        ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
@@ -1774,12 +1778,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
                 )
             })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            let k = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1853,17 +1857,40 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
         }
 
-        // RectilinearPictureCompression
-        "RectilinearPictureCompression" => {
-            let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+        // ConsecutiveBlockMinimization
+        "ConsecutiveBlockMinimization" => {
+            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound 2";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "RectilinearPictureCompression requires --matrix and --k\n\n\
-                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound\n\n{usage}")
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array (e.g., '[[true,false,true],[false,true,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
                 )
             })?;
             (
-                ser(RectilinearPictureCompression::new(matrix, k))?,
+                ser(ConsecutiveBlockMinimization::try_new(matrix, bound)
+                    .map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RectilinearPictureCompression
+        "RectilinearPictureCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RectilinearPictureCompression requires --matrix and --bound\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
+                )
+            })?;
+            (
+                ser(RectilinearPictureCompression::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1871,14 +1898,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // ConsecutiveOnesSubmatrix
         "ConsecutiveOnesSubmatrix" => {
             let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveOnesSubmatrix requires --matrix and --k\n\n\
-                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --k 3"
+                    "ConsecutiveOnesSubmatrix requires --matrix and --bound\n\n\
+                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --bound 3"
                 )
             })?;
             (
-                ser(ConsecutiveOnesSubmatrix::new(matrix, k))?,
+                ser(ConsecutiveOnesSubmatrix::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }

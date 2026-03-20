@@ -250,6 +250,7 @@ Flags by problem type:
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
+  ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
@@ -357,7 +358,8 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix input (semicolon-separated rows; use `pred create <PROBLEM>` for problem-specific formats)
+    /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
+    /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
     pub matrix: Option<String>,
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
@@ -552,6 +554,7 @@ pub struct CreateArgs {
     /// Alphabet size for LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
     #[arg(long)]
     pub num_attributes: Option<usize>,
