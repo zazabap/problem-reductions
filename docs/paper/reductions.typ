@@ -3723,7 +3723,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let weights = x.instance.weights
   let precs = x.instance.precedences
   let ntasks = lengths.len()
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let opt = sol.metric.Valid
   let lehmer = sol.config
   let schedule = {
