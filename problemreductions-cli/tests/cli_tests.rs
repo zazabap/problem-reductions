@@ -2287,6 +2287,92 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
+fn test_solve_direct_ilp_i32_problem() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i32_problem.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--to",
+            "ILP/i32",
+            "--example-side",
+            "target",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("\"problem\": \"ILP\""), "{stdout}");
+    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
+    let problem_file = std::env::temp_dir()
+        .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "2,1,3,1,2",
+            "--weights",
+            "3,5,1,4,2",
+            "--precedence-pairs",
+            "0>2,1>4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
+        "{stdout}"
+    );
+    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"solution\": ["), "{stdout}");
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
 fn test_solve_unknown_solver() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_unknown.json");
     let create_out = pred()
@@ -2834,6 +2920,72 @@ fn test_create_steiner_tree_rejects_duplicate_terminals() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("terminals must be distinct"), "{stderr}");
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_completion_time() {
+    let output_file = std::env::temp_dir()
+        .join("pred_test_create_sequencing_to_minimize_weighted_completion_time.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "2,1,3,1,2",
+            "--weights",
+            "3,5,1,4,2",
+            "--precedence-pairs",
+            "0>2,1>4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeWeightedCompletionTime");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([2, 1, 3, 1, 2]));
+    assert_eq!(json["data"]["weights"], serde_json::json!([3, 5, 1, 4, 2]));
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 4]])
+    );
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_help_describes_precedence_pairs_generically() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"));
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_completion_time_rejects_zero_length() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "0,1,3",
+            "--weights",
+            "3,5,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
 }
 
 #[test]
@@ -4673,6 +4825,47 @@ fn test_inspect_stdin() {
         stdout.contains("MaximumIndependentSet"),
         "expected 'MaximumIndependentSet', got: {stdout}"
     );
+}
+
+#[test]
+fn test_inspect_rejects_zero_length_sequencing_problem_from_stdin() {
+    let create_out = pred()
+        .args([
+            "create",
+            "--example",
+            "SequencingToMinimizeWeightedCompletionTime",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let mut json: serde_json::Value = serde_json::from_slice(&create_out.stdout).unwrap();
+    json["data"]["lengths"][0] = serde_json::json!(0);
+    let invalid_json = serde_json::to_vec(&json).unwrap();
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["inspect", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&invalid_json)
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+
+    assert!(!result.status.success());
+    let stderr = String::from_utf8(result.stderr).unwrap();
+    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
 }
 
 #[test]

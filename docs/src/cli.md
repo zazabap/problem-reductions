@@ -366,6 +366,7 @@ pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
 pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 --num-processors 3 --precedence-pairs "0>3,1>3,1>4,2>4,2>5" -o swid.json
 pred solve swid.json --solver brute-force
+pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 --precedence-pairs "0>2,1>4" -o stmwct.json
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
