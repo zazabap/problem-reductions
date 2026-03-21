@@ -123,7 +123,7 @@ Use `OnHold` as the in-progress state for `/fix-issue`. Once claimed, do not mov
 
 If the issue is already in `OnHold` because you are resuming previously started `fix-issue` work, do not move it again; just continue.
 
-### 1e: Fetch the chosen issue
+### 1e: Fetch the chosen issue and related context
 
 ```bash
 gh issue view <NUMBER> --json title,body,labels,comments
@@ -131,6 +131,25 @@ gh issue view <NUMBER> --json title,body,labels,comments
 
 - Find the **most recent** comment that starts with `## Issue Quality Check` — this is the check-issue report
 - If no check comment found, run `/check-issue <NUMBER>` first, then re-fetch the issue
+
+**Cross-reference lookup (required):**
+
+- **For `[Model]` issues:** Fetch **all** associated `[Rule]` issues that reference this problem as source or target. Search broadly — the problem name may appear in different forms (CamelCase, spaces, abbreviations):
+  ```bash
+  gh issue list --search "<ProblemName> in:title label:rule" --state open --json number,title,body --limit 50
+  ```
+  Read the body of each matching rule issue to understand how the model is used (what fields the rule constructs, whether it relies on decision vs optimization framing, what overhead expressions reference). This context is essential for making informed decisions about schema, framing, and naming.
+
+- **For `[Rule]` issues:** Check whether the source and target models exist in the codebase or as issues:
+  ```bash
+  # Check if models exist in pred
+  pred show <SourceModel> 2>&1
+  pred show <TargetModel> 2>&1
+  # Check for model issues if not in pred
+  gh issue list --search "<SourceModel> in:title label:model" --state open --json number,title,body --limit 10
+  gh issue list --search "<TargetModel> in:title label:model" --state open --json number,title,body --limit 10
+  ```
+  Read relevant model issue bodies to understand schema fields, variants, and framing. This informs whether the rule's overhead expressions, field names, and algorithm are consistent with the models.
 
 ---
 
@@ -205,10 +224,12 @@ Use `cargo run -p problemreductions-cli --bin pred -- show <problem>` (or `./tar
 
 Present everything in one block so the human has full visibility:
 
-1. **Check report summary** — the parsed table from Step 2 (Check / Result / Details). For `Fail` or `Warn` results, include the specific sub-issues from the detailed section, not just the one-liner.
-2. **Research results** — any web searches, `pred show` lookups, or companion issue status gathered during Steps 2–3.
-3. **Auto-fixes applied** — table of mechanical fixes (Section / Issue / Fix).
-4. **Substantive issues requiring input** — numbered list of issues that need human judgment, with enough context for the human to evaluate each one.
+1. **Full problem definition** — quote the issue's Definition and Schema sections verbatim so the human can see exactly what is being discussed without switching to the browser. For rule issues, include the Reduction Algorithm and Size Overhead sections instead.
+2. **Check report summary** — the parsed table from Step 2 (Check / Result / Details). For `Fail` or `Warn` results, include the specific sub-issues from the detailed section, not just the one-liner.
+3. **Related issues** — for model issues, list all associated rule issues found in Step 1e with a one-line summary of how each rule uses this model (fields referenced, framing assumed). For rule issues, state whether the source and target models exist in `pred` or as open issues, and note any schema/framing mismatches.
+4. **Research results** — any web searches, `pred show` lookups, or other research gathered during Steps 2–3.
+5. **Auto-fixes applied** — table of mechanical fixes (Section / Issue / Fix).
+6. **Substantive issues requiring input** — numbered list of issues that need human judgment, with enough context for the human to evaluate each one.
 
 ---
 
@@ -216,11 +237,13 @@ Present everything in one block so the human has full visibility:
 
 For each substantive issue, present it to the human **one at a time**:
 
-1. **Show the evidence first** — quote the relevant check report section, web research results, or `pred show` output that informs this decision. The human should be able to evaluate the options based on the evidence shown, not just the option labels.
+1. **Show the evidence first** — quote the relevant check report section, web research results, `pred show` output, or related rule/model issue findings that inform this decision. The human should be able to evaluate the options based on the evidence shown, not just the option labels. If the issue's Definition or Schema is relevant to the decision, quote the relevant sections inline.
 2. State the problem clearly
 3. Offer 2-3 concrete options when possible (with your recommendation)
 4. Wait for the human's response
 5. Apply the chosen fix to the draft issue body
+
+**Example instances require special handling:** If the example is flagged as incorrect, incomplete, or trivial, you MUST present **3 concrete example options** using `AskUserQuestion` with previews. Each preview should show the full graph/instance specification, optimal value, suboptimal cases, and an invalid configuration. Do NOT silently reuse or fix the existing example without offering alternatives — the human must choose.
 
 Use web search if needed to help resolve issues:
 - Literature search for correct complexity bounds
@@ -347,3 +370,7 @@ Done! Issue #<NUMBER>:
 | Force-pushing or modifying git | This skill only edits GitHub issues via `gh`. No git operations |
 | Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog`, `find` exist |
 | Forgetting to update the issue title | If the problem name changed, update the title with `gh issue edit <N> --title "..."` and find all related issues referencing the old name |
+| Asking questions without context | Before every `AskUserQuestion`, show the relevant issue content (definition, example, constraints) so the human can make an informed decision |
+| Not showing the full problem definition in Step 4 | Always quote the Definition and Schema (or Reduction Algorithm and Size Overhead for rules) verbatim in Step 4 so the human has the full picture without switching to the browser |
+| Skipping cross-reference lookup for models | For model issues, fetch and read **all** associated rule issues to understand how the model is used before making framing/schema decisions |
+| Skipping cross-reference lookup for rules | For rule issues, check whether source and target models exist in `pred` or as open issues, and read their schema/framing to ensure consistency |
