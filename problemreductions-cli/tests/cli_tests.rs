@@ -133,6 +133,24 @@ fn test_show_balanced_complete_bipartite_subgraph_complexity() {
 }
 
 #[test]
+fn test_create_stacker_crane_schema_help_uses_documented_flags() {
+    let output = pred().args(["create", "StackerCrane"]).output().unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("StackerCrane"), "stderr: {stderr}");
+    assert!(stderr.contains("--arcs"), "stderr: {stderr}");
+    assert!(stderr.contains("--graph"), "stderr: {stderr}");
+    assert!(stderr.contains("--arc-costs"), "stderr: {stderr}");
+    assert!(stderr.contains("--edge-lengths"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+    assert!(stderr.contains("--num-vertices"), "stderr: {stderr}");
+    assert!(!stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--arc-lengths"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edge-weights"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
     let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
     let create = pred()
