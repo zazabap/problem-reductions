@@ -20,8 +20,8 @@ pub use formula::{
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
-    KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
+    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
+    KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
     MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
     MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
     MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
