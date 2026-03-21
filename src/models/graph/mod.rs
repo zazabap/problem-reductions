@@ -20,6 +20,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
@@ -72,6 +73,7 @@ pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
+pub(crate) mod shortest_weight_constrained_path;
 pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
 pub(crate) mod steiner_tree_in_graphs;
@@ -112,6 +114,7 @@ pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
+pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
 pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
 pub use steiner_tree_in_graphs::SteinerTreeInGraphs;
@@ -144,6 +147,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(min_max_multicenter::canonical_model_example_specs());
     specs.extend(minimum_multiway_cut::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
+    specs.extend(shortest_weight_constrained_path::canonical_model_example_specs());
     specs.extend(multiple_choice_branching::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());

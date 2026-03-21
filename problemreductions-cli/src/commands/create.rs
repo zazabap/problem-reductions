@@ -46,6 +46,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.edge_lengths.is_none()
         && args.capacities.is_none()
         && args.source.is_none()
         && args.sink.is_none()
@@ -60,6 +61,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.m.is_none()
         && args.n.is_none()
         && args.num_vertices.is_none()
+        && args.source_vertex.is_none()
+        && args.target_vertex.is_none()
         && args.edge_prob.is_none()
         && args.seed.is_none()
         && args.positions.is_none()
@@ -94,6 +97,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
+        && args.length_bound.is_none()
+        && args.weight_bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.costs.is_none()
@@ -341,6 +346,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<(Vec<usize>, Vec<usize>)>" => "semicolon-separated dependencies: \"0,1>2;0,2>3\"",
         "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "Vec<W>" => "comma-separated: 1,2,3",
+        "W" | "N" | "W::Sum" | "N::Sum" => "numeric value: 10",
         "Vec<usize>" => "comma-separated indices: 0,2,4",
         "Vec<(usize, usize, W)>" | "Vec<(usize,usize,W)>" => {
             "comma-separated weighted edges: 0-2:3,1-3:5"
@@ -349,7 +355,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
-        "usize" | "W::Sum" => "integer",
+        "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
@@ -398,6 +404,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
+        }
+        "ShortestWeightConstrainedPath" => {
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
         }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
@@ -1017,6 +1026,70 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // ShortestWeightConstrainedPath
+        "ShortestWeightConstrainedPath" => {
+            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            if args.weights.is_some() {
+                bail!(
+                    "ShortestWeightConstrainedPath uses --edge-weights, not --weights\n\nUsage: {usage}"
+                );
+            }
+            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --edge-lengths\n\nUsage: {usage}"
+                )
+            })?;
+            let edge_weights_raw = args.edge_weights.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --edge-weights\n\nUsage: {usage}"
+                )
+            })?;
+            let edge_lengths =
+                parse_i32_edge_values(Some(edge_lengths_raw), graph.num_edges(), "edge length")?;
+            let edge_weights =
+                parse_i32_edge_values(Some(edge_weights_raw), graph.num_edges(), "edge weight")?;
+            ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
+            ensure_positive_i32_values(&edge_weights, "edge weights")?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --source-vertex\n\nUsage: {usage}"
+                )
+            })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
+                )
+            })?;
+            let length_bound = args.length_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --length-bound\n\nUsage: {usage}"
+                )
+            })?;
+            let weight_bound = args.weight_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
+                )
+            })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            ensure_positive_i32(length_bound, "length_bound")?;
+            ensure_positive_i32(weight_bound, "weight_bound")?;
+            (
+                ser(ShortestWeightConstrainedPath::new(
+                    graph,
+                    edge_lengths,
+                    edge_weights,
+                    source_vertex,
+                    target_vertex,
+                    length_bound,
+                    weight_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // MultipleCopyFileAllocation (graph + usage + storage + bound)
@@ -3457,6 +3530,31 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
     }
 }
 
+fn parse_i32_edge_values(
+    values: Option<&String>,
+    num_edges: usize,
+    value_label: &str,
+) -> Result<Vec<i32>> {
+    match values {
+        Some(raw) => {
+            let parsed: Vec<i32> = raw
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if parsed.len() != num_edges {
+                bail!(
+                    "Expected {} {} values but got {}",
+                    num_edges,
+                    value_label,
+                    parsed.len()
+                );
+            }
+            Ok(parsed)
+        }
+        None => Ok(vec![1i32; num_edges]),
+    }
+}
+
 fn parse_vertex_i64_values(
     raw: Option<&str>,
     field_name: &str,
@@ -3506,25 +3604,30 @@ fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>>
     Ok(terminals)
 }
 
-/// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
-fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    match &args.edge_weights {
-        Some(w) => {
-            let weights: Vec<i32> = w
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            if weights.len() != num_edges {
-                bail!(
-                    "Expected {} edge weights but got {}",
-                    num_edges,
-                    weights.len()
-                );
-            }
-            Ok(weights)
-        }
-        None => Ok(vec![1i32; num_edges]),
+fn ensure_positive_i32_values(values: &[i32], label: &str) -> Result<()> {
+    if values.iter().any(|&value| value <= 0) {
+        bail!("All {label} must be positive (> 0)");
     }
+    Ok(())
+}
+
+fn ensure_positive_i32(value: i32, label: &str) -> Result<()> {
+    if value <= 0 {
+        bail!("{label} must be positive (> 0)");
+    }
+    Ok(())
+}
+
+fn ensure_vertex_in_bounds(vertex: usize, num_vertices: usize, label: &str) -> Result<()> {
+    if vertex >= num_vertices {
+        bail!("{label} {vertex} out of bounds (graph has {num_vertices} vertices)");
+    }
+    Ok(())
+}
+
+/// Parse `--edge-weights` as per-edge numeric values (i32), defaulting to all 1s.
+fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
+    parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
 }
 
 fn validate_vertex_index(
@@ -4946,6 +5049,7 @@ mod tests {
             graph: None,
             weights: None,
             edge_weights: None,
+            edge_lengths: None,
             capacities: None,
             source: None,
             sink: None,
@@ -4957,6 +5061,8 @@ mod tests {
             matrix: None,
             k: None,
             random: false,
+            source_vertex: None,
+            target_vertex: None,
             num_vertices: None,
             edge_prob: None,
             seed: None,
@@ -4994,6 +5100,8 @@ mod tests {
             tree: None,
             required_edges: None,
             bound: None,
+            length_bound: None,
+            weight_bound: None,
             pattern: None,
             strings: None,
             arcs: None,
