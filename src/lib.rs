@@ -65,14 +65,15 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
-        ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring, FlowShopScheduling,
-        Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-        PaintShop, Partition, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+        ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
+        Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition, QueryArg,
+        RectilinearPictureCompression, ResourceConstrainedScheduling,
+        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
