@@ -48,19 +48,20 @@ pub mod prelude {
         Satisfiability,
     };
     pub use crate::models::graph::{
-        AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
-        KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
+        BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
+        DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
+        HamiltonianPath, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, MixedChinesePostman, SpinGlass, SteinerTree,
         StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
-        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
-        MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
-        MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
+        MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
+        MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
+        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
@@ -72,8 +73,8 @@ pub mod prelude {
         SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
         SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
         SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition, Term, TimetableDesign,
+        ShortestCommonSupersequence, StackerCrane, StaffScheduling, StringToStringCorrection,
+        SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
