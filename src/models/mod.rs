@@ -28,9 +28,9 @@ pub use graph::{
     MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman,
     MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-    PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow, RuralPostman,
-    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
+    RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SpinGlass, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
     UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;

@@ -62,7 +62,7 @@ pub mod prelude {
         MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
         MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
         MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
-        PartitionIntoTriangles, PathConstrainedNetworkFlow, RuralPostman,
+        PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
         ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
         UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
