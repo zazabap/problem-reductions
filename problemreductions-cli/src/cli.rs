@@ -249,6 +249,7 @@ Flags by problem type:
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups, --bound
+  ExpectedRetrievalCost           --probabilities, --num-sectors, --latency-bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets
@@ -474,6 +475,9 @@ pub struct CreateArgs {
     /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
+    /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
+    #[arg(long)]
+    pub probabilities: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -546,6 +550,9 @@ pub struct CreateArgs {
     /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
+    /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
+    #[arg(long)]
+    pub latency_bound: Option<f64>,
     /// Upper bound on total path length
     #[arg(long)]
     pub length_bound: Option<i32>,
@@ -703,6 +710,9 @@ pub struct CreateArgs {
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
+    /// Number of sectors for ExpectedRetrievalCost
+    #[arg(long)]
+    pub num_sectors: Option<usize>,
     /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
     #[arg(long)]
     pub source_string: Option<String>,
