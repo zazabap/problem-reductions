@@ -420,7 +420,7 @@
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
   #v(0.5em)
-  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1]]
+  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An]
   #v(0.3em)
   #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou)]
   #v(0.3em)
