@@ -4,7 +4,7 @@ pub mod analysis;
 pub mod cost;
 pub mod registry;
 pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
-pub use registry::{ReductionEntry, ReductionOverhead};
+pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
@@ -97,10 +97,12 @@ pub(crate) mod steinertree_ilp;
 pub(crate) mod travelingsalesman_ilp;
 
 pub use graph::{
-    NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
-    ReductionStep, TraversalDirection,
+    AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
+    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
-pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
+pub use traits::{
+    AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,
+};
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {

@@ -6,7 +6,7 @@
 //! NP-complete in the strong sense (Garey & Johnson, SP19).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -50,7 +50,7 @@ inventory::submit! {
 /// // 6 elements with sizes [5, 3, 8, 2, 7, 1], K=3 groups, bound J=240
 /// let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -164,7 +164,7 @@ impl<'de> Deserialize<'de> for SumOfSquaresPartition {
 
 impl Problem for SumOfSquaresPartition {
     const NAME: &'static str = "SumOfSquaresPartition";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -174,18 +174,18 @@ impl Problem for SumOfSquaresPartition {
         vec![self.num_groups; self.sizes.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        match self.sum_of_squares(config) {
-            Some(sos) => sos <= self.bound,
-            None => false,
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            match self.sum_of_squares(config) {
+                Some(sos) => sos <= self.bound,
+                None => false,
+            }
+        })
     }
 }
 
-impl SatisfactionProblem for SumOfSquaresPartition {}
-
 crate::declare_variants! {
-    default sat SumOfSquaresPartition => "num_groups^num_elements",
+    default SumOfSquaresPartition => "num_groups^num_elements",
 }
 
 #[cfg(feature = "example-db")]

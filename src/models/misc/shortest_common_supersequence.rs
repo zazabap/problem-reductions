@@ -11,7 +11,7 @@
 //! to the standard `|w| ≤ B` formulation. This problem is NP-hard (Maier, 1978).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 /// // Alphabet {0, 1}, strings [0,1] and [1,0], bound 3
 /// let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,7 +125,7 @@ fn is_subsequence(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSupersequence {
     const NAME: &'static str = "ShortestCommonSupersequence";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -135,21 +135,21 @@ impl Problem for ShortestCommonSupersequence {
         vec![self.alphabet_size; self.bound]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.bound {
-            return false;
-        }
-        if config.iter().any(|&v| v >= self.alphabet_size) {
-            return false;
-        }
-        self.strings.iter().all(|s| is_subsequence(s, config))
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.bound {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&v| v >= self.alphabet_size) {
+                return crate::types::Or(false);
+            }
+            self.strings.iter().all(|s| is_subsequence(s, config))
+        })
     }
 }
 
-impl SatisfactionProblem for ShortestCommonSupersequence {}
-
 crate::declare_variants! {
-    default sat ShortestCommonSupersequence => "alphabet_size ^ bound",
+    default ShortestCommonSupersequence => "alphabet_size ^ bound",
 }
 
 #[cfg(feature = "example-db")]

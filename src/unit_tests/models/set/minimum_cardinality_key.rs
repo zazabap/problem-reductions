@@ -69,12 +69,12 @@ fn test_minimum_cardinality_key_exceeds_bound() {
 fn test_minimum_cardinality_key_solver() {
     let problem = instance1(2);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
 
     assert!(!solutions.is_empty());
     assert!(solution_set.contains(&vec![1, 1, 0, 0, 0, 0]));
-    assert!(solutions.iter().all(|sol| problem.evaluate(sol)));
+    assert!(solutions.iter().all(|sol| problem.evaluate(sol).0));
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn test_minimum_cardinality_key_empty_key_candidate() {
     assert!(!problem.evaluate(&[1]));
 
     let solver = BruteForce::new();
-    assert_eq!(solver.find_all_satisfying(&problem), vec![vec![0]]);
+    assert_eq!(solver.find_all_witnesses(&problem), vec![vec![0]]);
 }
 
 #[test]
@@ -134,9 +134,9 @@ fn test_minimum_cardinality_key_paper_example() {
     assert!(problem.evaluate(&solution));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
     assert!(solution_set.contains(&solution));
     // All returned solutions must be valid.
-    assert!(solutions.iter().all(|sol| problem.evaluate(sol)));
+    assert!(solutions.iter().all(|sol| problem.evaluate(sol).0));
 }

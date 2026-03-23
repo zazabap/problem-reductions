@@ -173,7 +173,7 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
     assert_eq!(example.problem, "MinimumDummyActivitiesPert");
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
-    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
+    assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(
         !example.optimal_config.is_empty(),
         "canonical example should include an optimal merge selection"
@@ -468,7 +468,7 @@ fn model_specs_are_optimal() {
                     return None;
                 }
                 let entry = find_variant_entry(name, &variant)?;
-                let (config, _) = (entry.solve_fn)(spec.instance.as_any())?;
+                let (config, _) = (entry.solve_witness_fn)(spec.instance.as_any())?;
                 Some(config)
             })
             .unwrap_or_else(|| {
@@ -553,28 +553,33 @@ fn rule_specs_solution_pairs_are_consistent() {
                 pair.target_config.len(),
                 target.dims_dyn().len()
             );
-            // Verify configs produce non-Invalid / non-false evaluations
+            // Verify configs produce feasible witness-capable evaluations.
+            let source_eval = source.evaluate_dyn(&pair.source_config);
+            let target_eval = target.evaluate_dyn(&pair.target_config);
             let source_val = source.evaluate_json(&pair.source_config);
-            let target_val = target.evaluate_json(&pair.target_config);
             assert_ne!(
-                source_val,
-                serde_json::json!("Invalid"),
-                "Rule {label}: source_config evaluates to Invalid"
+                source_eval, "Max(None)",
+                "Rule {label}: source_config evaluates to Max(None)"
             );
             assert_ne!(
-                target_val,
-                serde_json::json!("Invalid"),
-                "Rule {label}: target_config evaluates to Invalid"
+                source_eval, "Min(None)",
+                "Rule {label}: source_config evaluates to Min(None)"
             );
             assert_ne!(
-                source_val,
-                serde_json::json!(false),
-                "Rule {label}: source_config evaluates to false"
+                source_eval, "Or(false)",
+                "Rule {label}: source_config evaluates to Or(false)"
             );
             assert_ne!(
-                target_val,
-                serde_json::json!(false),
-                "Rule {label}: target_config evaluates to false"
+                target_eval, "Max(None)",
+                "Rule {label}: target_config evaluates to Max(None)"
+            );
+            assert_ne!(
+                target_eval, "Min(None)",
+                "Rule {label}: target_config evaluates to Min(None)"
+            );
+            assert_ne!(
+                target_eval, "Or(false)",
+                "Rule {label}: target_config evaluates to Or(false)"
             );
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value

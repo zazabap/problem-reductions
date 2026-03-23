@@ -387,7 +387,7 @@ fn test_evaluate() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Valid"));
+    assert!(stdout.contains("Max(2)"), "stdout: {stdout}");
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -2235,7 +2235,7 @@ fn test_create_then_evaluate() {
         String::from_utf8_lossy(&eval_output.stderr)
     );
     let stdout = String::from_utf8(eval_output.stdout).unwrap();
-    assert!(stdout.contains("Valid"));
+    assert!(stdout.contains("Max(2)"), "stdout: {stdout}");
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -5756,8 +5756,8 @@ fn test_create_pipe_to_evaluate() {
     );
     let stdout = String::from_utf8(eval_result.stdout).unwrap();
     assert!(
-        stdout.contains("Valid"),
-        "stdout should contain Valid, got: {stdout}"
+        stdout.contains("Max("),
+        "stdout should contain Max(...), got: {stdout}"
     );
 }
 
@@ -8226,7 +8226,7 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     );
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["evaluation"], "Valid(5)");
+    assert_eq!(json["evaluation"], "Max(5)");
 }
 
 #[test]
