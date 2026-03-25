@@ -92,7 +92,7 @@ fn test_find_model_example_stacker_crane() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.optimal_config, vec![0, 2, 1, 4, 3]);
     assert_eq!(example.instance["num_vertices"], 6);
-    assert_eq!(example.instance["bound"], 20);
+    assert_eq!(example.instance["arcs"].as_array().unwrap().len(), 5);
 }
 
 #[test]
@@ -456,7 +456,6 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-
         // Try ILP (direct or via reduction), fall back to brute force for small instances
         let best_config = ilp_solver
             .solve_via_reduction(name, &variant, spec.instance.as_any())

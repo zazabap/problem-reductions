@@ -129,7 +129,6 @@ fn test_all_problems_implement_trait_correctly() {
             vec![1i32; 3],
             vec![1i32; 2],
             1,
-            1,
         ),
         "MinMaxMulticenter",
     );
@@ -154,7 +153,6 @@ fn test_all_problems_implement_trait_correctly() {
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1; 3],
             vec![1; 3],
-            3,
         ),
         "MultipleCopyFileAllocation",
     );
@@ -182,7 +180,7 @@ fn test_all_problems_implement_trait_correctly() {
         "LengthBoundedDisjointPaths",
     );
     check_problem_trait(
-        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "OptimalLinearArrangement",
     );
     check_problem_trait(
@@ -193,7 +191,7 @@ fn test_all_problems_implement_trait_correctly() {
         "IsomorphicSpanningTree",
     );
     check_problem_trait(
-        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]),
         "ShortestCommonSupersequence",
     );
     check_problem_trait(
@@ -228,7 +226,7 @@ fn test_all_problems_implement_trait_correctly() {
         "SequencingWithReleaseTimesAndDeadlines",
     );
     check_problem_trait(
-        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3),
         "SumOfSquaresPartition",
     );
     check_problem_trait(

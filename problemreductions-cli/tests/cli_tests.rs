@@ -155,8 +155,8 @@ fn test_create_stacker_crane_schema_help_uses_documented_flags() {
     assert!(stderr.contains("--graph"), "stderr: {stderr}");
     assert!(stderr.contains("--arc-costs"), "stderr: {stderr}");
     assert!(stderr.contains("--edge-lengths"), "stderr: {stderr}");
-    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(stderr.contains("--num-vertices"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound"), "stderr: {stderr}");
     assert!(!stderr.contains("--biedges"), "stderr: {stderr}");
     assert!(!stderr.contains("--arc-lengths"), "stderr: {stderr}");
     assert!(!stderr.contains("--edge-weights"), "stderr: {stderr}");
@@ -193,7 +193,9 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     assert_eq!(json["reduced_to"], "ILP");
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
-        json["solution"].as_array().is_some_and(|solution| !solution.is_empty()),
+        json["solution"]
+            .as_array()
+            .is_some_and(|solution| !solution.is_empty()),
         "expected a non-empty solution array, got: {stdout}"
     );
 
@@ -2048,29 +2050,6 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
 }
 
 #[test]
-fn test_create_sum_of_squares_partition_rejects_negative_bound_without_panicking() {
-    let output = pred()
-        .args([
-            "create",
-            "SumOfSquaresPartition",
-            "--sizes",
-            "1,2,3",
-            "--num-groups",
-            "2",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("Bound must be nonnegative"),
-        "stderr: {stderr}"
-    );
-    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let output = pred()
         .args(["create", "MinimumCardinalityKey"])
@@ -2080,7 +2059,6 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(
         stderr.contains("semicolon-separated dependencies"),
         "stderr: {stderr}"
@@ -2097,8 +2075,6 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
             "1",
             "--dependencies",
             ">0",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -2112,7 +2088,6 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumCardinalityKey");
     assert_eq!(json["data"]["num_attributes"], 1);
-    assert_eq!(json["data"]["bound"], 1);
     assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
     assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
 }
@@ -2520,7 +2495,6 @@ fn test_create_mixed_chinese_postman() {
         json["data"]["edge_weights"],
         serde_json::json!([2, 3, 1, 2])
     );
-    assert_eq!(json["data"]["bound"], 24);
 }
 
 #[test]
@@ -2539,7 +2513,6 @@ fn test_create_model_example_mixed_chinese_postman() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
     assert_eq!(json["variant"]["weight"], "i32");
-    assert_eq!(json["data"]["bound"], 24);
 }
 
 #[test]
@@ -3405,27 +3378,6 @@ fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags
 }
 
 #[test]
-fn test_create_ola_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "OptimalLinearArrangement",
-            "--graph",
-            "0-1,1-2,2-3",
-            "--bound",
-            "-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "negative bound should be rejected"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_rooted_tree_arrangement() {
     let output_file = std::env::temp_dir().join("pred_test_create_rooted_tree_arrangement.json");
     let output = pred()
@@ -3451,20 +3403,6 @@ fn test_create_rooted_tree_arrangement() {
     assert_eq!(json["type"], "RootedTreeArrangement");
     assert_eq!(json["data"]["bound"], 7);
     std::fs::remove_file(&output_file).ok();
-}
-
-#[test]
-fn test_create_scs_rejects_negative_bound() {
-    let output = pred()
-        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "negative bound should be rejected"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4250,7 +4188,7 @@ fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
 #[test]
 fn test_create_lcs_with_raw_strings_infers_alphabet() {
     let output = pred()
-        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .args(["create", "LCS", "--strings", "ABAC;BACA"])
         .output()
         .unwrap();
     assert!(
@@ -4262,7 +4200,6 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "LongestCommonSubsequence");
     assert_eq!(json["data"]["alphabet_size"], 3);
-    assert_eq!(json["data"]["bound"], 2);
     assert_eq!(
         json["data"]["strings"],
         serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
@@ -4270,15 +4207,15 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
 }
 
 #[test]
-fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+fn test_create_lcs_rejects_empty_strings_without_panicking() {
     let output = pred()
-        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .args(["create", "LCS", "--strings", ""])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        stderr.contains("at least one non-empty string"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4299,26 +4236,6 @@ fn test_create_kcoloring_missing_k() {
 }
 
 #[test]
-fn test_create_minmaxmulticenter_bound_out_of_range() {
-    let output = pred()
-        .args([
-            "create",
-            "MinMaxMulticenter",
-            "--graph",
-            "0-1",
-            "--k",
-            "1",
-            "--bound",
-            "2147483648",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success(), "expected bound overflow to fail");
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("must fit in i32"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_minmaxmulticenter_success() {
     let output = pred()
         .args([
@@ -4332,8 +4249,6 @@ fn test_create_minmaxmulticenter_success() {
             "5,6,7",
             "--k",
             "2",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -4348,7 +4263,6 @@ fn test_create_minmaxmulticenter_success() {
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
     assert_eq!(json["variant"]["weight"], "i32");
     assert_eq!(json["data"]["k"], 2);
-    assert_eq!(json["data"]["bound"], 8);
     assert_eq!(
         json["data"]["vertex_weights"],
         serde_json::json!([1, 2, 3, 4])
@@ -4387,8 +4301,6 @@ fn test_create_minmaxmulticenter_negative_inputs_rejected() {
             "1",
             "--k",
             "1",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -4406,32 +4318,11 @@ fn test_create_minmaxmulticenter_negative_inputs_rejected() {
             "--edge-weights=-1",
             "--k",
             "1",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
     assert!(!edge_weights.status.success());
     assert!(String::from_utf8_lossy(&edge_weights.stderr).contains("must be non-negative"));
-
-    let bound = pred()
-        .args([
-            "create",
-            "MinMaxMulticenter",
-            "--graph",
-            "0-1",
-            "--weights",
-            "1,1",
-            "--edge-weights",
-            "1",
-            "--k",
-            "1",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!bound.status.success());
-    assert!(String::from_utf8_lossy(&bound.stderr).contains("must be non-negative"));
 }
 
 #[test]
@@ -4451,8 +4342,6 @@ fn test_solve_minmaxmulticenter_default_solver_uses_ilp() {
             "1,1,1",
             "--k",
             "2",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -4585,8 +4474,6 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
             "0",
             "--sink",
             "0",
-            "--num-paths-required",
-            "1",
             "--bound",
             "1",
         ])
@@ -4616,8 +4503,6 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
             "0",
             "--sink",
             "3",
-            "--num-paths-required",
-            "2",
             "--bound",
             "2",
         ])
@@ -4633,7 +4518,8 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
     assert_eq!(json["type"], "LengthBoundedDisjointPaths");
     assert_eq!(json["data"]["source"], 0);
     assert_eq!(json["data"]["sink"], 3);
-    assert_eq!(json["data"]["num_paths_required"], 2);
+    // max_paths is auto-computed: min(deg(0), deg(3)) = min(2, 2) = 2
+    assert_eq!(json["data"]["max_paths"], 2);
     assert_eq!(json["data"]["max_length"], 2);
 }
 
@@ -4648,8 +4534,6 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
             "--source",
             "0",
             "--sink",
-            "1",
-            "--num-paths-required",
             "1",
             "--bound",
             "-1",
@@ -4697,8 +4581,6 @@ fn test_create_longest_circuit_succeeds() {
             "0-1,1-2,2-3,3-0",
             "--edge-weights",
             "2,2,2,2",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -4714,20 +4596,12 @@ fn test_create_longest_circuit_succeeds() {
         json["data"]["edge_lengths"],
         serde_json::json!([2, 2, 2, 2])
     );
-    assert_eq!(json["data"]["bound"], 8);
 }
 
 #[test]
 fn test_create_longest_circuit_defaults_unit_edge_weights() {
     let output = pred()
-        .args([
-            "create",
-            "LongestCircuit",
-            "--graph",
-            "0-1,1-2,2-3,3-0",
-            "--bound",
-            "8",
-        ])
+        .args(["create", "LongestCircuit", "--graph", "0-1,1-2,2-3,3-0"])
         .output()
         .unwrap();
     assert!(
@@ -4745,29 +4619,6 @@ fn test_create_longest_circuit_defaults_unit_edge_weights() {
 }
 
 #[test]
-fn test_create_longest_circuit_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "LongestCircuit",
-            "--graph",
-            "0-1,1-2,2-3,3-0",
-            "--edge-weights",
-            "2,2,2,2",
-            "--bound",
-            "-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("LongestCircuit --bound must be positive (> 0)"),
-        "stderr: {stderr}"
-    );
-}
-
-#[test]
 fn test_create_longest_circuit_no_flags_shows_help() {
     let output = pred().args(["create", "LongestCircuit"]).output().unwrap();
     assert!(
@@ -4778,10 +4629,6 @@ fn test_create_longest_circuit_no_flags_shows_help() {
     assert!(
         stderr.contains("--edge-weights"),
         "expected '--edge-weights' in help output, got: {stderr}"
-    );
-    assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
     );
     assert!(
         !stderr.contains("--edge-lengths"),
@@ -4812,7 +4659,6 @@ fn test_create_random_longest_circuit_succeeds() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "LongestCircuit");
     assert_eq!(json["data"]["graph"]["num_vertices"], 6);
-    assert!(json["data"]["bound"].as_i64().unwrap() > 0);
 }
 
 #[test]
@@ -5893,8 +5739,6 @@ fn test_inspect_minmaxmulticenter_lists_ilp_and_bruteforce() {
             "1,1,1",
             "--k",
             "2",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -6931,7 +6775,6 @@ fn test_create_multiple_copy_file_allocation() {
     assert_eq!(json["type"], "MultipleCopyFileAllocation");
     assert_eq!(json["data"]["usage"], serde_json::json!([5, 4, 3, 2]));
     assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
-    assert_eq!(json["data"]["bound"], 8);
     assert_eq!(json["data"]["graph"]["num_vertices"], 4);
     assert_eq!(json["data"]["graph"]["edges"].as_array().unwrap().len(), 3);
 }
@@ -6967,7 +6810,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
         json["data"]["precedences"],
         serde_json::json!([[0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 5]])
     );
-    assert_eq!(json["data"]["bound"], 4);
 }
 
 #[test]
@@ -6989,10 +6831,6 @@ fn test_create_multiple_copy_file_allocation_no_flags_shows_help() {
         stderr.contains("--storage"),
         "expected '--storage' in help output, got: {stderr}"
     );
-    assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
-    );
 }
 
 #[test]
@@ -7011,8 +6849,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_hel
         "expected '--costs' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
+        !stderr.contains("--bound"),
+        "should not mention --bound after optimization upgrade, got: {stderr}"
     );
 }
 
@@ -7189,7 +7027,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_va
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["data"]["costs"], serde_json::json!([-1, 2, -3]));
-    assert_eq!(json["data"]["bound"], -1);
 }
 
 #[test]
@@ -7854,8 +7691,6 @@ fn test_create_shortest_weight_constrained_path() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7871,7 +7706,6 @@ fn test_create_shortest_weight_constrained_path() {
     assert_eq!(json["type"], "ShortestWeightConstrainedPath");
     assert_eq!(json["data"]["source_vertex"], 0);
     assert_eq!(json["data"]["target_vertex"], 5);
-    assert_eq!(json["data"]["length_bound"], 10);
     assert_eq!(json["data"]["weight_bound"], 8);
 }
 
@@ -7889,8 +7723,6 @@ fn test_create_shortest_weight_constrained_path_missing_source_vertex() {
             "5,1,2,3,2,3,1,1",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7917,8 +7749,6 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7952,8 +7782,8 @@ fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
         "expected vector hints for edge lengths and weights, got: {stderr}"
     );
     assert!(
-        stderr.match_indices("numeric value: 10").count() >= 2,
-        "expected numeric hints for length and weight bounds, got: {stderr}"
+        stderr.match_indices("numeric value: 10").count() >= 1,
+        "expected numeric hint for weight bound, got: {stderr}"
     );
 }
 
@@ -7973,8 +7803,6 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
             "9",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -8006,8 +7834,6 @@ fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -8037,8 +7863,6 @@ fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -8067,8 +7891,6 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -8101,10 +7923,6 @@ fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     assert!(
         stdout.contains("edge_weights (Vec<W>)"),
         "expected Vec<W> schema type for edge_weights, got: {stdout}"
-    );
-    assert!(
-        stdout.contains("length_bound (W::Sum)"),
-        "expected W::Sum schema type for length_bound, got: {stdout}"
     );
     assert!(
         stdout.contains("weight_bound (W::Sum)"),
@@ -8737,8 +8555,6 @@ fn test_solve_customized_minimum_cardinality_key() {
             "4",
             "--dependencies",
             "0>1,2;1,2>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -8768,8 +8584,8 @@ fn test_solve_customized_minimum_cardinality_key() {
         "expected 'customized' in output, got: {stdout}"
     );
     assert!(
-        stdout.contains("Or(true)"),
-        "expected satisfying evaluation, got: {stdout}"
+        stdout.contains("Min("),
+        "expected Min(...) evaluation, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -8850,8 +8666,6 @@ fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
             "4",
             "--dependencies",
             "0>1,2;1,2>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();

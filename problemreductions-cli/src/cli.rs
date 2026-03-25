@@ -218,7 +218,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
-  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
+  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
   KSAT                            --num-vars, --clauses [--k]
@@ -231,9 +231,9 @@ Flags by problem type:
   GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
-  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
+  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
-  LongestCircuit                  --graph, --edge-weights, --bound
+  LongestCircuit                  --graph, --edge-weights
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
   IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
@@ -242,14 +242,14 @@ Flags by problem type:
   IntegralFlowHomologousArcs      --arcs, --capacities, --source, --sink, --requirement, --homologous-pairs
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
-  LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
+  LengthBoundedDisjointPaths      --graph, --source, --sink, --bound
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
-  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
+  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --delay-budget
   SubsetSum                       --sizes, --target
-  SumOfSquaresPartition           --sizes, --num-groups, --bound
-  ExpectedRetrievalCost           --probabilities, --num-sectors, --latency-bound
+  SumOfSquaresPartition           --sizes, --num-groups
+  ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets
@@ -258,7 +258,7 @@ Flags by problem type:
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
-  MinimumCardinalityKey           --num-attributes, --dependencies, --k
+  MinimumCardinalityKey           --num-attributes, --dependencies
   PrimeAttributeName              --universe, --deps, --query
   RootedTreeStorageAssignment     --universe, --sets, --bound
   TwoDimensionalConsecutiveSets   --alphabet-size, --sets
@@ -272,23 +272,23 @@ Flags by problem type:
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
   SteinerTree                     --graph, --edge-weights, --terminals
-  MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
+  MultipleCopyFileAllocation      --graph, --usage, --storage
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
-  OptimalLinearArrangement        --graph, --bound
+  OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
-  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
-  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
-  RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
-  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k
+  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs [--num-vertices]
+  RuralPostman (RPP)              --graph, --edge-weights, --required-edges
+  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths [--num-vertices]
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   GroupingBySwapping             --string, --bound [--alphabet-size]
-  LCS                             --strings, --bound [--alphabet-size]
+  LCS                             --strings [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers
@@ -304,10 +304,10 @@ Flags by problem type:
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
-  SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
+  SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
-  SCS                             --strings, --bound [--alphabet-size]
+  SCS                             --strings [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
@@ -328,7 +328,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
-  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
+  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -347,7 +347,7 @@ Examples:
   pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
-  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\"
   pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
   pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
@@ -553,7 +553,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, MultipleChoiceBranching, RootedTreeArrangement, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
@@ -568,9 +568,6 @@ pub struct CreateArgs {
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
-    /// Budget on total cost for CapacityAssignment
-    #[arg(long)]
-    pub cost_budget: Option<u64>,
     /// Budget on total delay penalty for CapacityAssignment
     #[arg(long)]
     pub delay_budget: Option<u64>,

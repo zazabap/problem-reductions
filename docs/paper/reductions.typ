@@ -675,14 +675,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 #problem-def("MinimumCutIntoBoundedSets")[
-  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, a positive integer $B <= |V|$, and a positive integer $K$, determine whether there exists a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, and
-  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}) <= K. $
+  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a positive integer $B <= |V|$, find a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, that minimizes the total cut weight
+  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}). $
 ][
 Minimum Cut Into Bounded Sets (Garey & Johnson ND17) combines the classical minimum $s$-$t$ cut problem with a balance constraint on partition sizes. Without the balance constraint ($B = |V|$), the problem reduces to standard minimum $s$-$t$ cut, solvable in polynomial time via network flow. Adding the requirement $|V_1| <= B$ and $|V_2| <= B$ makes the problem NP-complete; it remains NP-complete even for $B = |V| slash 2$ and unit edge weights (the minimum bisection problem) @garey1976. Applications include VLSI layout, load balancing, and graph bisection.
 
 The best known exact algorithm is brute-force enumeration of all $2^n$ vertex partitions in $O(2^n)$ time. For the special case of minimum bisection, Cygan et al. @cygan2014 showed fixed-parameter tractability with respect to the cut size. No polynomial-time finite approximation factor exists for balanced graph partition unless $P = N P$ (Andreev and Racke, 2006). Arora, Rao, and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation for balanced separator.
 
-*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$, $K = 1$. The partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives cut weight $w({v_1, v_2}) = 1 <= K$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$. Answer: YES.
+*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$. The optimal partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives minimum cut weight $w({v_1, v_2}) = 1$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$.
 ]
 #problem-def("BiconnectivityAugmentation")[
   Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
@@ -801,20 +801,19 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let ne = edges.len()
   let edge-lengths = x.instance.edge_lengths
-  let K = x.instance.bound
   let config = x.optimal_config
   let selected = range(ne).filter(i => config.at(i) == 1)
   let total-length = selected.map(i => edge-lengths.at(i)).sum()
-  let cycle-order = (0, 1, 2, 3, 4, 5)
+  let cycle-order = (0, 1, 4, 5, 2, 3)
   [
     #problem-def("LongestCircuit")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, find a simple circuit $C subset.eq E$ that maximizes $sum_(e in C) l(e)$.
     ][
-      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+      Longest Circuit is the optimization version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and the optimum equals $|V|$, so Longest Circuit is NP-hard via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to find the longest simple cycle rather than specifically a spanning one.
 
-      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+      In the implementation, a configuration selects a subset of edges. A witness is a configuration whose selected edges induce one connected 2-regular subgraph; the objective value is the total selected length.
 
-      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+      *Example.* Consider the canonical 6-vertex instance. The optimal circuit $v_0 arrow v_1 arrow v_4 arrow v_5 arrow v_2 arrow v_3 arrow v_0$ uses edge lengths $3 + 2 + 5 + 1 + 4 + 3 = #total-length$, which is the maximum circuit length. The remaining edges are available but yield shorter circuits.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
@@ -863,7 +862,7 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has maximum total length #total-length; the remaining edges yield shorter circuits.],
       ) <fig:longest-circuit>
     ]
   ]
@@ -926,17 +925,17 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let edges = x.instance.graph.edges
   let s = x.instance.source
   let t = x.instance.sink
-  let J = x.instance.num_paths_required
+  let M = x.instance.max_paths
   let K = x.instance.max_length
-  let chosen-verts = (0, 1, 2, 3, 6)
-  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  let chosen-verts = (0, 1, 2, 3, 4)
+  let chosen-edges = ((0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4))
   [
     #problem-def("LengthBoundedDisjointPaths")[
-      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and a positive integer $K$, maximize the number of pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
     ][
-      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses $M dot |V|$ binary variables where $M = min(deg(s), deg(t))$ is an upper bound on the number of vertex-disjoint $s$-$t$ paths, so brute-force search over configurations runs in $O^*(2^(M dot |V|))$.
 
-      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, and $K = #K$. Here $M = #M$ path slots are available. The three paths $P_1 = v_0 arrow v_1 arrow v_4$, $P_2 = v_0 arrow v_2 arrow v_4$, and $P_3 = v_0 arrow v_3 arrow v_4$ are each of length 2 (at most $K = 3$), and their internal vertex sets ${v_1}$, ${v_2}$, and ${v_3}$ are pairwise disjoint. The optimal value is therefore $3$.
 
       #pred-commands(
         "pred create --example LengthBoundedDisjointPaths -o length-bounded-disjoint-paths.json",
@@ -949,13 +948,11 @@ is feasible: each set induces a connected subgraph, the component weights are $2
           let blue = graph-colors.at(0)
           let gray = luma(180)
           let verts = (
-            (0, 1),    // v0 = s
-            (1.3, 1.8),
-            (1.3, 1.0),
-            (2.6, 1.0),
-            (1.3, 0.2),
-            (2.6, 0.2),
-            (3.9, 1),  // v6 = t
+            (0, 1),     // v0 = s
+            (1.5, 1.8), // v1
+            (1.5, 1.0), // v2
+            (1.5, 0.2), // v3
+            (3.0, 1),   // v4 = t
           )
           for (u, v) in edges {
             let selected = chosen-edges.any(e =>
@@ -981,7 +978,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
               ])
           }
         }),
-        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+        caption: [An optimal Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_4$, and $K = 3$. All three vertex-disjoint paths $v_0 arrow v_1 arrow v_4$, $v_0 arrow v_2 arrow v_4$, and $v_0 arrow v_3 arrow v_4$ are highlighted, giving an optimal value of $3$.],
       ) <fig:length-bounded-disjoint-paths>
     ]
   ]
@@ -1502,20 +1499,19 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let weights = x.instance.edge_weights
   let s = x.instance.source_vertex
   let t = x.instance.target_vertex
-  let K = x.instance.length_bound
   let W = x.instance.weight_bound
   let path-config = x.optimal_config
   let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
   let path-order = (0, 2, 3, 5)
   [
     #problem-def("ShortestWeightConstrainedPath")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a weight bound $W in ZZ^+$, find a simple path $P$ from $s$ to $t$ that minimizes $sum_(e in P) l(e)$ subject to $sum_(e in P) w(e) <= W$.
     ][
       Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
 
-      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is feasible when the selected edges form a single simple $s$-$t$ path whose total weight stays within the bound; the objective is to minimize total length over all such feasible paths.
 
-      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This is the minimum-length feasible path; another weight-feasible path $v_0 arrow v_1 arrow v_4 arrow v_5$ has length $10$.
 
       #pred-commands(
         "pred create --example ShortestWeightConstrainedPath -o shortest-weight-constrained-path.json",
@@ -2026,19 +2022,18 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let K = x.instance.bound
   let config = x.optimal_config
   // Compute total cost
   let total-cost = edges.map(e => calc.abs(config.at(e.at(0)) - config.at(e.at(1)))).sum()
   [
     #problem-def("OptimalLinearArrangement")[
-      Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
+      Given an undirected graph $G=(V,E)$, find a bijection $f: V -> {0, 1, dots, |V|-1}$ that minimizes the total edge length $sum_({u,v} in E) |f(u) - f(v)|$.
     ][
-      A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
+      A classical NP-hard optimization problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks for a vertex ordering on a line that minimizes the total "stretch" of all edges.
 
-      NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+      NP-hardness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-hard on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
-      *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+      *Example.* Consider a graph with #nv vertices and #ne edges. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost$, which is optimal.
 
       #pred-commands(
         "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",
@@ -2391,20 +2386,20 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let K = x.instance.k
-  let B = x.instance.bound
+  let opt = x.optimal_value
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MinMaxMulticenter")[
-      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find $S subset.eq V$ with $|S| = K$ that minimizes $max_(v in V) w(v) dot d(v, S)$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$.
     ][
-    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is minimized. NP-hard even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
 
-    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with optimal radius 1 corresponds to a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
 
-    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. The objective value is $min_(|S| = K) max_(v in V) w(v) dot d(v, S)$; configurations with $|S| != K$ or unreachable vertices evaluate to $bot$ (infeasible).
 
-    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = #opt$, which is optimal.
 
     #pred-commands(
       "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
@@ -2429,7 +2424,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }
       })
     },
-    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    caption: [Min-Max Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal maximum distance #opt.],
     ) <fig:min-max-multicenter>
     ]
   ]
@@ -2438,18 +2433,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("MultipleCopyFileAllocation")
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let K = x.instance.bound
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MultipleCopyFileAllocation")[
-      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, storage costs $s: V -> ZZ_(> 0)$, and a positive integer $K$, determine whether there exists a subset $V' subset.eq V$ such that
-      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V') <= K,$
+      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, and storage costs $s: V -> ZZ_(> 0)$, find a subset $V' subset.eq V$ that minimizes
+      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V'),$
       where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
     ][
-    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-hard in the strong sense, even when usage and storage costs are uniform @garey1979.
 
-    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. The alternating placement shown below is one symmetric witness.
+    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$ and uniform storage $s(v) = 1$. Placing copies at every vertex $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $6 dot 1 = 6$ and access cost $0$ (each vertex is distance $0$ from its own copy), for a total cost of $#sol.metric$. This is optimal: removing any copy saves $1$ in storage but adds at least $10$ in access cost for each neighbor that must now reach a more distant copy.
 
     #pred-commands(
       "pred create --example MultipleCopyFileAllocation -o multiple-copy-file-allocation.json",
@@ -2474,7 +2468,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }
       })
     },
-    caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
+    caption: [Multiple Copy File Allocation on a 6-cycle. All vertices (shown in blue) host copies; total cost is $#sol.metric$.],
     ) <fig:multiple-copy-file-allocation>
     ]
   ]
@@ -2482,20 +2476,19 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("ExpectedRetrievalCost")
-  let K = x.instance.bound
   [
     #problem-def("ExpectedRetrievalCost")[
-      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
-      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, and a positive integer $m$ of circular storage sectors, find a partition $R_1, dots, R_m$ of $R$ that minimizes
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j),$
       where $p(R_i) = sum_(r in R_i) p(r)$ and
       $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
     ][
-    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments.
 
-    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$ and three sectors. Assign
     $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
     Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
-    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025$, which is optimal for this instance.
 
     #pred-commands(
       "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
@@ -2513,7 +2506,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         [$S_2$], [$r_2, r_4$], [$0.35$],
         [$S_3$], [$r_3, r_6$], [$0.35$],
       ),
-      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The optimal allocation yields masses $(0.3, 0.35, 0.35)$ and minimum cost $1.0025$.],
     ) <fig:expected-retrieval-cost>
     ]
   ]
@@ -2909,18 +2902,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let bound = x.instance.bound
   let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
   [
     #problem-def("MinimumCardinalityKey")[
-      Given a set $A$ of attribute names, a collection $F$ of functional dependencies (ordered pairs of subsets of $A$), and a positive integer $M$, does there exist a candidate key $K subset.eq A$ with $|K| <= M$, i.e., a minimal subset $K$ such that the closure of $K$ under $F^*$ equals $A$?
+      Given a set $A$ of attribute names and a collection $F$ of functional dependencies (ordered pairs of subsets of $A$), find a key $K subset.eq A$ of minimum cardinality, i.e., a subset $K$ such that the closure of $K$ under $F^*$ equals $A$ and $|K|$ is minimized.
     ][
     The Minimum Cardinality Key problem arises in relational database theory, where identifying the smallest candidate key determines the most efficient way to uniquely identify rows in a relation. It was shown NP-complete by Lucchesi and Osborn (1978) @lucchesi1978keys via transformation from Vertex Cover. The problem appears as SR26 in Garey & Johnson (A4) @garey1979. The closure $F^*$ is defined by Armstrong's axioms: reflexivity ($B subset.eq C$ implies $C arrow.r B$), transitivity, and union. The best known exact algorithm is brute-force enumeration of all subsets of $A$, giving $O^*(2^(|A|))$ time#footnote[Lucchesi and Osborn give an output-polynomial algorithm for enumerating all candidate keys, but the number of keys can be exponential.].
 
-    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
-    The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
+    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
+    The optimal key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len()$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is a minimum-cardinality key.
 
     #pred-commands(
       "pred create --example MinimumCardinalityKey -o minimum-cardinality-key.json",
@@ -4167,18 +4159,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let edge-lengths = x.instance.edge_lengths
   let required = x.instance.required_edges
   let nr = required.len()
-  let B = x.instance.bound
   let config = x.optimal_config
   // Selected edges (multiplicity >= 1)
   let selected = range(ne).filter(i => config.at(i) >= 1)
   let total-cost = selected.map(i => config.at(i) * edge-lengths.at(i)).sum()
   [
     #problem-def("RuralPostman")[
-      Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
+      Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$ and a subset $E' subset.eq E$ of required edges, find a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has minimum total length.
     ][
       The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
 
-      *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$ with bound $B = #B$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with total length $#total-cost = B$, so the answer is YES.
+      *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with minimum total length #total-cost.
 
       #pred-commands(
         "pred create --example RuralPostman -o rural-postman.json",
@@ -4220,7 +4211,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has total cost #total-cost $= B$, covering all required edges.],
+        caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has minimum total cost #total-cost, covering all required edges.],
       ) <fig:rural-postman>
     ]
   ]
@@ -4233,18 +4224,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let edges = x.instance.graph.edges
   let arc-weights = x.instance.arc_weights
   let edge-weights = x.instance.edge_weights
-  let B = x.instance.bound
   let config = x.optimal_config
   let oriented = edges.enumerate().map(((i, e)) => if config.at(i) == 0 { e } else { (e.at(1), e.at(0)) })
   let base-cost = arc-weights.sum() + edge-weights.sum()
-  let total-cost = 22
+  let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, integer lengths $l(e) >= 0$ for every $e in A union E$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction with total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
-      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(1, 1, 0, 0)$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and duplicating the shortest path $v_1 arrow v_2 arrow v_3$ adds 4 more, so the total cost is $#total-cost <= B = #B$, proving the answer is YES.
+      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#config.map(str).join(", "))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
 
       #pred-commands(
         "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
@@ -4311,7 +4301,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(1, 1, 0, 0)$. Duplicating the path $v_1 arrow v_2 arrow v_3$ yields total cost #total-cost.],
+        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(#config.map(str).join(", "))$. The optimal walk has total cost #total-cost.],
       ) <fig:mixed-chinese-postman>
     ]
   ]
@@ -4321,7 +4311,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("StackerCrane")
   let arcs = x.instance.arcs.map(a => (a.at(0), a.at(1)))
   let edges = x.instance.edges.map(e => (e.at(0), e.at(1)))
-  let B = x.instance.bound
   let config = x.optimal_config
   let positions = (
     (-2.0, 0.9),
@@ -4333,13 +4322,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   )
   [
     #problem-def("StackerCrane")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, find a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has minimum total length.
     ][
       Stacker Crane is the mixed-graph arc-routing problem listed as ND26 in Garey and Johnson @garey1979. Frederickson, Hecht, and Kim prove the problem NP-complete via reduction from Hamiltonian Circuit and give the classical $9 slash 5$-approximation for the metric case @frederickson1978routing. The problem stays difficult even on trees @fredericksonguan1993. The standard Held-Karp-style dynamic program over (current vertex, covered-arc subset) runs in $O(|V|^2 dot 2^|A|)$ time#footnote[Included as a straightforward exact dynamic-programming baseline over subsets of required arcs; no sharper exact bound was independently verified while preparing this entry.].
 
       A configuration is a permutation of the required arcs, interpreted as the order in which those arcs are forced into the tour. The verifier traverses each chosen arc, then inserts the shortest available connector path from that arc's head to the tail of the next arc, wrapping around at the end to close the walk.
 
-      *Example.* The canonical instance has 6 vertices, 5 required arcs, 7 undirected edges, and bound $B = #B$. The witness configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has total length $20 = B$. Reducing the bound to 19 makes the same instance unsatisfiable.
+      *Example.* The canonical instance has 6 vertices, 5 required arcs, and 7 undirected edges. The optimal configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has minimum total length $20$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o stacker-crane.json",
@@ -4371,7 +4360,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The satisfying order $a_0, a_2, a_1, a_4, a_3$ yields total length 20.],
+        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The optimal order $a_0, a_2, a_1, a_4, a_3$ yields minimum total length 20.],
       ) <fig:stacker-crane>
     ]
   ]
@@ -4465,7 +4454,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
-  let witness = x.optimal_config
+  let alphabet-size = x.instance.alphabet_size
+  // optimal_config includes padding symbols; extract the non-padding prefix
+  let witness = x.optimal_config.filter(c => c < alphabet-size)
   let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
   let string-list = strings.map(fmt-str).join(", ")
   let find-embed(target, candidate) = {
@@ -4482,11 +4473,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let embeds = strings.map(s => find-embed(s, witness))
   [
     #problem-def("LongestCommonSubsequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| gt.eq K$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a longest string $w in Sigma^*$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
     ][
-      A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
+      A classic NP-hard string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version, while Garey and Johnson note polynomial-time cases for fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The optimization model implemented in this repository maximizes the subsequence length directly using a padding-based encoding.
 
-      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a longest common subsequence of every string in $R$, with $|w| = #witness.len()$.
 
       #pred-commands(
         "pred create --example LongestCommonSubsequence -o longest-common-subsequence.json",
@@ -4518,7 +4509,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         ))
       })
 
-      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying the YES answer for $K = 3$.
+      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying that the longest common subsequence has length #witness.len().
     ]
   ]
 }
@@ -4654,11 +4645,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ]
 
 #problem-def("SumOfSquaresPartition")[
-  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a positive integer $K lt.eq |A|$ (number of groups), find a partition of $A$ into $K$ disjoint sets $A_1, dots, A_K$ that minimizes $sum_(i=1)^K (sum_(a in A_i) s(a))^2$.
 ][
   Problem SP19 in Garey and Johnson @garey1979. NP-complete in the strong sense, so no pseudo-polynomial time algorithm exists unless $P = "NP"$. For fixed $K$, a dynamic-programming algorithm runs in $O(n S^(K-1))$ pseudo-polynomial time, where $S = sum s(a)$. The problem remains NP-complete when the exponent 2 is replaced by any fixed rational $alpha > 1$. #footnote[No algorithm improving on brute-force $O(K^n)$ enumeration is known for the general case.] The squared objective penalizes imbalanced partitions, connecting it to variance minimization, load balancing, and $k$-means clustering. Sum of Squares Partition generalizes Partition ($K = 2$, $J = S^2 slash 2$).
 
-  *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$), $K = 3$ groups, and bound $J = 240$. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230 lt.eq 240 = J$. With a tighter bound $J = 225$, the best achievable partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226 > 225$, so the answer is NO.
+  *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$) and $K = 3$ groups. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230$. The optimal partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226$.
 ]
 
 #{
@@ -4720,16 +4711,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("ShortestCommonSupersequence")
   let alpha-size = x.instance.alphabet_size
-  let bound = x.instance.bound
+  let max-length = x.instance.max_length
   let strings = x.instance.strings
   let nr = strings.len()
   // Alphabet mapping: 0->a, 1->b, 2->c, ...
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
-  // Pick optimal config = [1,0,1,2] = "babc" to match figure
+  // Optimal config includes padding; extract non-padding prefix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let w = sol.config.map(c => alpha-map.at(c))
-  let w-str = fmt-str(sol.config)
+  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w = w-cfg.map(c => alpha-map.at(c))
+  let w-str = fmt-str(w-cfg)
   let w-len = w.len()
   // Format input strings
   let r-strs = strings.map(s => fmt-str(s))
@@ -4746,16 +4738,16 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     }
     positions
   }
-  let embeds = strings.map(s => compute-embed(s, sol.config))
+  let embeds = strings.map(s => compute-embed(s, w-cfg))
   [
     #problem-def("ShortestCommonSupersequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a string $w in Sigma^*$ of minimum length such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
     ][
-      A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+      A classic NP-hard string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
 
-      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search explores all candidate supersequences up to the maximum possible length $sum_i |r_i|$. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
-      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek a string $w$ of length at most $K = #bound$ that contains every $r_i$ as a subsequence.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest string $w$ that contains every $r_i$ as a subsequence.
 
       #pred-commands(
         "pred create --example ShortestCommonSupersequence -o shortest-common-supersequence.json",
@@ -4796,7 +4788,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (positions #embeds.at(ri).map(p => str(p)).join(","))]).join(", ") as subsequences. Dots mark unused positions.],
       ) <fig:scs>
 
-      The supersequence $w = #w-str$ has length #w-len $lt.eq K = #bound$ and contains all #nr input strings as subsequences.
+      The optimal supersequence $w = #w-str$ has length #w-len and contains all #nr input strings as subsequences.
     ]
   ]
 }
@@ -5317,11 +5309,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("CapacityAssignment")
   [
     #problem-def("CapacityAssignment")[
-      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and a delay budget $J in ZZ_(>= 0)$, find an assignment $sigma: C -> M$ minimizing $sum_(c in C) g(c, sigma(c))$ subject to $sum_(c in C) d(c, sigma(c)) <= J$.
     ][
       Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
 
-      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the optimal assignment is $sigma = (2, 2, 2)$ with total cost $3 + 4 + 2 = 9$ and total delay $4 + 3 + 3 = 10 <= 12$. For contrast, $sigma = (1, 1, 1)$ has total delay $8 + 7 + 6 = 21 > 12$ and is therefore infeasible.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
@@ -5340,7 +5332,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
           [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
         )
       },
-      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      caption: [Canonical Capacity Assignment instance with delay budget $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
       ) <fig:capacity-assignment>
     ]
   ]
@@ -5781,7 +5773,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("SequencingToMinimizeMaximumCumulativeCost")
   let costs = x.instance.costs
   let precs = x.instance.precedences
-  let bound = x.instance.bound
   let ntasks = costs.len()
   let lehmer = x.optimal_config
   let schedule = {
@@ -5804,15 +5795,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   }
   [
     #problem-def("SequencingToMinimizeMaximumCumulativeCost")[
-      Given a set $T$ of $n$ tasks, a precedence relation $prec.eq$ on $T$, an integer cost function $c: T -> ZZ$ (negative values represent profits), and a bound $K in ZZ$, determine whether there exists a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints and satisfies
-      $sum_(sigma(t') lt.eq sigma(t)) c(t') lt.eq K$
-      for every task $t in T$.
+      Given a set $T$ of $n$ tasks, a precedence relation $prec.eq$ on $T$, and an integer cost function $c: T -> ZZ$ (negative values represent profits), find a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints and minimizes the maximum cumulative cost
+      $min_sigma max_(t in T) sum_(sigma(t') lt.eq sigma(t)) c(t').$
     ][
       Sequencing to Minimize Maximum Cumulative Cost is the scheduling problem SS7 in Garey & Johnson @garey1979. It is NP-complete by transformation from Register Sufficiency, even when every task cost is in ${-1, 0, 1}$ @garey1979. The problem models precedence-constrained task systems with resource consumption and release, where a negative cost corresponds to a profit or resource refund accumulated as the schedule proceeds.
 
       When the precedence constraints form a series-parallel digraph, #cite(<abdelWahabKameda1978>, form: "prose") gave a polynomial-time algorithm running in $O(n^2)$ time. #cite(<monmaSidney1979>, form: "prose") placed the problem in a broader family of sequencing objectives solvable efficiently on series-parallel precedence structures. The implementation here uses Lehmer-code enumeration of task orders, so the direct exact search induced by the model runs in $O(n!)$ time.
 
-      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$.
+      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$ and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The optimal schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, achieving a maximum cumulative cost of $#x.optimal_value$.
 
       #pred-commands(
         "pred create --example SequencingToMinimizeMaximumCumulativeCost -o sequencing-to-minimize-maximum-cumulative-cost.json",
@@ -5851,7 +5841,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             text(7pt, [prefix sums after each scheduled task]),
           ))
         },
-        caption: [A satisfying schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ never exceed $K = #bound$.],
+        caption: [An optimal schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ achieve a maximum of $#calc.max(..prefix-sums)$.],
       ) <fig:seq-max-cumulative>
     ]
   ]
@@ -8035,29 +8025,30 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
-  A bounded-witness ILP formulation turns the decision version of LCS into a feasibility problem. Binary variables choose the symbol at each witness position and, for every input string, choose where that witness position is realized. Linear constraints enforce symbol consistency and strictly increasing source positions.
+  An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
-  _Construction._ Given alphabet $Sigma$, strings $R = {r_1, dots, r_m}$, and bound $K$:
+  _Construction._ Given alphabet $Sigma$ (size $k$), strings $R = {r_1, dots, r_m}$, and maximum length $L = min_i |r_i|$:
 
-  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, K}$ and symbol $a in Sigma$, with $x_(p, a) = 1$ iff the $p$-th witness symbol equals $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff the $p$-th witness symbol is matched to position $j$ of $r_i$.
+  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, L}$ and symbol $a in Sigma union {bot}$ (where $bot$ is the padding symbol), with $x_(p, a) = 1$ iff position $p$ holds symbol $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff position $p$ is matched to index $j$ of $r_i$.
 
-  _Constraints:_ (1) Exactly one symbol per witness position: $sum_(a in Sigma) x_(p, a) = 1$ for all $p$. (2) Exactly one matched source position for each $(i, p)$: $sum_(j = 1)^(|r_i|) y_(i, p, j) = 1$. (3) Character consistency: if $r_i[j] = a$, then $y_(i, p, j) lt.eq x_(p, a)$. (4) Strictly increasing matches: for consecutive witness positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p + 1, j) = 1$ whenever $j' gt.eq j$.
+  _Constraints:_ (1) Exactly one symbol (including padding) per position: $sum_(a in Sigma union {bot}) x_(p, a) = 1$ for all $p$. (2) Contiguity: $x_(p+1, bot) gt.eq x_(p, bot)$ for consecutive positions. (3) Conditional matching: $sum_(j=1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1$ for each $(i, p)$, so active positions select exactly one match and padding positions select none. (4) Character consistency: $y_(i, p, j) lt.eq x_(p, r_i[j])$. (5) Strictly increasing matches: for consecutive positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p+1, j) = 1$ whenever $j' gt.eq j$.
 
-  _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
+  _Objective:_ Maximize $sum_p sum_(a in Sigma) x_(p, a)$ (the number of non-padding positions).
 
   The ILP is:
   $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(a in Sigma) x_(p, a) = 1 quad forall p in {1, dots, K} \
-    & sum_(j = 1)^(|r_i|) y_(i, p, j) = 1 quad forall i, p \
-    & y_(i, p, j) <= x_(p, a) quad forall i, p, j " with " r_i[j] = a \
+    "maximize" quad & sum_p sum_(a in Sigma) x_(p, a) \
+    "subject to" quad & sum_(a in Sigma union {bot}) x_(p, a) = 1 quad forall p in {1, dots, L} \
+    & x_(p+1, bot) >= x_(p, bot) quad forall p \
+    & sum_(j = 1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1 quad forall i, p \
+    & y_(i, p, j) <= x_(p, r_i [j]) quad forall i, p, j \
     & y_(i, p, j') + y_(i, p + 1, j) <= 1 quad forall i, p, j' >= j \
     & x_(p, a), y_(i, p, j) in {0, 1}
   $.
 
-  _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
+  _Correctness._ ($arrow.r.double$) Given an optimal common subsequence $w$ of length $ell$, set $x_(p, w_p) = 1$ for $p lt.eq ell$ and $x_(p, bot) = 1$ for $p > ell$. For active positions, choose the embedding indices in each source string. All constraints are satisfied and the objective equals $ell$. ($arrow.l.double$) Any optimal ILP solution selects contiguous non-padding positions followed by padding. The active prefix, together with character consistency and ordering constraints, forms a valid common subsequence whose length equals the objective value.
 
-  _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
+  _Solution extraction._ For each position $p$, read the selected symbol $a$ (which may be $bot$). The resulting length-$L$ vector with padding is the source configuration.
 ]
 
 #reduction-rule("MinimumMultiwayCut", "ILP")[
@@ -8261,40 +8252,38 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("ShortestWeightConstrainedPath", "ILP")[
-  Find an $s$-$t$ path satisfying both length and weight bounds, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
+  Find a minimum-length $s$-$t$ path subject to a weight budget, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
 ][
-  _Construction._ Let $A$ contain both orientations of every undirected edge, let $L = K$ be the source length bound, and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
+  _Construction._ Let $A$ contain both orientations of every undirected edge and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & sum_((u,v) in A) l_(u,v) a_(u,v) \
     "subject to" quad & sum_(w : (v, w) in A) a_(v,w) - sum_(u : (u, v) in A) a_(u,v) = b_v quad forall v in V \
     & sum_(w : (v, w) in A) a_(v,w) <= 1 quad forall v in V \
     & sum_(u : (u, v) in A) a_(u,v) <= 1 quad forall v in V \
     & a_(u,v) + a_(v,u) <= 1 quad forall {u, v} in E \
     & o_v - o_u >= 1 - M (1 - a_(u,v)) quad forall (u, v) in A \
-    & sum_((u,v) in A) l_(u,v) a_(u,v) <= L \
     & sum_((u,v) in A) w_(u,v) a_(u,v) <= W \
     & a_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
   $,
   where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
-  _Correctness._ Flow balance forces an $s$-$t$ path; the MTZ inequalities apply only on selected arcs and therefore eliminate subtours; bound constraints enforce the length and weight limits.
+  _Correctness._ Flow balance forces an $s$-$t$ path; the MTZ inequalities apply only on selected arcs and therefore eliminate subtours; the weight constraint enforces the budget; the objective minimizes total path length.
 
   _Solution extraction._ Edge $\{u, v\}$ is selected iff $a_(u,v) + a_(v,u) > 0$.
 ]
 
 #reduction-rule("MultipleCopyFileAllocation", "ILP")[
-  Place file copies at vertices to minimize total storage plus weighted access cost, subject to a budget constraint.
+  Place file copies at vertices to minimize total storage plus weighted access cost.
 ][
   _Construction._ Variables: binary $x_v$ (copy at $v$) and $y_(v,u)$ (vertex $v$ served by copy at $u$). The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) \
     "subject to" quad & sum_u y_(v,u) = 1 quad forall v \
     & y_(v,u) <= x_u quad forall v, u \
-    & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) <= B \
     & x_v, y_(v,u) in {0, 1}
   $.
 
-  _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the budget constraint linearizes the total cost.
+  _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the objective linearizes the total cost.
 
   _Solution extraction._ Copy placement: ${v : x_v = 1}$.
 ]
@@ -8317,19 +8306,19 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("MinMaxMulticenter", "ILP")[
-  Select $k$ centers such that the maximum weighted distance from any vertex to its assigned center is at most $B$.
+  Select $k$ centers minimizing the maximum weighted distance from any vertex to its assigned center.
 ][
-  _Construction._ Same assignment structure as MinimumSumMulticenter, plus per-vertex bound constraints. The ILP is:
+  _Construction._ Same assignment structure as MinimumSumMulticenter (binary $x_j$, $y_(i,j)$), plus an integer variable $z$. The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & z \
     "subject to" quad & sum_j x_j = k \
     & y_(i,j) <= x_j quad forall i, j \
     & sum_j y_(i,j) = 1 quad forall i \
-    & sum_j w_i d(i, j) y_(i,j) <= B quad forall i \
-    & x_j, y_(i,j) in {0, 1}
+    & sum_j w_i d(i, j) y_(i,j) <= z quad forall i \
+    & x_j, y_(i,j) in {0, 1}, z in bb(Z)
   $.
 
-  _Correctness._ The additional per-vertex constraints enforce the minimax bound on weighted assignment distances.
+  _Correctness._ Each minimax constraint forces $z$ to be at least the weighted distance from vertex $i$ to its assigned center. Minimizing $z$ yields the optimal maximum weighted distance.
 
   _Solution extraction._ Centers: ${j : x_j = 1}$.
 ]
@@ -8351,18 +8340,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("CapacityAssignment", "ILP")[
-  Assign a capacity level to each link so that total cost and total delay stay within their budgets.
+  Assign a capacity level to each link to minimize total cost subject to a delay budget.
 ][
   _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & sum_(l,c) "cost"[l][c] x_(l,c) \
     "subject to" quad & sum_c x_(l,c) = 1 quad forall l \
-    & sum_(l,c) "cost"[l][c] x_(l,c) <= C \
-    & sum_(l,c) "delay"[l][c] x_(l,c) <= D \
+    & sum_(l,c) "delay"[l][c] x_(l,c) <= J \
     & x_(l,c) in {0, 1}
   $.
 
-  _Correctness._ One-hot constraints fix one capacity per link; the two budget constraints are linear in the indicators.
+  _Correctness._ One-hot constraints fix one capacity per link; the delay budget constraint is linear in the indicators; the objective sums the selected costs.
 
   _Solution extraction._ Link $l$ gets capacity $arg max_c x_(l,c)$.
 ]
@@ -8372,16 +8360,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 ][
   _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & sum d(s,s') p_r p_(r') z_((r,s),(r',s')) \
     "subject to" quad & sum_s x_(r,s) = 1 quad forall r \
     & z_((r,s),(r',s')) <= x_(r,s) quad forall r, s, r', s' \
     & z_((r,s),(r',s')) <= x_(r',s') quad forall r, s, r', s' \
     & z_((r,s),(r',s')) >= x_(r,s) + x_(r',s') - 1 quad forall r, s, r', s' \
-    & sum "cost" dot z <= B \
     & x_(r,s), z_((r,s),(r',s')) in {0, 1}
   $.
 
-  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost.
+  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost. The ILP objective directly encodes the expected retrieval cost.
 
   _Solution extraction._ Record $r$ goes to sector $arg max_s x_(r,s)$.
 ]
@@ -8424,20 +8411,19 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SumOfSquaresPartition", "ILP")[
-  Partition elements into groups such that $sum_g (sum_(i in g) s_i)^2 <= B$.
+  Partition elements into groups minimizing $sum_g (sum_(i in g) s_i)^2$.
 ][
   _Construction._ Variables: binary $x_(i,g)$ (element $i$ in group $g$), plus $z_((i,j),g) = x_(i,g) dot x_(j,g)$. The ILP is:
   $
-    "find" quad & bold(x) \
+    "minimize" quad & sum_g sum_(i,j) s_i s_j z_((i,j),g) \
     "subject to" quad & sum_g x_(i,g) = 1 quad forall i \
     & z_((i,j),g) <= x_(i,g) quad forall i, j, g \
     & z_((i,j),g) <= x_(j,g) quad forall i, j, g \
     & z_((i,j),g) >= x_(i,g) + x_(j,g) - 1 quad forall i, j, g \
-    & sum_g sum_(i,j) s_i s_j z_((i,j),g) <= B \
     & x_(i,g), z_((i,j),g) in {0, 1}
   $.
 
-  _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the bound constraint enforces the partition quality.
+  _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the ILP minimizes the linearized form directly.
 
   _Solution extraction._ Element $i$ goes to group $arg max_g x_(i,g)$.
 ]
