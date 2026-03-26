@@ -214,8 +214,6 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestweightconstrainedpath_to_ilp",
         build: || {
@@ -231,15 +229,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 4,
             );
-            // ILP vars: a_{0,fwd}, a_{0,rev}, a_{1,fwd}, a_{1,rev}, o_0, o_1, o_2
-            // Path 0->1->2: a_{0,fwd}=1, a_{1,fwd}=1, orders: 0, 1, 2
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 2],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

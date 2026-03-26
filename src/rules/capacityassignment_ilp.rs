@@ -101,8 +101,6 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "capacityassignment_to_ilp",
         build: || {
@@ -121,15 +119,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![8, 4], vec![7, 3]],
                 12,
             );
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    // link 0 → cap 1, link 1 → cap 0
-                    source_config: vec![1, 0],
-                    // x_{0,0}=0, x_{0,1}=1, x_{1,0}=1, x_{1,1}=0
-                    target_config: vec![0, 1, 1, 0],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }
