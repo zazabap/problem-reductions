@@ -9,6 +9,7 @@
 //! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
 //! - [`ExpectedRetrievalCost`]: Allocate records to circular sectors within a latency bound
 //! - [`Factoring`]: Integer factorization
+//! - [`IntegerExpressionMembership`]: Membership in a set defined by an integer expression tree
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
 //! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
@@ -75,6 +76,7 @@ pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
+pub(crate) mod integer_expression_membership;
 mod job_shop_scheduling;
 mod knapsack;
 mod kth_largest_m_tuple;
@@ -119,6 +121,7 @@ pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
+pub use integer_expression_membership::{IntExpr, IntegerExpressionMembership};
 pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use kth_largest_m_tuple::KthLargestMTuple;
@@ -188,6 +191,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
+    specs.extend(integer_expression_membership::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());

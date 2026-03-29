@@ -319,6 +319,7 @@ Flags by problem type:
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
+  IntegerExpressionMembership     --expression (JSON), --target
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -758,6 +759,9 @@ pub struct CreateArgs {
     /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
     #[arg(long)]
     pub target_string: Option<String>,
+    /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
+    #[arg(long)]
+    pub expression: Option<String>,
     /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
     #[arg(long)]
     pub coeff_a: Option<u64>,
