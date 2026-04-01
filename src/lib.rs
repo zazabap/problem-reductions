@@ -47,8 +47,9 @@ pub mod prelude {
         SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
-        OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
+        NonTautology, OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas,
+        Satisfiability,
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
@@ -62,14 +63,15 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-        MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumGeometricConnectedDominatingSet, MinimumMultiwayCut, MinimumSumMulticenter,
-        MinimumVertexCover, MonochromaticTriangle, MultipleChoiceBranching,
-        MultipleCopyFileAllocation, OptimalLinearArrangement, PartialFeedbackEdgeSet,
-        PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
-        RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,
-        TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+        MaximumLeafSpanningTree, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+        MinimumDominatingSet, MinimumDummyActivitiesPert, MinimumFeedbackArcSet,
+        MinimumFeedbackVertexSet, MinimumGeometricConnectedDominatingSet, MinimumGraphBandwidth,
+        MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MonochromaticTriangle,
+        MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
+        PartialFeedbackEdgeSet, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
+        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
@@ -90,6 +92,7 @@ pub mod prelude {
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
         MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
         PrimeAttributeName, RootedTreeStorageAssignment, SetBasis, SetSplitting,
+        ThreeMatroidIntersection,
     };
 
     // Core traits

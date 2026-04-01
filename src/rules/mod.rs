@@ -167,15 +167,27 @@ pub(crate) mod longestpath_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximalis_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod maximum2satisfiability_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumdomaticnumber_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumleafspanningtree_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumlikelihoodranking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximummatching_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumcapacitatedspanningtree_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumcutintoboundedsets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumedgecostflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumexternalmacrodatacompression_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -183,11 +195,17 @@ pub(crate) mod minimumfeedbackarcset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackvertexset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumgraphbandwidth_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumhittingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimuminternalmacrodatacompression_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummatrixcover_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummaximalmatching_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummetricdimension_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -196,6 +214,8 @@ pub(crate) mod minimumsetcovering_ilp;
 pub(crate) mod minimumsummulticenter_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumtardinesssequencing_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumweightdecoding_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minmaxmulticenter_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -207,9 +227,13 @@ pub(crate) mod multiprocessorscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod naesatisfiability_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod numericalmatchingwithtargetsums_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod openshopscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod optimallineararrangement_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod optimumcommunicationspanningtree_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod paintshop_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -402,24 +426,34 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(isomorphicspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(kclique_ilp::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
+        specs.extend(maximumlikelihoodranking_ilp::canonical_rule_example_specs());
         specs.extend(lengthboundeddisjointpaths_ilp::canonical_rule_example_specs());
         specs.extend(longestcircuit_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(longestpath_ilp::canonical_rule_example_specs());
         specs.extend(maximalis_ilp::canonical_rule_example_specs());
+        specs.extend(maximum2satisfiability_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
+        specs.extend(maximumdomaticnumber_ilp::canonical_rule_example_specs());
+        specs.extend(maximumleafspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumcutintoboundedsets_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimummetricdimension_ilp::canonical_rule_example_specs());
+        specs.extend(minimummatrixcover_ilp::canonical_rule_example_specs());
         specs.extend(minimummaximalmatching_ilp::canonical_rule_example_specs());
+        specs.extend(minimumcapacitatedspanningtree_ilp::canonical_rule_example_specs());
+        specs.extend(minimumedgecostflow_ilp::canonical_rule_example_specs());
         specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimuminternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackarcset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumgraphbandwidth_ilp::canonical_rule_example_specs());
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
         specs.extend(minimummultiwaycut_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
+        specs.extend(minimumweightdecoding_ilp::canonical_rule_example_specs());
         specs.extend(minimumtardinesssequencing_ilp::canonical_rule_example_specs());
         specs.extend(minimumsummulticenter_ilp::canonical_rule_example_specs());
         specs.extend(minmaxmulticenter_ilp::canonical_rule_example_specs());
@@ -427,7 +461,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
         specs.extend(multiprocessorscheduling_ilp::canonical_rule_example_specs());
         specs.extend(naesatisfiability_ilp::canonical_rule_example_specs());
+        specs.extend(numericalmatchingwithtargetsums_ilp::canonical_rule_example_specs());
         specs.extend(openshopscheduling_ilp::canonical_rule_example_specs());
+        specs.extend(optimumcommunicationspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(optimallineararrangement_ilp::canonical_rule_example_specs());
         specs.extend(paintshop_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());

@@ -82,6 +82,7 @@
   "CyclicOrdering": [Cyclic Ordering],
   "AcyclicPartition": [Acyclic Partition],
   "MaximumIndependentSet": [Maximum Independent Set],
+  "MaximumLeafSpanningTree": [Maximum Leaf Spanning Tree],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GeneralizedHex": [Generalized Hex],
@@ -131,6 +132,7 @@
   "Satisfiability": [SAT],
   "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
+  "Maximum2Satisfiability": [Maximum 2-Satisfiability],
   "NonTautology": [Non-Tautology],
   "OneInThreeSatisfiability": [1-in-3 SAT],
   "Planar3Satisfiability": [Planar 3-SAT],
@@ -148,6 +150,7 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "Clustering": [Clustering],
   "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
@@ -162,6 +165,7 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "ThreeDimensionalMatching": [Three-Dimensional Matching],
+  "ThreeMatroidIntersection": [Three-Matroid Intersection],
   "SubsetProduct": [Subset Product],
   "SubsetSum": [Subset Sum],
   "CosineProductIntegration": [Cosine Product Integration],
@@ -169,6 +173,7 @@
   "ThreePartition": [3-Partition],
   "DynamicStorageAllocation": [Dynamic Storage Allocation],
   "Numerical3DimensionalMatching": [Numerical 3-Dimensional Matching],
+  "NumericalMatchingWithTargetSums": [Numerical Matching with Target Sums],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -178,9 +183,12 @@
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "FeasibleBasisExtension": [Feasible Basis Extension],
   "SparseMatrixCompression": [Sparse Matrix Compression],
+  "MinimumMatrixCover": [Minimum Matrix Cover],
   "MinimumMatrixDomination": [Minimum Matrix Domination],
+  "MinimumWeightDecoding": [Minimum Weight Decoding],
   "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "MinimumEdgeCostFlow": [Minimum Edge-Cost Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
@@ -216,6 +224,17 @@
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "FeasibleRegisterAssignment": [Feasible Register Assignment],
+  "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
+  "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
+  "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
+  "MaximumDomaticNumber": [Maximum Domatic Number],
+  "MinimumCapacitatedSpanningTree": [Minimum Capacitated Spanning Tree],
+  "MinimumDecisionTree": [Minimum Decision Tree],
+  "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
+  "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
+  "MinimumMetricDimension": [Minimum Metric Dimension],
+  "VertexCover": [Vertex Cover],
+  "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
@@ -232,8 +251,11 @@
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
+  "MinimumAxiomSet": [Minimum Axiom Set],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
+  "MinimumFaultDetectionTestSet": [Minimum Fault Detection Test Set],
+  "MinimumWeightAndOrGraph": [Minimum Weight AND/OR Graph],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -241,6 +263,9 @@
   "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
   "KthLargestMTuple": [$K$th Largest $m$-Tuple],
+  "MaximumLikelihoodRanking": [Maximum Likelihood Ranking],
+  "OptimumCommunicationSpanningTree": [Optimum Communication Spanning Tree],
+  "SquareTiling": [Square Tiling],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -623,7 +648,31 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("MaxCut")
+  let x = load-model-example("VertexCover")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let k = x.instance.k
+  let sol = x.optimal_config
+  let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("VertexCover")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $k <= |V|$, determine whether there exists a vertex cover of size at most $k$: a subset $V' subset.eq V$ with $|V'| <= k$ such that for each edge ${u, v} in E$, at least one of $u, v$ belongs to $V'$.
+    ][
+    Vertex Cover is one of Karp's 21 NP-complete problems @karp1972 and the decision version of Minimum Vertex Cover @garey1979. The best known exact algorithm runs in $O^*(1.1996^n)$ time (Chen, Kanj, and Xia, 2010).
+
+    *Example.* Consider a graph on $n = #nv$ vertices and $|E| = #ne$ edges with threshold $k = #k$. The cover $V' = {#cover.map(i => $v_#i$).join(", ")}$ with $|V'| = #cover.len() <= k$ is a valid vertex cover.
+
+    #pred-commands(
+      "pred create --example VertexCover -o vc.json",
+      "pred solve vc.json",
+      "pred evaluate vc.json --config " + sol.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MaxCut", variant: (graph: "SimpleGraph", weight: "i32"))
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
@@ -3003,6 +3052,38 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let tmi = load-model-example("ThreeMatroidIntersection")
+  let n = tmi.instance.ground_set_size
+  let parts = tmi.instance.partitions
+  let K = tmi.instance.bound
+  let sol = tmi.optimal_config
+  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let fmt-set(items) = if items.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + items.map(e => str(e)).join(", ") + "}$"
+  }
+  let fmt-group(g) = "${" + g.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("ThreeMatroidIntersection")[
+      Given three partition matroids $(E, cal(F)_1)$, $(E, cal(F)_2)$, $(E, cal(F)_3)$ on a common ground set $E$ with $|E| = n$, and a positive integer $K <= n$, does there exist a subset $E' subset.eq E$ with $|E'| = K$ that is independent in all three matroids? A partition matroid partitions $E$ into groups; a set $S$ is independent if $|S sect G| <= 1$ for every group $G$.
+    ][
+    Three-Matroid Intersection is problem SP11 in Garey & Johnson @garey1979 (section A3). While 2-matroid intersection is solvable in polynomial time (Edmonds, 1970) @edmonds1970, the jump to three matroids captures NP-hardness. NP-completeness is established by transformation from Three-Dimensional Matching, where each dimension induces a partition matroid. The restriction to partition matroids suffices for NP-completeness.
+
+    Doron-Arad, Kulik, and Shachnai (2024) @doron2024 showed that brute force essentially cannot be beaten: any algorithm requires $Omega(2^(n - 5 sqrt(n) log n))$ oracle queries. A marginal improvement to $2^(n - Omega(log^2 n))$ exists via Monotone Local Search @fomin2019. The direct brute-force algorithm runs in $O^*(2^n)$ time where $n = |E|$.
+
+    *Example.* Let $E = {0, 1, dots, #(n - 1)}$ with $K = #K$. The three partition matroids have groups: $cal(F)_1$: #parts.at(0).map(fmt-group).join(", "); $cal(F)_2$: #parts.at(1).map(fmt-group).join(", "); $cal(F)_3$: #parts.at(2).map(fmt-group).join(", "). The subset $E' = #fmt-set(selected)$ is a valid common independent set of size $#K$: each matroid has at most one selected element per group.
+
+    #pred-commands(
+      "pred create --example ThreeMatroidIntersection -o three-matroid-intersection.json",
+      "pred solve three-matroid-intersection.json",
+      "pred evaluate three-matroid-intersection.json --config " + tmi.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("ComparativeContainment")
   let n = x.instance.universe_size
   let R = x.instance.r_sets
@@ -4043,6 +4124,70 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("Maximum2Satisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let clause-sat(c) = c.literals.map(eval-lit).any(v => v == 1)
+  let sat-count = clauses.filter(clause-sat).len()
+  [
+    #problem-def("Maximum2Satisfiability")[
+      Given a set $U$ of $n$ Boolean variables and a collection $C = {C_1, dots, C_m}$ of $m$ clauses over $U$ with $|C_j| = 2$ for each $j$, find a truth assignment $bold(x) in {0,1}^n$ that maximizes the number of simultaneously satisfied clauses.
+    ][
+    Maximum 2-Satisfiability (MAX-2-SAT) is one of the fundamental NP-hard optimization problems. While the decision version of 2-SAT is solvable in linear time by implication-graph analysis, the optimization variant---maximizing the number of satisfied clauses---is NP-hard @garey1979. The best known exact algorithm by Williams @williams2005 runs in $O^*(2^(0.7905n))$ time by reducing to a maximum-weight triangle problem and applying fast matrix multiplication.
+
+    *Example.* Consider $m = #m$ clauses over $n = #n$ variables: $#clauses.map(fmt-clause).join($and$)$. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies #sat-count out of #m clauses.
+
+    #pred-commands(
+      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred solve max2sat.json",
+      "pred evaluate max2sat.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#let max2sat_ilp = load-example("Maximum2Satisfiability", "ILP")
+#let max2sat_ilp_sol = max2sat_ilp.solutions.at(0)
+#reduction-rule("Maximum2Satisfiability", "ILP",
+  example: true,
+  example-caption: [$n = #max2sat_ilp.source.instance.num_vars$ variables, $m = #max2sat_ilp.source.instance.clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred reduce max2sat.json --to " + target-spec(max2sat_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate max2sat.json --config " + max2sat_ilp_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The canonical MAX-2-SAT instance has $n = #max2sat_ilp.source.instance.num_vars$ Boolean variables and $m = #max2sat_ilp.source.instance.clauses.len()$ clauses.
+
+    *Step 2 -- Build the binary ILP.* Introduce $n$ binary truth variables $y_0, dots, y_(n-1) in {0,1}$ and $m$ binary clause-indicator variables $z_0, dots, z_(m-1) in {0,1}$. The objective is $ max sum_(j=0)^(m-1) z_j $ subject to one constraint per clause $j$: $z_j <= l_1' + l_2'$ where $l_i' = y_i$ for a positive literal and $l_i' = 1 - y_i$ for a negated literal. The resulting ILP has $n + m = #(max2sat_ilp.source.instance.num_vars + max2sat_ilp.source.instance.clauses.len())$ variables and $m = #max2sat_ilp.source.instance.clauses.len()$ constraints.
+
+    *Step 3 -- Verify a solution.* The ILP optimum extracts the first $n$ variables as the truth assignment $bold(y)^* = (#max2sat_ilp_sol.source_config.map(str).join(", "))$, satisfying #max2sat_ilp_sol.source_config.len() source variables #sym.checkmark.
+  ],
+)[
+  A MAX-2-SAT instance maps directly to a binary ILP @garey1979: each Boolean variable becomes a binary decision variable, each clause gets a binary indicator variable, and a single linear inequality per clause links the indicator to its literals. The objective maximizes the sum of clause indicators, so the ILP optimum equals the maximum number of satisfiable clauses.
+][
+  _Construction._ Given $n$ Boolean variables and $m$ clauses, introduce binary variables $y_0, dots, y_(n-1) in {0,1}$ (truth assignment) and $z_0, dots, z_(m-1) in {0,1}$ (clause indicators). For each clause $C_j$ with literals $ell_1, ell_2$, define $ell_i' = y_i$ if positive and $ell_i' = 1 - y_i$ if negated. Add the constraint $z_j <= ell_1' + ell_2'$, ensuring $z_j = 1$ only when the clause is satisfied. The ILP is:
+  $
+    max quad & sum_(j=0)^(m-1) z_j \
+    "subject to" quad & z_j <= ell_1' + ell_2' quad forall j in {0, dots, m - 1} \
+    & y_i in {0, 1} quad forall i in {0, dots, n - 1} \
+    & z_j in {0, 1} quad forall j in {0, dots, m - 1}
+  $.
+  The target has $n + m$ variables and $m$ constraints.
+
+  _Correctness._ ($arrow.r.double$) Any truth assignment $bold(y)$ satisfying $k$ clauses yields a feasible ILP solution by setting $z_j = 1$ iff clause $j$ is satisfied, achieving objective $k$. ($arrow.l.double$) Any feasible ILP solution with $z_j = 1$ has clause $j$ satisfied by the constraint, so the truth assignment satisfies at least $sum z_j$ clauses. Thus optimal values coincide.
+
+  _Solution extraction._ Return the first $n$ components $(y_0, dots, y_(n-1))$ as the truth assignment.
+]
+
+#{
   let x = load-model-example("NonTautology")
   let n = x.instance.num_vars
   let m = x.instance.disjuncts.len()
@@ -4679,6 +4824,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("MaximumLeafSpanningTree")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let tree-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let leaf-count = sol.metric
+  // compute degrees in the tree
+  let degrees = range(nv).map(v => tree-edges.map(i => edges.at(i)).filter(((u, w)) => u == v or w == v).len())
+  let leaves = range(nv).filter(v => degrees.at(v) == 1)
+  [
+    #problem-def("MaximumLeafSpanningTree")[
+      Given a connected undirected graph $G = (V, E)$, find a spanning tree $T$ of $G$ that maximizes the number of leaves (degree-1 vertices) in $T$.
+    ][
+      Maximum Leaf Spanning Tree is NP-hard @garey1979[ND2]. The problem has applications in network design and broadcasting, where maximizing the number of leaf nodes reduces the set of internal (relay) nodes. The best known exact algorithm runs in $O^*(1.8966^n)$ time, where $n = |V|$.#footnote[H. Fernau, J. Kneis, D. Kratsch, A. Langer, M. Liedloff, D. Raible, and P. Rossmanith, An exact algorithm for the Maximum Leaf Spanning Tree problem, _Theoretical Computer Science_, 412(45):6290--6302, 2011.]
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and $m = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The spanning tree using edges #tree-edges.map(i => [${#edges.at(i).at(0), #edges.at(i).at(1)}$]).join(", ") has #leaf-count leaves (vertices #leaves.map(v => [$#v$]).join(", ")), each with degree 1 in the tree.
+
+      #pred-commands(
+        "pred create --example MaximumLeafSpanningTree -o mlst.json",
+        "pred solve mlst.json",
+        "pred evaluate mlst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#reduction-rule("MaximumLeafSpanningTree", "ILP")[
+  An MLST instance reduces to an integer linear program with $3m + n$ variables and $3n + 2m + 1$ constraints, using a single-commodity flow formulation to enforce spanning-tree connectivity and binary leaf indicators to encode the objective @garey1979.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, $m = |E|$, root the flow at vertex $0$. Introduce binary edge selectors $y_e in {0, 1}$ for each $e in E$ ($m$ variables), binary leaf indicators $z_v in {0, 1}$ for each $v in V$ ($n$ variables), and directed flow variables $f_(u v), f_(v u) >= 0$ for each undirected edge ${u, v}$ ($2m$ variables).
+
+  _Constraints:_
+  + *Tree cardinality:* $sum_e y_e = n - 1$.
+  + *Flow conservation:* for the root, net outflow $= n - 1$; for each non-root vertex $v$, net inflow $= 1$.
+  + *Flow--edge linking:* $f_(u v) + f_(v u) <= (n - 1) y_e$ for each edge $e = {u, v}$.
+  + *Leaf detection:* $sum_(e in.rev v) y_e + (n - 2) z_v <= n - 1$ for each vertex $v$.
+  + *Binary bounds:* $y_e <= 1$, $z_v <= 1$.
+
+  The objective is $max sum_(v in V) z_v$.
+
+  _Correctness._ ($arrow.r.double$) A spanning tree $T$ of $G$ with $ell$ leaves induces a feasible ILP solution: route one unit of flow from the root to every other vertex along the unique tree path, set $y_e = 1$ for tree edges, and set $z_v = 1$ for degree-1 vertices; constraint (4) is tight when $deg_T(v) = 1$ and slack otherwise, achieving objective $ell$. ($arrow.l.double$) Any feasible ILP solution with $sum y_e = n - 1$ and connectivity enforced by the flow yields a spanning tree; constraint (4) forces $z_v = 0$ whenever $deg_T(v) > 1$, and maximization ensures $z_v = 1$ for all leaves.
+
+  _Solution extraction._ Return the edge-selector prefix $(y_0, dots, y_(m-1))$ as the source configuration.
+]
+
+#{
   let x = load-model-example("MonochromaticTriangle")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -4959,6 +5151,30 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("MinimumRegisterSufficiencyForLoops")
+  let N = x.instance.loop_length
+  let vars = x.instance.variables
+  let nv = vars.len()
+  let config = x.optimal_config
+  let num-regs = config.dedup().len()
+  [
+    #problem-def("MinimumRegisterSufficiencyForLoops")[
+      Given a loop of length $N$ (representing $N$ timesteps arranged in a circle) and a set of $n$ variables, each active during a contiguous circular arc of timesteps specified by $(s_i, l_i)$ covering timesteps ${s_i, s_i + 1, dots, s_i + l_i - 1} mod N$, assign a register $r_i in {0, dots, n-1}$ to each variable minimizing the number of distinct registers used, such that no two variables with overlapping arcs share the same register.
+    ][
+      Minimum Register Sufficiency for Loops is problem SS20 in Garey & Johnson @garey1979. It is equivalent to minimum coloring of circular arc graphs. NP-complete via reduction from Chromatic Number. No algorithm improving on brute-force $O(n^n)$ enumeration is known for arbitrary circular arc instances.
+
+      *Example.* Let $N = #N$ timesteps and $n = #nv$ variables with arcs: #vars.enumerate().map(((i, v)) => $x_#i: [#(v.at(0)), #(v.at(0)) + #(v.at(1)))$).join(", ") mod $#N$. All pairs of arcs overlap (each arc covers half the circle and any two arcs share at least one timestep), forming a complete conflict graph $K_#nv$. The assignment $(#config.map(str).join(", "))$ uses #num-regs distinct registers, which is optimal.
+
+      #pred-commands(
+        "pred create --example MinimumRegisterSufficiencyForLoops -o mrsfl.json",
+        "pred solve mrsfl.json --solver brute-force",
+        "pred evaluate mrsfl.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("RegisterSufficiency")
   let n = x.instance.num_vertices
   let arcs = x.instance.arcs
@@ -4981,6 +5197,148 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve register-sufficiency.json --solver brute-force",
         "pred evaluate register-sufficiency.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationOneRegister")
+  let n = x.instance.num_vertices
+  let edges = x.instance.edges
+  let num-leaves = x.instance.num_leaves
+  let num-internal = n - num-leaves
+  let config = x.optimal_config
+  // Build evaluation order: position -> internal vertex
+  // internal vertices are those with out-degree > 0
+  let out-deg = range(n).map(v => edges.filter(e => e.at(0) == v).len())
+  let internal = range(n).filter(v => out-deg.at(v) > 0)
+  let order = range(num-internal).map(pos =>
+    range(num-internal).find(i => config.at(i) == pos)
+  ).map(i => internal.at(i))
+  [
+    #problem-def("MinimumCodeGenerationOneRegister")[
+      Given a directed acyclic graph $G = (V, A)$ with maximum out-degree 2 representing an expression DAG, where leaf vertices (out-degree 0) are input values stored in memory, internal vertices are operations, and root vertices (in-degree 0) are the values to compute, find a program of minimum number of instructions for a one-register machine (supporting LOAD, STORE, and OP instructions) that computes all root vertices.
+    ][
+      Minimum Code Generation on a One-Register Machine is problem A11 PO4 in Garey & Johnson @garey1979. NP-complete via transformation from 3-Satisfiability @brunoSethi1976. Remains NP-complete even when the only vertices with in-degree greater than 1 have arcs only to leaves. For directed forests (expression trees), the Sethi--Ullman algorithm finds an optimal instruction sequence in $O(n)$ time @sethiUllman1970. For general DAGs, brute-force enumeration of all valid evaluation orderings runs in $O^*(2^n)$ time.
+      #footnote[No algorithm improving on brute-force is known for general expression DAGs.]
+
+      *Example.* Consider $n = #n$ vertices with arcs: #{edges.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Leaves (out-degree 0): $\{#(range(n).filter(v => out-deg.at(v) == 0).map(v => $v_#v$).join($, $))\}$. The evaluation order $(#order.map(v => $v_#v$).join(", "))$ yields an optimal program of #x.optimal_value instructions.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationOneRegister -o mcgor.json",
+        "pred solve mcgor.json --solver brute-force",
+        "pred evaluate mcgor.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationUnlimitedRegisters")
+  let n = x.instance.num_vertices
+  let left-arcs = x.instance.left_arcs
+  let right-arcs = x.instance.right_arcs
+  // Build out-degree to identify leaves vs internal
+  let out-deg = range(n).map(v =>
+    left-arcs.filter(e => e.at(0) == v).len() + right-arcs.filter(e => e.at(0) == v).len()
+  )
+  let internal = range(n).filter(v => out-deg.at(v) > 0)
+  let num-internal = internal.len()
+  let config = x.optimal_config
+  let order = range(num-internal).map(pos =>
+    range(num-internal).find(i => config.at(i) == pos)
+  ).map(i => internal.at(i))
+  [
+    #problem-def("MinimumCodeGenerationUnlimitedRegisters")[
+      Given a directed acyclic graph $G = (V, A)$ with maximum out-degree 2 representing an expression DAG, and a partition of arcs into left ($L$) and right ($R$) operand sets, find a program of minimum number of instructions for an unlimited-register machine using 2-address instructions (OP and LOAD/copy) that computes all root vertices. The OP instruction computes a vertex and overwrites the left operand's register; a LOAD instruction copies a register to preserve a value before destruction.
+    ][
+      Minimum Code Generation with Unlimited Registers is problem A11 PO5 in Garey & Johnson @garey1979. NP-complete via transformation from Feedback Vertex Set @ahoJohnsonUllman1977. Remains NP-complete even if the only vertices with in-degree greater than 1 are leaves. Polynomial for forests and when 3-address instructions are allowed. For general DAGs, brute-force enumeration runs in $O^*(2^n)$ time.
+      #footnote[No algorithm improving on brute-force is known for general expression DAGs with 2-address instructions.]
+
+      *Example.* Consider $n = #n$ vertices with left arcs $L$: #{left-arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")} and right arcs $R$: #{right-arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Leaves (out-degree 0): $\{#(range(n).filter(v => out-deg.at(v) == 0).map(v => $v_#v$).join($, $))\}$. The evaluation order $(#order.map(v => $v_#v$).join(", "))$ yields an optimal program of #x.optimal_value instructions.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationUnlimitedRegisters -o mcgur.json",
+        "pred solve mcgur.json --solver brute-force",
+        "pred evaluate mcgur.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationParallelAssignments")
+  let nv = x.instance.num_variables
+  let assigns = x.instance.assignments
+  let m = assigns.len()
+  let config = x.optimal_config
+  // Build execution order: order[pos] = assignment index
+  let order = range(m).map(pos =>
+    range(m).find(i => config.at(i) == pos)
+  )
+  // Count backward deps for the optimal ordering
+  [
+    #problem-def("MinimumCodeGenerationParallelAssignments")[
+      Given a set $V$ of variables and a collection of simultaneous assignments $A_i: v_i arrow.l op(B_i)$ where $v_i in V$ is the target variable and $B_i subset.eq V$ is the set of variables read, find a permutation $pi$ of the assignments that minimizes the number of backward dependencies. A backward dependency occurs when $v_(pi(i)) in B_(pi(j))$ for some $j > i$, i.e., assignment $pi(i)$ overwrites a variable that a later assignment $pi(j)$ still needs to read.
+    ][
+      Minimum Code Generation for Parallel Assignments is problem A11 PO6 in Garey & Johnson @garey1979. NP-complete via transformation from Feedback Vertex Set @sethi1975. Remains NP-complete even when $|B_i| lt.eq 2$ for all assignments. For general instances, brute-force enumeration of all permutations runs in $O^*(2^m)$ time via dynamic programming over subsets.
+      #footnote[No algorithm improving on brute-force is known for general parallel assignment instances.]
+
+      *Example.* Consider $#nv$ variables and $#m$ assignments: #{assigns.enumerate().map(((i, a)) => {
+        let target = a.at(0)
+        let reads = a.at(1)
+        $A_#i: v_#target arrow.l op({#reads.map(r => $v_#r$).join($, $)})$
+      }).join(", ")}. The execution order $(#order.map(i => $A_#i$).join(", "))$ yields #x.optimal_value backward dependencies.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationParallelAssignments -o mcgpa.json",
+        "pred solve mcgpa.json --solver brute-force",
+        "pred evaluate mcgpa.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDecisionTree")
+  let n = x.instance.num_objects
+  let m = x.instance.num_tests
+  let sol = x.optimal_config
+  let tepl = x.optimal_value
+  [
+    #problem-def("MinimumDecisionTree")[
+      Given a set $S$ of $n$ objects and $m$ binary tests $T_1, dots, T_m$ where each test maps $S$ to ${0,1}$ and every pair of objects is distinguished by at least one test, find a decision tree using tests from $T$ that identifies each object and minimizes the total external path length (sum of leaf depths).
+    ][
+    Minimum Decision Tree (MS15) models optimal test sequencing for object identification @garey1979. NP-hard even when each test has at most 3 positive objects (Hyafil and Rivest 1976, via reduction from Exact Cover by 3-Sets). The Sethi--Ullman algorithm solves the tree (forest) case in polynomial time. The brute-force bound is $O^*(m^n)$.
+
+    *Example.* Consider $n = #n$ objects and $m = #m$ tests. The optimal decision tree has total external path length #tepl, achieved by a balanced split at the root.
+
+    #pred-commands(
+      "pred create --example MinimumDecisionTree -o mdt.json",
+      "pred solve mdt.json",
+      "pred evaluate mdt.json --config " + sol.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDisjunctiveNormalForm")
+  let n = x.instance.num_variables
+  let num_pi = x.instance.prime_implicants.len()
+  let num_mt = x.instance.minterms.len()
+  [
+    #problem-def("MinimumDisjunctiveNormalForm")[
+      Given $n$ Boolean variables and a Boolean function $f: {0,1}^n -> {0,1}$ specified by its truth table, find a disjunctive normal form (DNF) formula with the minimum number of terms (disjuncts) that is equivalent to $f$.
+    ][
+    Minimum Disjunctive Normal Form (LO9) is the classic two-level logic minimization problem @garey1979. NP-hard (Masek 1979, via reduction from Minimum Cover). The Quine--McCluskey algorithm enumerates all prime implicants, reducing the problem to minimum set cover. The worst-case number of prime implicants is $Theta(3^n slash sqrt(n))$ (Chandra and Markowsky 1978).
+
+    *Example.* A function on $n = #n$ variables with #num_mt minterms has #num_pi prime implicants. The minimum cover requires #x.optimal_value terms.
+
+    #pred-commands(
+      "pred create --example MinimumDisjunctiveNormalForm -o mdnf.json",
+      "pred solve mdnf.json",
+    )
     ]
   ]
 }
@@ -5575,6 +5933,37 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 #{
+  let x = load-model-example("NumericalMatchingWithTargetSums")
+  let m = x.instance.sizes_x.len()
+  let sx = x.instance.sizes_x
+  let sy = x.instance.sizes_y
+  let targets = x.instance.targets
+  let config = x.optimal_config
+  [
+    #problem-def("NumericalMatchingWithTargetSums")[
+      Given two disjoint sets $X$ and $Y$ each with $m$ elements, integer sizes $s(x_i)$ for $x_i in X$ and $s(y_j)$ for $y_j in Y$, and a multiset of $m$ target values $B_1, dots, B_m$, determine whether $X union Y$ can be partitioned into $m$ pairs, each containing one element from $X$ and one from $Y$, such that the multiset of pair sums ${s(x_i) + s(y_(pi(i)))}$ equals the target multiset.
+    ][
+      Numerical Matching with Target Sums is NP-complete in the strong sense (SP17 in Garey and Johnson @garey1979). It generalizes bipartite perfect matching by imposing sum constraints on each pair. Brute-force enumeration runs in $O^*(2^m)$ time by trying all $m!$ permutations.
+
+      *Example.* Let $m = #m$, $X = (#sx.map(str).join(", "))$, $Y = (#sy.map(str).join(", "))$, targets $= (#targets.map(str).join(", "))$. The matching $pi = (#config.map(str).join(", "))$ yields sums #range(m).map(i => [$#(sx.at(i)) + #(sy.at(config.at(i))) = #(sx.at(i) + sy.at(config.at(i)))$]).join(", "), which as a multiset equals the targets.
+
+      #pred-commands(
+        "pred create --example NumericalMatchingWithTargetSums -o nmts.json",
+        "pred solve nmts.json",
+        "pred evaluate nmts.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#reduction-rule("NumericalMatchingWithTargetSums", "ILP",
+  example: true,
+  example-caption: [Numerical Matching with Target Sums to ILP via compatible-triple assignment variables.],
+)[
+  Introduce a binary variable $z_(i,j,k) in {0,1}$ for each _compatible triple_ $(i,j,k)$ where $s(x_i) + s(y_j) = B_k$. The constraints ensure a perfect matching: $sum_(j,k) z_(i,j,k) = 1$ for each $i$ (every $x_i$ matched once), $sum_(i,k) z_(i,j,k) = 1$ for each $j$ (every $y_j$ matched once), $sum_(i,j) z_(i,j,k) = 1$ for each $k$ (every target used once). The objective is trivial (minimize 0), since this is a feasibility problem.
+][
+  _Correctness._ By construction, variables are only created for triples satisfying $s(x_i) + s(y_j) = B_k$. The three families of equality constraints enforce that the assignment is a bijection on $X$, $Y$, and the target indices. Any feasible ILP solution therefore defines a permutation $pi$ with $s(x_i) + s(y_(pi(i)))$ matching a distinct target, and conversely any valid matching maps to a feasible binary assignment. The number of variables is at most $m^3$ (all triples compatible), and the number of constraints is $3m$.
+]
+#{
   let x = load-model-example("NonLivenessFreePetriNet")
   let np = x.instance.num_places
   let nt = x.instance.num_transitions
@@ -5591,6 +5980,37 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example NonLivenessFreePetriNet -o petri.json",
         "pred solve petri.json --solver brute-force",
         "pred evaluate petri.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumAxiomSet")
+  let ns = x.instance.num_sentences
+  let ts = x.instance.true_sentences
+  let nt = ts.len()
+  let imps = x.instance.implications
+  let config = x.optimal_config
+  let selected = range(nt).filter(i => config.at(i) == 1)
+  let sel-labels = selected.map(i => str(ts.at(i)))
+  [
+    #problem-def("MinimumAxiomSet")[
+      Given a finite set of sentences $S = {s_0, dots, s_(n-1)}$, a subset $T subset.eq S$ of true sentences, and a set of implications ${(A_j, c_j)}$ where each $A_j subset.eq S$ and $c_j in S$, find a smallest subset $S_0 subset.eq T$ such that the deductive closure of $S_0$ under the implications equals $T$. That is, starting from $S_0$, repeatedly applying every rule "if all sentences in $A_j$ hold then $c_j$ holds" until no new sentences are added must yield exactly $T$.
+    ][
+      Minimum Axiom Set is problem LO6 in Garey and Johnson @garey1979. The problem models finding a minimal set of assumptions (axioms) from which all truths in a theory can be derived. It generalises set cover: when every implication has a single antecedent, the problem reduces to finding a minimum dominating set in the implication graph. No algorithm improving on brute-force ($O(2^(|T|))$) is known for the general case.#footnote[No algorithm improving on brute-force is known for the general Minimum Axiom Set problem.]
+
+      *Example.* Let $S = {s_0, dots, s_7}$ ($n = #ns$) with $T = S$ (all sentences true) and implications
+      #imps.map(imp => {
+        let ante = imp.at(0).map(str).join(", ")
+        let cons = str(imp.at(1))
+        [$({#ante} arrow.r #cons)$]
+      }).join(", "). Selecting axioms $S_0 = {#sel-labels.join(", ")}$ generates the full deductive closure $T$ in three rounds: first $\{0,1\} arrow.r \{2,3,4,5\}$, then $\{2,4\},\{3,5\} arrow.r \{6,7\}$, then $\{6,7\} arrow.r \{0,1\}$ (already present). The optimal value is $#x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example MinimumAxiomSet -o axiom.json",
+        "pred solve axiom.json --solver brute-force",
+        "pred evaluate axiom.json --config " + config.map(str).join(","),
       )
     ]
   ]
@@ -5635,6 +6055,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example CyclicOrdering -o cyclic_ordering.json",
         "pred solve cyclic_ordering.json",
         "pred evaluate cyclic_ordering.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Clustering")
+  let n = x.instance.distances.len()
+  let K = x.instance.num_clusters
+  let B = x.instance.diameter_bound
+  let config = x.optimal_config
+  [
+    #problem-def("Clustering")[
+      Given a set of $n$ elements with a symmetric distance function $d: binom(A,2) -> NN$ (represented as a matrix with zero diagonal), a cluster count bound $K$, and a diameter bound $B$, determine whether there exists a partition of the elements into at most $K$ non-empty clusters such that for every cluster $C$, all pairwise distances within $C$ satisfy $d(i,j) <= B$.
+    ][
+      Clustering is a fundamental problem in unsupervised learning and data analysis. The variant considered here is the diameter-bounded formulation, which is NP-complete. No algorithm improving on brute-force ($K^n$ enumeration) is known for the general case.#footnote[No algorithm improving on brute-force is known for general diameter-bounded clustering.]
+
+      *Example.* Consider $n = #n$ elements with $K = #K$ clusters and diameter bound $B = #B$. The distance matrix has two tight groups ${0,1,2}$ and ${3,4,5}$ with intra-group distance 1 and inter-group distance 3. The witness assignment $(#config.map(str).join(", "))$ partitions elements into clusters ${0,1,2}$ and ${3,4,5}$; each cluster has maximum pairwise distance $1 <= #B$.
+
+      #pred-commands(
+        "pred create --example Clustering -o clustering.json",
+        "pred solve clustering.json",
+        "pred evaluate clustering.json --config " + config.map(str).join(","),
       )
     ]
   ]
@@ -6076,6 +6519,64 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
   _Solution extraction._ Walk through the active segments (via $ell_i$ and $p_(i,lambda,r)$) to reconstruct $C$, mapping source reference positions to compressed-string positions.
 ]
+
+#{
+  let x = load-model-example("MinimumWeightAndOrGraph")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let src = x.instance.source
+  let gates = x.instance.gate_types
+  let ws = x.instance.arc_weights
+  let cfg = x.optimal_config
+  let sel-arcs = range(arcs.len()).filter(i => cfg.at(i) == 1)
+  let total = sel-arcs.map(i => ws.at(i)).sum()
+  [
+    #problem-def("MinimumWeightAndOrGraph")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, a source vertex $s in V$, a gate-type function $g: V arrow {"AND", "OR", "leaf"}$, and arc weights $w: A arrow ZZ$, find a solution subgraph $S subset.eq A$ of minimum total weight $sum_(a in S) w(a)$. A solution subgraph is valid when: (1) the source is solved, (2) for each solved AND-gate vertex $v$, all outgoing arcs from $v$ are in $S$, (3) for each solved OR-gate vertex $v$, at least one outgoing arc from $v$ is in $S$, and (4) leaf vertices are trivially solved. A vertex $v != s$ is solved if there exists an arc $(u, v) in S$ with $u$ solved.
+    ][
+      AND/OR graphs generalize search trees and game trees and arise in AI planning, logic programming, and design-space exploration. Dynamic-programming algorithms on tree-structured AND/OR graphs run in linear time, but the general DAG case requires exponential enumeration.#footnote[No algorithm improving on brute-force enumeration of all $2^(|A|)$ arc subsets is known for general AND/OR DAGs.]
+
+      *Example.* Consider $n = #n$ vertices with source $v_#src$ (AND gate). Vertices $v_1, v_2$ are OR gates; $v_3, v_4, v_5, v_6$ are leaves. Arcs with weights: #{range(arcs.len()).map(i => {
+        let a = arcs.at(i)
+        $v_#(a.at(0)) arrow.r v_#(a.at(1)) (#(ws.at(i)))$
+      }).join(", ")}. Since $v_0$ is AND, both outgoing arcs must be selected (cost $#(ws.at(0)) + #(ws.at(1)) = #(ws.at(0) + ws.at(1))$). For OR gates, pick the cheapest outgoing arc: $v_1 arrow.r v_4$ (cost #(ws.at(3))) and $v_2 arrow.r v_6$ (cost #(ws.at(5))). Total weight: $#total$.
+
+      #pred-commands(
+        "pred create --example MinimumWeightAndOrGraph -o mwaog.json",
+        "pred solve mwaog.json --solver brute-force",
+        "pred evaluate mwaog.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumFaultDetectionTestSet")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let inputs = x.instance.inputs
+  let outputs = x.instance.outputs
+  let ni = inputs.len()
+  let no = outputs.len()
+  let cfg = x.optimal_config
+  let sel-pairs = range(cfg.len()).filter(i => cfg.at(i) == 1)
+  let count = sel-pairs.len()
+  [
+    #problem-def("MinimumFaultDetectionTestSet")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers all vertices $V$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
+    ][
+      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation can detect faults at the vertices it traverses, and the goal is to find the fewest test paths that collectively exercise every component. The problem generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
+
+      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers ${0, 2, 3, 5}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers ${1, 3, 4, 6}$. Their union is all $#n$ vertices, giving an optimal count of $#count$.
+
+      #pred-commands(
+        "pred create --example MinimumFaultDetectionTestSet -o mfdts.json",
+        "pred solve mfdts.json --solver brute-force",
+        "pred evaluate mfdts.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MinimumFeedbackArcSet")
@@ -7722,6 +8223,54 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ) <fig:d2cif>
 ]
 
+#problem-def("MinimumEdgeCostFlow")[
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
+][
+  Minimum Edge-Cost Flow is an NP-hard network design problem that arises in telecommunications and logistics, where there is a fixed cost (price) for activating each link, independent of the actual traffic volume. Unlike the classical minimum-cost flow problem (where cost is proportional to flow), the edge-cost variant introduces a combinatorial selection aspect: choosing which arcs to activate. The problem is closely related to fixed-charge network flow problems @garey1979.
+
+  The brute-force bound $(C + 1)^(|A|)$ arises from enumerating all possible integral flow vectors, where $C = max_(a in A) c(a)$.#footnote[No sub-exponential exact algorithm is known for Minimum Edge-Cost Flow.]
+
+  *Example.* Consider a directed graph with 5 vertices, source $s = 0$, sink $t = 4$, requirement $R = 3$, and 6 arcs with capacities $c(a) = 2$ for all arcs. The prices are $p(0,1) = 3$, $p(0,2) = 1$, $p(0,3) = 2$, and all arcs entering the sink have price 0. The optimal flow routes 1 unit via vertex 2 and 2 units via vertex 3, activating 4 arcs for a total edge cost of $1 + 2 + 0 + 0 = 3$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let positions = (
+        (0, 0),    // 0 = s
+        (2, 1.5),  // 1
+        (2, 0),    // 2
+        (2, -1.5), // 3
+        (4, 0),    // 4 = t
+      )
+      let labels = ($s$, $1$, $2$, $3$, $t$)
+      let arcs = ((0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4))
+      let prices = (3, 1, 2, 0, 0, 0)
+      // Optimal arcs: (0,2), (0,3), (2,4), (3,4) — indices 1, 2, 4, 5
+      let opt-arcs = (1, 2, 4, 5)
+
+      // Draw arcs
+      for (idx, (u, v)) in arcs.enumerate() {
+        let from = positions.at(u)
+        let to = positions.at(v)
+        let is-opt = opt-arcs.contains(idx)
+        let color = if is-opt { blue } else { gray.darken(20%) }
+        let thickness = if is-opt { 1.2pt } else { 0.6pt }
+        line(from, to, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.5), name: "arc" + str(idx))
+        // Price label
+        content("arc" + str(idx) + ".mid", text(7pt, $#prices.at(idx)$), fill: white, frame: "rect", padding: 0.06, stroke: none)
+      }
+
+      // Draw vertices
+      for (k, pos) in positions.enumerate() {
+        let fill = if k == 0 or k == 4 { blue.lighten(70%) } else { white }
+        circle(pos, radius: 0.3, fill: fill, stroke: 0.6pt, name: str(k))
+        content(pos, text(8pt, labels.at(k)))
+      }
+    }),
+    caption: [Minimum Edge-Cost Flow: optimal flow (blue) routes via vertices 2 and 3, total edge cost 3. Arc labels show prices.],
+  ) <fig:mecf>
+]
+
 #{
   let x = load-model-example("IntegralFlowBundles")
   let source = x.instance.source
@@ -8161,6 +8710,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("MinimumMatrixCover")
+  let A = x.instance.matrix
+  let n = A.len()
+  let cfg = x.optimal_config
+  let signs = cfg.map(v => if v == 0 { $-1$ } else { $+1$ })
+  [
+    #problem-def("MinimumMatrixCover")[
+      Given an $n times n$ nonnegative integer matrix $A$, find a function $f: \{1, dots, n\} -> \{-1, +1\}$ minimizing $sum_(i,j) a_(i j) dot f(i) dot f(j)$.
+    ][
+      Minimum Matrix Cover asks for a sign assignment to rows (equivalently columns) of a square matrix that minimizes the resulting quadratic form. Each binary variable $x_i in \{0, 1\}$ encodes a sign $f(i) = 2 x_i - 1$. Since $f(i)^2 = 1$, diagonal entries contribute a constant $sum_i a_(i i)$; the optimization depends only on off-diagonal structure. The brute-force complexity is $O(2^n)$ where $n$ is the matrix dimension.#footnote[No algorithm improving on brute-force enumeration of all $2^n$ sign assignments is known for the general case.]
+
+      *Example.* Let $A$ be the #(n)$times$#(n) symmetric matrix with zero diagonal shown below. The optimal config $(#cfg.map(str).join(", "))$ assigns signs $(#signs.join(", "))$, yielding value $= #x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mmc.json",
+        "pred solve mmc.json",
+        "pred evaluate mmc.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("MinimumMatrixDomination")
   let M = x.instance.matrix
   let m = M.len()
@@ -8181,6 +8753,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve mmd.json",
         "pred evaluate mmd.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumWeightDecoding")
+  let H = x.instance.matrix
+  let s = x.instance.target
+  let n = H.len()
+  let m = if n > 0 { H.at(0).len() } else { 0 }
+  let cfg = x.optimal_config
+  let wt = x.optimal_value
+  [
+    #problem-def("MinimumWeightDecoding")[
+      Given an $n times m$ binary parity-check matrix $H$ and a binary syndrome vector $s in {0,1}^n$, find a binary vector $x in {0,1}^m$ minimizing the Hamming weight $|x| = sum_(j=0)^(m-1) x_j$ subject to $H x equiv s (mod space 2)$.
+    ][
+      Minimum Weight Decoding is a fundamental problem in coding theory. Given a linear code with parity-check matrix $H$, the task is to find the minimum-weight error pattern consistent with a received syndrome. The problem is equivalent to finding the closest codeword to a received word and is central to the hardness of decoding random linear codes.
+
+      The best known algorithms for general instances use information set decoding techniques, achieving $O(2^(0.0494 n))$ where $n$ is the block length.
+
+      *Example.* Let $H$ be the #(n)$times$#(m) binary matrix and $s = (#s.map(v => if v { "1" } else { "0" }).join(", "))$. The optimal config $(#cfg.map(str).join(", "))$ has Hamming weight $#wt$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mwd.json",
+        "pred solve mwd.json",
+        "pred evaluate mwd.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-example("MinimumWeightDecoding", "ILP")
+  let src = x.source
+  let tgt = x.target
+  [
+    #reduction-rule("MinimumWeightDecoding", "ILP",
+      example: true,
+      example-caption: [Minimum Weight Decoding to ILP ($#src.instance.matrix.len()$ rows, $#src.instance.matrix.at(0).len()$ columns)],
+    )[
+      The GF(2) constraint $H x equiv s (mod space 2)$ is linearized by introducing integer slack variables: for each row $i$, $sum_j H_(i j) x_j - 2 k_i = s_i$ where $k_i >= 0$ is an integer. Binary bounds $x_j <= 1$ are added, and the objective minimizes $sum x_j$.
+    ][
+      _Construction._ Given $H in {0,1}^(n times m)$ and $s in {0,1}^n$, create an ILP with $m + n$ variables: $x_0, dots, x_(m-1)$ (binary) and $k_0, dots, k_(n-1)$ (non-negative integer). Add $n$ equality constraints $sum_j H_(i j) x_j - 2 k_i = s_i$ and $m$ binary bounds $x_j <= 1$. The objective is $min sum_(j=0)^(m-1) x_j$.
+
+      _Correctness._ ($arrow.r.double$) If $x^*$ is feasible for the source, then $H x^* equiv s (mod space 2)$, so $sum_j H_(i j) x^*_j = s_i + 2 k_i$ for some $k_i >= 0$. Setting these $k_i$ values gives a feasible ILP solution with the same objective. ($arrow.l.double$) If $(x^*, k^*)$ is feasible for the ILP, then $sum_j H_(i j) x^*_j = s_i + 2 k^*_i$ implies $sum_j H_(i j) x^*_j equiv s_i (mod space 2)$ for all $i$, and $x^*_j in {0, 1}$ by the binary bounds.
+
+      _Solution extraction._ Take the first $m$ variables as the source configuration.
     ]
   ]
 }
@@ -8364,6 +8983,136 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Feasible Basis Extension instance ($#m times #n$). Orange columns are required ($S = \{#S.map(str).join(", ")\}$), blue column is the selected extension. Together they form a nonsingular basis with non-negative solution.],
       ) <fig:feasible-basis-extension>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MaximumLikelihoodRanking")
+  let A = x.instance.matrix
+  let n = A.len()
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  // Compute disagreement pairs for the optimal solution
+  let disagreement-pairs = ()
+  for a in range(n) {
+    for b in range(n) {
+      if a != b and config.at(a) > config.at(b) {
+        disagreement-pairs.push((a, b, A.at(a).at(b)))
+      }
+    }
+  }
+  let total-cost = disagreement-pairs.map(p => p.at(2)).sum()
+  [
+    #problem-def("MaximumLikelihoodRanking")[
+      Given an $n times n$ comparison matrix $A$ with $a_(i i) = 0$ for all $i$, find a permutation $pi$ of ${0, dots, n - 1}$ minimizing the _disagreement cost_ $sum_(i > j) a_(pi(i), pi(j))$, where $pi$ maps rank positions to items.
+    ][
+      The Maximum Likelihood Ranking problem arises in voting theory and tournament aggregation: given pairwise comparison counts between $n$ alternatives, find a linear ordering that best explains the observed data @garey1979. The problem is equivalent to finding a minimum-weight linear extension of a tournament. When $a_(i j) + a_(j i) = c$ for all $i != j$, the problem is also known as the _Kemeny ranking_ or _minimum feedback arc set in tournaments_. The best known exact algorithm uses dynamic programming over subsets (Held--Karp style), running in $O(n^2 dot 2^n)$ time.#footnote[No algorithm with a significantly better exponential base than $2^n$ is known for the general Maximum Likelihood Ranking problem.]
+
+      *Example.* Consider $n = #n$ items with comparison matrix $A$, where rows and columns index items $0, dots, #(n - 1)$. Ranking all items by identity ($pi(i) = i$) yields disagreement cost $#disagreement-pairs.map(p => str(p.at(2))).join(" + ") = #total-cost$, which is optimal.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mlr.json",
+        "pred solve mlr.json --solver brute-force",
+        "pred evaluate mlr.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell = 0.9
+          let gap = 0.12
+          for i in range(n) {
+            for j in range(n) {
+              let val = A.at(i).at(j)
+              let is-disagree = i != j and config.at(i) > config.at(j)
+              let f = if i == j { luma(230) } else if is-disagree { graph-colors.at(0).transparentize(40%) } else { white }
+              rect(
+                (j * cell, -i * cell),
+                (j * cell + cell - gap, -i * cell - cell + gap),
+                fill: f,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell + (cell - gap) / 2, -i * cell - (cell - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+          }
+          // Column labels
+          for j in range(n) {
+            content(
+              (j * cell + (cell - gap) / 2, 0.35),
+              text(7pt)[$#j$],
+            )
+          }
+          // Row labels
+          for i in range(n) {
+            content(
+              (-0.35, -i * cell - (cell - gap) / 2),
+              text(7pt)[$#i$],
+            )
+          }
+        }),
+        caption: [Comparison matrix $A$ ($n = #n$). Highlighted cells are disagreement entries under the identity ranking.],
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("OptimumCommunicationSpanningTree")
+  let n = x.instance.num_vertices
+  let W = x.instance.edge_weights
+  let R = x.instance.requirements
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  // Build edge list and selected edges
+  let edges = ()
+  let edge-idx = 0
+  for i in range(n) {
+    for j in range(i + 1, n) {
+      edges.push((i, j, config.at(edge-idx)))
+      edge-idx += 1
+    }
+  }
+  let tree-edges = edges.filter(e => e.at(2) == 1)
+  [
+    #problem-def("OptimumCommunicationSpanningTree")[
+      Given a complete graph $K_n$ with edge weights $w(e) >= 0$ and communication requirements $r(u, v) >= 0$ for each vertex pair, find a spanning tree $T$ minimizing the total communication cost $sum_(u < v) r(u, v) dot W_T (u, v)$, where $W_T (u, v)$ is the sum of edge weights on the unique path from $u$ to $v$ in $T$.
+    ][
+      The Optimum Communication Spanning Tree problem (ND7 in @garey1979) models communication network design where edge weights represent link costs and requirements represent traffic demands between vertex pairs. NP-hard even when all requirements are equal (reducing to the Minimum Routing Cost Spanning Tree). Polynomial when all edge weights are equal, solved by the Gomory-Hu tree. The best known exact approach enumerates all $n^(n-2)$ labeled spanning trees.
+
+      *Example.* Consider $K_#n$ with edge weight matrix $W$ and requirement matrix $R$. The optimal spanning tree uses edges ${#tree-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ with total communication cost $#opt-val$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o ocst.json",
+        "pred solve ocst.json --solver brute-force",
+        "pred evaluate ocst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SquareTiling")
+  let nc = x.instance.num_colors
+  let tiles = x.instance.tiles
+  let n = x.instance.grid_size
+  let config = x.optimal_config
+  [
+    #problem-def("SquareTiling")[
+      Given a set $C$ of colors, a collection $T subset.eq C^4$ of tile types (where $angle.l a, b, c, d angle.r$ denotes a tile whose top, right, bottom, and left sides are colored $a, b, c, d$ respectively), and a positive integer $N$, determine whether there exists an assignment of a tile $f(i,j) in T$ to each grid cell $(i,j)$, $0 <= i,j < N$, such that (1) if $f(i,j) = angle.l a,b,c,d angle.r$ and $f(i+1,j) = angle.l a',b',c',d' angle.r$ then $c = a'$ (bottom of upper tile matches top of lower tile), and (2) if $f(i,j) = angle.l a,b,c,d angle.r$ and $f(i,j+1) = angle.l a',b',c',d' angle.r$ then $b = d'$ (right of left tile matches left of right tile). Tiles may be reused but not rotated or reflected.
+    ][
+      Square Tiling (also known as Bounded Wang Tiling) is problem GP13 in Garey and Johnson @garey1979. It was shown NP-complete via transformation from Directed Hamiltonian Path. The infinite variant (tiling the entire plane) is famously undecidable (Berger, 1966). The best known exact approach enumerates all $|T|^(N^2)$ assignments.
+
+      *Example.* Consider $|C| = #nc$ colors, $|T| = #tiles.len()$ tiles, and grid size $N = #n$. The tiles are #tiles.enumerate().map(((i, t)) => [$t_#i = angle.l #t.at(0), #t.at(1), #t.at(2), #t.at(3) angle.r$]).join(", "). The witness assignment $(#config.map(str).join(", "))$ places $t_#config.at(0), t_#config.at(1)$ in row 0 and $t_#config.at(2), t_#config.at(3)$ in row 1, satisfying all edge-color constraints.
+
+      #pred-commands(
+        "pred create --example SquareTiling -o square_tiling.json",
+        "pred solve square_tiling.json",
+        "pred evaluate square_tiling.json --config " + config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -11938,6 +12687,112 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
 ]
 
+#reduction-rule("MinimumEdgeCostFlow", "ILP")[
+  Introduce integer flow variables and binary arc-activation indicators, link them so that an indicator is forced to 1 whenever the corresponding arc carries positive flow, and minimize the total price of activated arcs.
+][
+  _Construction._ Let $m = |A|$ and $n = |V|$. Use `ILP<i32>` with $2m$ variables: integer flow variables $f_a in {0, dots, c(a)}$ for $a in {0, dots, m - 1}$ and binary activation indicators $y_a in {0, 1}$ for $a in {m, dots, 2m - 1}$.
+
+  Constraints:
+  - _Linking:_ $f_a - c(a) dot y_a <= 0$ for each arc $a$ — forces $y_a = 1$ when $f_a > 0$ ($m$ constraints).
+  - _Binary bound:_ $y_a <= 1$ for each arc $a$ ($m$ constraints).
+  - _Flow conservation:_ $sum_(a "entering" v) f_a - sum_(a "leaving" v) f_a = 0$ for each non-terminal vertex $v in V backslash {s, t}$ ($n - 2$ constraints).
+  - _Flow requirement:_ $sum_(a "entering" t) f_a - sum_(a "leaving" t) f_a >= R$ (1 constraint).
+
+  Objective: $min sum_(a=0)^(m-1) p(a) dot y_a$.
+
+  Total: $2m + n - 1$ constraints, $2m$ variables.
+
+  _Correctness._ ($arrow.r.double$) Any feasible flow of value $>= R$ determines the flow variables directly, and the linking constraints force $y_a = 1$ for every arc with positive flow, so the ILP objective equals the edge cost. ($arrow.l.double$) Any feasible ILP solution has $f_a <= c(a) y_a <= c(a)$ and satisfies conservation and the flow requirement. The objective $sum p(a) y_a$ is at least the edge cost of the flow because $y_a >= 1$ whenever $f_a > 0$.
+
+  _Solution extraction._ Output the first $m$ variables $(f_0, dots, f_(m-1))$ as the flow assignment.
+]
+
+#{
+  let mlr_ilp = load-example("MaximumLikelihoodRanking", "ILP")
+  let mlr_ilp_sol = mlr_ilp.solutions.at(0)
+  let mlr_n = mlr_ilp.source.instance.matrix.len()
+  let mlr_nv = mlr_ilp.target.instance.num_vars
+  let mlr_nc = mlr_ilp.target.instance.constraints.len()
+  [
+    #reduction-rule("MaximumLikelihoodRanking", "ILP",
+      example: true,
+      example-caption: [$n = #mlr_n$ items, $#mlr_nv$ pairwise variables, $#mlr_nc$ transitivity constraints],
+      extra: [
+        #pred-commands(
+          "pred create --example MaximumLikelihoodRanking -o mlr.json",
+          "pred reduce mlr.json --to " + target-spec(mlr_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mlr.json --config " + mlr_ilp_sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* A ranking instance with $n = #mlr_n$ items and comparison matrix $A$.
+
+        *Step 2 -- Build the ILP.* Introduce $binom(#str(mlr_n), 2) = #mlr_nv$ binary variables $x_(i j)$ for each pair $i < j$. Add $#mlr_nc$ transitivity constraints from all $binom(#str(mlr_n), 3)$ triples. The ILP has #mlr_nv variables and #mlr_nc constraints.
+
+        *Step 3 -- Verify.* The ILP optimum extracts to ranking $(#mlr_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+      ],
+    )[
+      Each pair of items $(i, j)$ with $i < j$ gets a binary variable $x_(i j)$ indicating whether $i$ is ranked before $j$. Transitivity constraints enforce a valid linear order, and the objective minimizes the total disagreement cost.
+    ][
+      _Construction._ Given $n$ items and comparison matrix $A$, introduce $n(n-1)/2$ binary variables $x_(i j)$ for $i < j$. For each triple ${a, b, c}$ with $a < b < c$, add two transitivity constraints:
+      $
+        x_(a b) + x_(b c) - x_(a c) &<= 1 \
+        -x_(a b) - x_(b c) + x_(a c) &<= 0
+      $
+      The objective is:
+      $
+        min sum_(i < j) (a_(j i) - a_(i j)) dot x_(i j)
+      $
+      This yields $n(n-1)/2$ variables and $n(n-1)(n-2)/3$ constraints.
+
+      _Correctness._ ($arrow.r.double$) Any permutation $pi$ defines a consistent tournament: set $x_(i j) = 1$ iff $i$ appears before $j$ in $pi$. The transitivity constraints are satisfied because a linear order has no directed cycles. The ILP objective equals the disagreement cost of $pi$. ($arrow.l.double$) Any feasible binary solution defines a transitive tournament (an acyclic tournament), which corresponds to a unique linear order. The objective equals the disagreement cost of that order.
+
+      _Solution extraction._ For each item $i$, count the number of items ranked before it: $"rank"(i) = sum_(j < i) x_(j i) + sum_(j > i) (1 - x_(i j))$. The resulting rank vector is the permutation.
+    ]
+  ]
+}
+
+#{
+  let ocst_ilp = load-example("OptimumCommunicationSpanningTree", "ILP")
+  let ocst_ilp_sol = ocst_ilp.solutions.at(0)
+  let ocst_n = ocst_ilp.source.instance.num_vertices
+  let ocst_nv = ocst_ilp.target.instance.num_vars
+  let ocst_nc = ocst_ilp.target.instance.constraints.len()
+  [
+    #reduction-rule("OptimumCommunicationSpanningTree", "ILP",
+      example: true,
+      example-caption: [$K_#ocst_n$, #ocst_nv variables, #ocst_nc constraints],
+      extra: [
+        #pred-commands(
+          "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
+          "pred reduce ocst.json --to " + target-spec(ocst_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate ocst.json --config " + ocst_ilp_sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* $K_#ocst_n$ with edge weight and requirement matrices.
+
+        *Step 2 -- Build the ILP.* Introduce edge selectors and multi-commodity flow variables. The ILP has #ocst_nv variables and #ocst_nc constraints.
+
+        *Step 3 -- Verify.* The ILP optimum extracts to edge selection $(#ocst_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+      ],
+    )[
+      Binary edge selectors determine the spanning tree. Multi-commodity flow variables route one unit of flow for each vertex pair with positive requirement, and the objective minimizes the total weighted communication cost.
+    ][
+      _Construction._ Given $K_n$ with weights $w(e)$ and requirements $r(u, v)$, let $m = n(n-1)/2$. Introduce binary edge variables $x_e$ for each edge. For each pair $(s, t)$ with $r(s, t) > 0$, add directed flow variables $f^(s t)_(e, "fwd")$ and $f^(s t)_(e, "bwd")$ for each edge $e$.
+
+      Constraints:
+      - Tree size: $sum_e x_e = n - 1$
+      - Flow conservation: for each commodity $(s, t)$ and each vertex $v$, net inflow equals $-1$ at source $s$, $+1$ at sink $t$, and $0$ elsewhere.
+      - Capacity linking: $f^(s t)_(e, "dir") <= x_e$ for each commodity and direction.
+
+      Objective: $min sum_((s,t): r > 0) r(s,t) dot sum_e w(e) dot (f^(s t)_(e, "fwd") + f^(s t)_(e, "bwd")))$
+
+      _Correctness._ ($arrow.r.double$) Any spanning tree defines edge selectors and unique path flows. The objective equals the communication cost. ($arrow.l.double$) Any feasible ILP solution with $n - 1$ selected edges and valid flows corresponds to a connected spanning subgraph (tree), and the flow cost equals the path-weighted communication cost.
+
+      _Solution extraction._ Output the first $m$ variables $(x_0, dots, x_(m-1))$ as the edge selection.
+    ]
+  ]
+}
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "KingsSubgraph")[
@@ -12099,6 +12954,87 @@ The following table shows concrete variable overhead for example instances, take
   )
   (name: example-name(entry.source, entry.target), data: d)
 })
+
+// === Missing problem-defs and ILP reduction-rules ===
+
+#problem-def("MaximumDomaticNumber")[
+  Given an undirected graph $G = (V, E)$, find the maximum $k$ such that $V$ can be partitioned into $k$ disjoint dominating sets $V_1, dots, V_k$ where each $V_i$ dominates all of $V$.
+][
+  Maximum Domatic Number (GT3) @garey1979. NP-complete for any fixed $k >= 3$ (Garey, Johnson, Tarjan 1976). Polynomial for $k = 2$.
+
+  The best known exact algorithm runs in $O^*(2.695^n)$ (Riege, Rothe, Spakowski, Yamamoto 2007).
+]
+
+#reduction-rule("MaximumDomaticNumber", "ILP")[
+  Binary assignment variables $x_(v,i) in {0,1}$ for each vertex $v$ and set index $i in {1, dots, n}$, plus binary usage indicators $y_i$. Partition constraints, domination constraints, and linking constraints enforce a valid domatic partition. Maximize $sum_i y_i$.
+][
+  _Construction._ Introduce $n^2 + n$ binary variables. For each vertex $v$, $sum_i x_(v,i) = 1$ (partition). For each $v$ and $i$, $x_(v,i) + sum_(u in N(v)) x_(u,i) >= y_i$ (domination). For each $i$, $y_i <= sum_v x_(v,i)$ (linking). Maximize $sum_i y_i$.
+
+  _Correctness._ ($arrow.r.double$) Any valid domatic partition gives a feasible ILP assignment with the same number of non-empty sets. ($arrow.l.double$) Any feasible ILP solution encodes a valid domatic partition.
+
+  _Solution extraction._ For each vertex $v$, find $i$ with $x_(v,i) = 1$; set $"config"[v] = i$.
+]
+
+#problem-def("MinimumMetricDimension")[
+  Given an undirected graph $G = (V, E)$, find a minimum-size resolving set $V' subset.eq V$ such that for every pair of distinct vertices $u, v in V$, there exists $w in V'$ with $d(u, w) != d(v, w)$.
+][
+  Minimum Metric Dimension (GT61) @garey1979. NP-complete via reduction from 3-Dimensional Matching. Polynomial for trees.
+
+  The best known exact algorithm is brute-force $O^*(2^n)$.
+]
+
+#reduction-rule("MinimumMetricDimension", "ILP")[
+  Binary variables $z_v in {0,1}$ for each vertex. Precompute all-pairs shortest-path distances. For each pair $(u, v)$ with $u < v$, add constraint $sum_(w: d(u,w) != d(v,w)) z_w >= 1$. Minimize $sum_v z_v$.
+][
+  _Construction._ $n$ binary variables and $n(n-1)/2$ pair-distinguishing constraints from BFS distances.
+
+  _Correctness._ ($arrow.r.double$) A resolving set satisfies all pair constraints. ($arrow.l.double$) Any feasible solution is a resolving set since every pair is distinguished.
+
+  _Solution extraction._ $z_v = 1 arrow.r "config"[v] = 1$.
+]
+
+#problem-def("MinimumGraphBandwidth")[
+  Given an undirected graph $G = (V, E)$, find a one-to-one mapping $f: V -> {0, 1, dots, |V|-1}$ that minimizes $max_({u,v} in E) |f(u) - f(v)|$.
+][
+  Graph Bandwidth (GT40) @garey1979. NP-complete even for trees with maximum degree 3. The brute-force bound is $O^*(n!)$ over all permutations.
+]
+
+#reduction-rule("MinimumGraphBandwidth", "ILP")[
+  Assignment variables $x_(v,p) in {0,1}$ for vertex $v$ and position $p$, integer position variables, and bandwidth variable $B$. Bijection constraints enforce a valid permutation; edge-stretch constraints enforce $|"pos"(u) - "pos"(v)| <= B$. Minimize $B$.
+][
+  _Construction._ $n^2 + n + 1$ variables (assignment + position + bandwidth). Bijection: $sum_p x_(v,p) = 1$ and $sum_v x_(v,p) = 1$. Position linking and edge-stretch constraints bound the bandwidth.
+
+  _Correctness._ ($arrow.r.double$) Any valid permutation with bandwidth $B$ gives a feasible ILP with objective $B$. ($arrow.l.double$) Any feasible ILP solution encodes a valid permutation with bandwidth $<= B$.
+
+  _Solution extraction._ For each vertex $v$, find $p$ with $x_(v,p) = 1$; set $"config"[v] = p$.
+]
+
+#problem-def("MinimumCapacitatedSpanningTree")[
+  Given a weighted graph $G = (V, E)$ with root $v_0$, vertex requirements $r(v)$, and edge capacity $c$, find a spanning tree $T$ rooted at $v_0$ minimizing $sum_(e in T) w(e)$ subject to: for each edge $e$ in $T$, the sum of requirements in the subtree on the non-root side is at most $c$.
+][
+  Minimum Capacitated Spanning Tree (ND5) @garey1979. NP-hard in the strong sense, even with unit requirements and capacity 3.
+]
+
+#reduction-rule("MinimumCapacitatedSpanningTree", "ILP")[
+  Binary edge selectors $y_e$ plus directed requirement-flow variables. Flow conservation routes each vertex's requirement to the root; capacity constraints bound flow per edge.
+][
+  _Construction._ $3m$ variables: $m$ edge selectors + $2m$ directed flow. Tree cardinality, binary bounds, flow conservation (each non-root vertex generates $r(v)$ flow toward root), flow-edge linking, and per-edge capacity bounds ($<= c$). Minimize $sum_e w(e) dot y_e$.
+
+  _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces a valid flow. ($arrow.l.double$) A feasible ILP solution encodes a spanning tree satisfying capacity constraints.
+
+  _Solution extraction._ First $m$ variables (edge selectors) give the source configuration.
+]
+
+// MinimumMatrixCover → ILP (problem-def already exists above, just need reduction-rule)
+#reduction-rule("MinimumMatrixCover", "ILP")[
+  McCormick linearization of the quadratic form: $n$ sign variables $x_i$ plus $n(n-1)/2$ auxiliary variables $y_(i j)$ linearizing products $x_i x_j$. Three McCormick constraints per pair. Minimize the linearized objective.
+][
+  _Construction._ $n + n(n-1)/2$ binary variables and $3 dot n(n-1)/2$ constraints. For each pair $i < j$: $y_(i j) <= x_i$, $y_(i j) <= x_j$, $y_(i j) >= x_i + x_j - 1$. The objective encodes $sum_(i,j) a_(i j) dot f(i) dot f(j)$ via $f(i) = 2x_i - 1$.
+
+  _Correctness._ ($arrow.r.double$) Any sign assignment $f$ maps to $x_i = (f(i)+1)/2$ with matching quadratic form value. ($arrow.l.double$) McCormick ensures $y_(i j) = x_i x_j$ at optimality.
+
+  _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
+]
 
 #pagebreak()
 #bibliography("references.bib", style: "ieee")

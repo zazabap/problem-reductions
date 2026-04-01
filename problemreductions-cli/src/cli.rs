@@ -227,13 +227,16 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   KClique                         --graph, --k
+  VertexCover (VC)                --graph, --k
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
   MonochromaticTriangle           --graph
   PartitionIntoTriangles          --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
+  MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
+  MaximumLeafSpanningTree         --graph
   LongestCircuit                  --graph, --edge-weights
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
@@ -247,10 +250,12 @@ Flags by problem type:
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  Clustering                      --distance-matrix, --k, --diameter-bound
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetProduct                    --sizes, --target
   SubsetSum                       --sizes, --target
+  MinimumAxiomSet                 --n, --true-sentences, --implications
   Numerical3DimensionalMatching    --w-sizes, --x-sizes, --y-sizes, --bound
   Betweenness                     --n, --sets (triples a,b,c)
   CyclicOrdering                  --n, --sets (triples a,b,c)
@@ -270,6 +275,7 @@ Flags by problem type:
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   3DM (ThreeDimensionalMatching)  --universe, --sets (triples w,x,y)
+  ThreeMatroidIntersection        --universe, --partitions, --bound
   SetBasis                        --universe, --sets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies
   PrimeAttributeName              --universe, --deps, --query
@@ -284,6 +290,9 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  MaximumLikelihoodRanking        --matrix (i32 rows, semicolon-separated)
+  MinimumMatrixCover              --matrix (i64 rows, semicolon-separated)
+  MinimumWeightDecoding           --matrix (JSON 2D bool), --rhs (comma-separated booleans)
   FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage
@@ -333,10 +342,19 @@ Flags by problem type:
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
   FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
+  MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
+  MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
+  MinimumCodeGenerationOneRegister --arcs [--num-vertices]
+  MinimumCodeGenerationParallelAssignments --num-variables, --assignments
+  MinimumCodeGenerationUnlimitedRegisters --left-arcs, --right-arcs [--num-vertices]
+  MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
   IntegerExpressionMembership     --expression (JSON), --target
   MinimumGeometricConnectedDominatingSet --positions (float x,y pairs), --radius
+  MinimumDecisionTree             --test-matrix (JSON 2D bool), --num-objects, --num-tests
+  MinimumDisjunctiveNormalForm (MinDNF) --num-vars, --truth-table
+  SquareTiling (WangTiling)       --num-colors, --tiles, --grid-size
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -547,6 +565,9 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
+    /// Three partition matroids for ThreeMatroidIntersection (pipe-separated matroids, semicolon-separated groups, e.g., "0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3")
+    #[arg(long)]
+    pub partitions: Option<String>,
     /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
     #[arg(long)]
     pub bundles: Option<String>,
@@ -631,6 +652,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Left operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>3,2>3,0>1)
+    #[arg(long)]
+    pub left_arcs: Option<String>,
+    /// Right operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>4,2>4,0>2)
+    #[arg(long)]
+    pub right_arcs: Option<String>,
     /// Arc-index equality constraints for IntegralFlowHomologousArcs (semicolon-separated, e.g., "2=5;4=3")
     #[arg(long)]
     pub homologous_pairs: Option<String>,
@@ -824,6 +851,51 @@ pub struct CreateArgs {
     /// Output arcs (transition-to-place) for NonLivenessFreePetriNet (e.g., "0>1,1>2,2>3")
     #[arg(long)]
     pub output_arcs: Option<String>,
+    /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
+    #[arg(long)]
+    pub gate_types: Option<String>,
+    /// Input vertex indices (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub inputs: Option<String>,
+    /// Output vertex indices (comma-separated, e.g., "5,6")
+    #[arg(long)]
+    pub outputs: Option<String>,
+    /// True sentence indices for MinimumAxiomSet (comma-separated, e.g., "0,1,2,3,4,5,6,7")
+    #[arg(long)]
+    pub true_sentences: Option<String>,
+    /// Implications for MinimumAxiomSet (semicolon-separated "antecedents>consequent", e.g., "0>2;0>3;1>4;2,4>6")
+    #[arg(long)]
+    pub implications: Option<String>,
+    /// Loop length N for MinimumRegisterSufficiencyForLoops
+    #[arg(long)]
+    pub loop_length: Option<usize>,
+    /// Variables as semicolon-separated start,duration pairs for MinimumRegisterSufficiencyForLoops (e.g., "0,3;2,3;4,3")
+    #[arg(long)]
+    pub loop_variables: Option<String>,
+    /// Parallel assignments for MinimumCodeGenerationParallelAssignments (semicolon-separated "target:read1,read2" entries, e.g., "0:1,2;1:0;2:3;3:1,2")
+    #[arg(long)]
+    pub assignments: Option<String>,
+    /// Number of variables for MinimumCodeGenerationParallelAssignments
+    #[arg(long)]
+    pub num_variables: Option<usize>,
+    /// Truth table for MinimumDisjunctiveNormalForm (comma-separated 0/1, e.g., "0,1,1,1,1,1,1,0")
+    #[arg(long)]
+    pub truth_table: Option<String>,
+    /// Test matrix for MinimumDecisionTree (JSON 2D bool array, e.g., '[[true,true,false],[true,false,false]]')
+    #[arg(long)]
+    pub test_matrix: Option<String>,
+    /// Number of tests for MinimumDecisionTree
+    #[arg(long)]
+    pub num_tests: Option<usize>,
+    /// Tiles for SquareTiling (semicolon-separated top,right,bottom,left tuples, e.g., "0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1")
+    #[arg(long)]
+    pub tiles: Option<String>,
+    /// Grid size N for SquareTiling (N x N grid)
+    #[arg(long)]
+    pub grid_size: Option<usize>,
+    /// Number of colors for SquareTiling
+    #[arg(long)]
+    pub num_colors: Option<usize>,
 }
 
 #[derive(clap::Args)]

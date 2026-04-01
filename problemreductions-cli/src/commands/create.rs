@@ -10,8 +10,9 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, FeasibleBasisExtension,
-    MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations, QuadraticCongruences,
-    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF,
+    MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
+    MinimumWeightSolutionToLinearEquations, QuadraticCongruences, QuadraticDiophantineEquations,
+    SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -21,15 +22,20 @@ use problemreductions::models::graph::{
     MinimumDummyActivitiesPert, MinimumGeometricConnectedDominatingSet, MinimumMaximalMatching,
     MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
     RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    VertexCover,
 };
 use problemreductions::models::misc::{
     AdditionalKey, Betweenness, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment,
-    CbqRelation, ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, CyclicOrdering,
-    DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
+    CbqRelation, Clustering, ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables,
+    CyclicOrdering, DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
-    LongestCommonSubsequence, MinimumExternalMacroDataCompression,
-    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MultiprocessorScheduling,
+    LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
+    MinimumCodeGenerationOneRegister, MinimumCodeGenerationParallelAssignments,
+    MinimumCodeGenerationUnlimitedRegisters, MinimumDecisionTree, MinimumDisjunctiveNormalForm,
+    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
+    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
     NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
     PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
@@ -37,7 +43,7 @@ use problemreductions::models::misc::{
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SequencingWithinIntervals, ShortestCommonSupersequence, SquareTiling, StringToStringCorrection,
     SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
@@ -114,6 +120,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.r_weights.is_none()
         && args.s_weights.is_none()
         && args.partition.is_none()
+        && args.partitions.is_none()
         && args.bundles.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
@@ -143,6 +150,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
+        && args.left_arcs.is_none()
+        && args.right_arcs.is_none()
         && args.homologous_pairs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
@@ -221,6 +230,21 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.assignment.is_none()
         && args.initial_marking.is_none()
         && args.output_arcs.is_none()
+        && args.gate_types.is_none()
+        && args.inputs.is_none()
+        && args.outputs.is_none()
+        && args.true_sentences.is_none()
+        && args.implications.is_none()
+        && args.loop_length.is_none()
+        && args.loop_variables.is_none()
+        && args.assignments.is_none()
+        && args.num_variables.is_none()
+        && args.truth_table.is_none()
+        && args.test_matrix.is_none()
+        && args.num_tests.is_none()
+        && args.tiles.is_none()
+        && args.grid_size.is_none()
+        && args.num_colors.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -615,6 +639,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
+        "VertexCover" => "--graph 0-1,1-2,0-2,2-3 --k 2",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
@@ -680,6 +705,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
+        "Maximum2Satisfiability" => "--num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3;2,4;-3,-4;3,4\"",
         "NonTautology" => {
             "--num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
         }
@@ -694,6 +720,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
+        "MaximumLeafSpanningTree" => "--graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3",
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\"",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
@@ -706,6 +733,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
         }
         "MaximumAchromaticNumber" => "--graph 0-1,1-2,2-3,3-4,4-5,5-0",
+        "MaximumDomaticNumber" => "--graph 0-1,1-2,0-2",
         "MinimumCoveringByCliques" => "--graph 0-1,1-2,0-2,2-3",
         "MinimumIntersectionGraphBasis" => "--graph 0-1,1-2",
         "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
@@ -753,6 +781,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
+        "MinimumEdgeCostFlow" => {
+            "--arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "DirectedHamiltonianPath" => {
             "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
@@ -764,6 +795,15 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "FeasibleRegisterAssignment" => {
             "--arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 --num-vertices 4"
+        }
+        "MinimumFaultDetectionTestSet" => {
+            "--arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 --num-vertices 7"
+        }
+        "MinimumWeightAndOrGraph" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
+        }
+        "MinimumRegisterSufficiencyForLoops" => {
+            "--loop-length 6 --loop-variables \"0,3;2,3;4,3\""
         }
         "RegisterSufficiency" => {
             "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
@@ -797,6 +837,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetProduct" => "--sizes 2,3,5,7,6,10 --target 210",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "MinimumAxiomSet" => {
+            "--n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\""
+        }
         "IntegerExpressionMembership" => {
             "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
         }
@@ -815,6 +858,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SimultaneousIncongruences" => "--pairs \"2,2;1,3;2,5;3,7\"",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+        }
+        "Clustering" => {
+            "--distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1"
         }
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
@@ -848,7 +894,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
         }
+        "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
+        "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
         "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
+        "MinimumWeightDecoding" => {
+            "--matrix '[[true,false,true,true],[false,true,true,false],[true,true,false,true]]' --rhs 'true,true,false'"
+        }
         "MinimumWeightSolutionToLinearEquations" => {
             "--matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'"
         }
@@ -865,6 +916,18 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "FeasibleBasisExtension" => {
             "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
+        }
+        "MinimumCodeGenerationParallelAssignments" => {
+            "--num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\""
+        }
+        "MinimumDecisionTree" => {
+            "--test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3"
+        }
+        "MinimumDisjunctiveNormalForm" => {
+            "--num-vars 3 --truth-table 0,1,1,1,1,1,1,0"
+        }
+        "SquareTiling" => {
+            "--num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2"
         }
         _ => "",
     }
@@ -906,6 +969,12 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
+        ("MinimumCodeGenerationParallelAssignments", "num_variables") => {
+            return "num-variables".to_string();
+        }
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            return "assignments".to_string();
+        }
         ("StackerCrane", "edges") => return "graph".to_string(),
         ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
@@ -979,6 +1048,9 @@ fn help_flag_hint(
         | ("MinimumInternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
         ("MinimumExternalMacroDataCompression", "pointer_cost")
         | ("MinimumInternalMacroDataCompression", "pointer_cost") => "positive integer: 2",
+        ("MinimumAxiomSet", "num_sentences") => "total number of sentences: 8",
+        ("MinimumAxiomSet", "true_sentences") => "comma-separated indices: 0,1,2,3,4,5,6,7",
+        ("MinimumAxiomSet", "implications") => "semicolon-separated rules: \"0>2;0>3;1>4;2,4>6\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -1003,7 +1075,13 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MaximumLikelihoodRanking", "matrix") => {
+            "semicolon-separated i32 rows: \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\""
+        }
+        ("MinimumMatrixCover", "matrix") => "semicolon-separated i64 rows: \"0,3,1;3,0,2;1,2,0\"",
         ("MinimumMatrixDomination", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MinimumWeightDecoding", "matrix") => "JSON 2D bool array: '[[true,false],[false,true]]'",
+        ("MinimumWeightDecoding", "target") => "comma-separated booleans: \"true,true,false\"",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
             "JSON 2D integer array: '[[1,2,3],[4,5,6]]'"
         }
@@ -1011,6 +1089,9 @@ fn help_flag_hint(
         ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
         ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
         ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            "semicolon-separated target:reads entries: \"0:1,2;1:0;2:3;3:1,2\""
+        }
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -1478,6 +1559,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumDomaticNumber --graph 0-1,1-2,0-2"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(
+                    graph,
+                ))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCoveringByCliques (graph only, no weights)
         "MinimumCoveringByCliques" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -1526,6 +1622,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(HamiltonianCircuit::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumLeafSpanningTree --graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -2215,6 +2324,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(KClique::new(graph, k))?, resolved_variant.clone())
         }
 
+        "VertexCover" => {
+            let usage = "Usage: pred create VertexCover --graph 0-1,1-2,0-2,2-3 --k 2";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (ser(VertexCover::new(graph, k))?, resolved_variant.clone())
+        }
+
         // SAT
         "Satisfiability" => {
             let num_vars = args.num_vars.ok_or_else(|| {
@@ -2253,6 +2377,20 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        "Maximum2Satisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Maximum2Satisfiability requires --num-vars\n\n\
+                     Usage: pred create MAX2SAT --num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(Maximum2Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
         }
 
         "NonTautology" => {
@@ -2674,6 +2812,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetProduct::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumAxiomSet
+        "MinimumAxiomSet" => {
+            let usage = "Usage: pred create MinimumAxiomSet --n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\"";
+            let num_sentences = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumAxiomSet requires --n, --true-sentences, and --implications\n\n{usage}"
+                )
+            })?;
+            let ts_str = args.true_sentences.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --true-sentences\n\n{usage}")
+            })?;
+            let imp_str = args.implications.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --implications\n\n{usage}")
+            })?;
+            let true_sentences: Vec<usize> = ts_str
+                .split(',')
+                .map(|s| s.trim().parse::<usize>())
+                .collect::<Result<_, _>>()
+                .context("--true-sentences must be comma-separated usize values")?;
+            let implications = parse_implications(imp_str).context(
+                "--implications must be semicolon-separated \"antecedents>consequent\" pairs",
+            )?;
+            (
+                ser(MinimumAxiomSet::new(
+                    num_sentences,
+                    true_sentences,
+                    implications,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -3398,6 +3568,65 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ThreeMatroidIntersection
+        "ThreeMatroidIntersection" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --universe, --partitions, and --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound_val = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound = usize::try_from(bound_val)
+                .map_err(|_| anyhow::anyhow!("--bound must be non-negative, got {}", bound_val))?;
+            let partitions_str = args.partitions.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --partitions\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let matroids: Vec<Vec<Vec<usize>>> = partitions_str
+                .split('|')
+                .map(|matroid_str| {
+                    matroid_str
+                        .split(';')
+                        .map(|group_str| {
+                            group_str
+                                .split(',')
+                                .map(|s| {
+                                    s.trim().parse::<usize>().map_err(|_| {
+                                        anyhow::anyhow!(
+                                            "Invalid element in partitions: '{}'",
+                                            s.trim()
+                                        )
+                                    })
+                                })
+                                .collect::<Result<Vec<_>>>()
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            if matroids.len() != 3 {
+                bail!(
+                    "Expected exactly 3 partition matroids separated by '|', got {}",
+                    matroids.len()
+                );
+            }
+            (
+                ser(
+                    problemreductions::models::set::ThreeMatroidIntersection::new(
+                        universe, matroids, bound,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SetBasis
         "SetBasis" => {
             let universe = args.universe.ok_or_else(|| {
@@ -3623,11 +3852,89 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MaximumLikelihoodRanking
+        "MaximumLikelihoodRanking" => {
+            let usage = "Usage: pred create MaximumLikelihoodRanking --matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MaximumLikelihoodRanking requires --matrix (semicolon-separated i32 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix_i64 = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            let matrix: Vec<Vec<i32>> = matrix_i64
+                .into_iter()
+                .map(|row| {
+                    row.into_iter()
+                        .map(|v| {
+                            i32::try_from(v)
+                                .map_err(|_| anyhow::anyhow!("matrix value {v} out of i32 range"))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MaximumLikelihoodRanking::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMatrixCover
+        "MinimumMatrixCover" => {
+            let usage = "Usage: pred create MinimumMatrixCover --matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumMatrixCover requires --matrix (semicolon-separated i64 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            (
+                ser(MinimumMatrixCover::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumMatrixDomination
         "MinimumMatrixDomination" => {
             let matrix = parse_bool_matrix(args)?;
             (
                 ser(MinimumMatrixDomination::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightDecoding
+        "MinimumWeightDecoding" => {
+            let usage = "Usage: pred create MinimumWeightDecoding --matrix '[[true,false,true],[false,true,true]]' --rhs 'true,true'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix (JSON 2D bool array) and --rhs\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix as a JSON 2D bool array (e.g., '[[true,false],[false,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --rhs (comma-separated booleans)\n\n{usage}"
+                )
+            })?;
+            let target: Vec<bool> = rhs_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "true" | "1" => Ok(true),
+                    "false" | "0" => Ok(false),
+                    other => Err(anyhow::anyhow!("invalid boolean value: {other}")),
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated booleans: {err}\n\n{usage}"
+                    )
+                })?;
+            (
+                ser(MinimumWeightDecoding::new(matrix, target))?,
                 resolved_variant.clone(),
             )
         }
@@ -5304,6 +5611,58 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumEdgeCostFlow
+        "MinimumEdgeCostFlow" => {
+            let usage = "Usage: pred create MinimumEdgeCostFlow --arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3";
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --arcs\n\n{usage}"))?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let prices: Vec<i64> = if let Some(ref s) = args.edge_weights {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --edge-weights (prices)\n\n{usage}");
+            };
+            anyhow::ensure!(
+                prices.len() == num_arcs,
+                "--edge-weights length ({}) must match number of arcs ({num_arcs})",
+                prices.len()
+            );
+            let capacities: Vec<i64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --capacities\n\n{usage}");
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "--capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("MinimumEdgeCostFlow requires --source\n\n{usage}")
+            })?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --sink\n\n{usage}"))?;
+            anyhow::ensure!(source < n, "--source ({source}) >= num_vertices ({n})");
+            anyhow::ensure!(sink < n, "--sink ({sink}) >= num_vertices ({n})");
+            anyhow::ensure!(source != sink, "--source and --sink must be distinct");
+            let requirement = args.requirement.unwrap_or(1) as i64;
+            (
+                ser(problemreductions::models::graph::MinimumEdgeCostFlow::new(
+                    graph,
+                    prices,
+                    capacities,
+                    source,
+                    sink,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumDummyActivitiesPert
         "MinimumDummyActivitiesPert" => {
             let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
@@ -5389,6 +5748,257 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let arcs = graph.arcs();
             (
                 ser(RegisterSufficiency::new(n, arcs, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationOneRegister
+        "MinimumCodeGenerationOneRegister" => {
+            let usage = "Usage: pred create MinimumCodeGenerationOneRegister --arcs \"0>1,0>2,1>3,1>4,2>3,2>5,3>5,3>6\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationOneRegister requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            // Compute num_leaves: vertices with out-degree 0
+            let mut out_degree = vec![0usize; n];
+            for &(parent, _child) in &arcs {
+                out_degree[parent] += 1;
+            }
+            let num_leaves = out_degree.iter().filter(|&&d| d == 0).count();
+            (
+                ser(MinimumCodeGenerationOneRegister::new(n, arcs, num_leaves))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationUnlimitedRegisters
+        "MinimumCodeGenerationUnlimitedRegisters" => {
+            let usage = "Usage: pred create MinimumCodeGenerationUnlimitedRegisters --left-arcs \"1>3,2>3,0>1\" --right-arcs \"1>4,2>4,0>2\" [--num-vertices N]";
+            let left_str = args.left_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --left-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let right_str = args.right_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --right-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (left_graph, _) = parse_directed_graph(left_str, args.num_vertices)?;
+            let (right_graph, _) = parse_directed_graph(right_str, args.num_vertices)?;
+            let n = if let Some(nv) = args.num_vertices {
+                nv
+            } else {
+                left_graph.num_vertices().max(right_graph.num_vertices())
+            };
+            let left_arcs = left_graph.arcs();
+            let right_arcs = right_graph.arcs();
+            (
+                ser(MinimumCodeGenerationUnlimitedRegisters::new(
+                    n, left_arcs, right_arcs,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationParallelAssignments
+        "MinimumCodeGenerationParallelAssignments" => {
+            let usage = "Usage: pred create MinimumCodeGenerationParallelAssignments --num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\"";
+            let nv = args.num_variables.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --num-variables and --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assign_str = args.assignments.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assignments: Vec<(usize, Vec<usize>)> = assign_str
+                .split(';')
+                .map(|entry| {
+                    let parts: Vec<&str> = entry.split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "each assignment must be 'target:read1,read2,...'; got '{entry}'"
+                    );
+                    let target: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context("invalid target variable index")?;
+                    let reads: Vec<usize> = if parts[1].trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        parts[1]
+                            .split(',')
+                            .map(|s| {
+                                s.trim()
+                                    .parse::<usize>()
+                                    .context("invalid read variable index")
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    Ok((target, reads))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumCodeGenerationParallelAssignments::new(
+                    nv,
+                    assignments,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumRegisterSufficiencyForLoops
+        "MinimumRegisterSufficiencyForLoops" => {
+            let usage = "Usage: pred create MinimumRegisterSufficiencyForLoops --loop-length 6 --loop-variables \"0,3;2,3;4,3\"";
+            let loop_length = args.loop_length.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-length and --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let vars_str = args.loop_variables.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let variables: Vec<(usize, usize)> = vars_str
+                .split(';')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.split(',').collect();
+                    if parts.len() != 2 {
+                        bail!("Each variable must be start,duration (got '{pair}')\n\n{usage}");
+                    }
+                    let start: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid start_time in '{pair}'\n\n{usage}"))?;
+                    let dur: usize = parts[1]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid duration in '{pair}'\n\n{usage}"))?;
+                    Ok((start, dur))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumRegisterSufficiencyForLoops::new(
+                    loop_length,
+                    variables,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFaultDetectionTestSet
+        "MinimumFaultDetectionTestSet" => {
+            let usage = "Usage: pred create MinimumFaultDetectionTestSet --arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --arcs, --inputs, and --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let inputs_str = args.inputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --inputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let outputs_str = args.outputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let inputs: Vec<usize> = inputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid input vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            let outputs: Vec<usize> = outputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid output vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            (
+                ser(MinimumFaultDetectionTestSet::new(n, arcs, inputs, outputs))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightAndOrGraph
+        "MinimumWeightAndOrGraph" => {
+            let usage = "Usage: pred create MinimumWeightAndOrGraph --arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --arcs, --source, --gate-types, and --weights\n\n\
+                     {usage}"
+                )
+            })?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --source\n\n\
+                     {usage}"
+                )
+            })?;
+            let gate_types_str = args.gate_types.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --gate-types (e.g., \"AND,OR,OR,L,L,L,L\")\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let arc_weights = parse_arc_weights(args, num_arcs)?;
+            let gate_types: Vec<Option<bool>> = gate_types_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "AND" | "and" => Ok(Some(true)),
+                    "OR" | "or" => Ok(Some(false)),
+                    "L" | "l" | "LEAF" | "leaf" => Ok(None),
+                    other => Err(anyhow::anyhow!(
+                        "Invalid gate type '{}': expected AND, OR, or L (leaf)\n\n{usage}",
+                        other
+                    )),
+                })
+                .collect::<Result<_>>()?;
+            if gate_types.len() != n {
+                bail!(
+                    "Gate types length {} does not match vertex count {}\n\n{usage}",
+                    gate_types.len(),
+                    n
+                );
+            }
+            (
+                ser(MinimumWeightAndOrGraph::new(
+                    n,
+                    arcs,
+                    source,
+                    gate_types,
+                    arc_weights,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -6023,6 +6633,114 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     target,
                     bound,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Clustering
+        "Clustering" => {
+            let usage = "Usage: pred create Clustering --distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1";
+            let dist_str = args.distance_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Clustering requires --distance-matrix, --k, and --diameter-bound\n\n{usage}"
+                )
+            })?;
+            let distance_matrix = parse_u64_matrix_rows(dist_str, "distance matrix")?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("Clustering requires --k (number of clusters)\n\n{usage}")
+            })?;
+            let diameter_bound = args
+                .diameter_bound
+                .ok_or_else(|| anyhow::anyhow!("Clustering requires --diameter-bound\n\n{usage}"))?
+                as u64;
+            (
+                ser(Clustering::new(distance_matrix, k, diameter_bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDecisionTree
+        "MinimumDecisionTree" => {
+            let usage = "Usage: pred create MinimumDecisionTree --test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3";
+            let matrix_str = args.test_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --test-matrix\n\n{usage}")
+            })?;
+            let test_matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str)
+                .context("Failed to parse --test-matrix as JSON 2D bool array")?;
+            let num_objects = args.num_objects.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-objects\n\n{usage}")
+            })?;
+            let num_tests = args.num_tests.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-tests\n\n{usage}")
+            })?;
+            (
+                ser(MinimumDecisionTree::new(
+                    test_matrix,
+                    num_objects,
+                    num_tests,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDisjunctiveNormalForm
+        "MinimumDisjunctiveNormalForm" => {
+            let usage = "Usage: pred create MinDNF --num-vars 3 --truth-table 0,1,1,1,1,1,1,0";
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --num-vars\n\n{usage}")
+            })?;
+            let tt_str = args.truth_table.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --truth-table\n\n{usage}")
+            })?;
+            let truth_table: Vec<bool> = tt_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "1" | "true" => Ok(true),
+                    "0" | "false" => Ok(false),
+                    other => bail!("Invalid truth table entry '{}': expected 0 or 1", other),
+                })
+                .collect::<Result<Vec<bool>>>()?;
+            (
+                ser(MinimumDisjunctiveNormalForm::new(num_vars, truth_table))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SquareTiling
+        "SquareTiling" => {
+            let usage = "Usage: pred create SquareTiling --num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2";
+            let num_colors = args
+                .num_colors
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --num-colors\n\n{usage}"))?;
+            let tiles_str = args
+                .tiles
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --tiles\n\n{usage}"))?;
+            let tiles: Vec<(usize, usize, usize, usize)> = tiles_str
+                .split(';')
+                .map(|tile_s| {
+                    let parts: Vec<usize> = tile_s
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .context("invalid tile color index")
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    if parts.len() != 4 {
+                        bail!(
+                            "Each tile must have exactly 4 values (top,right,bottom,left), got {}",
+                            parts.len()
+                        );
+                    }
+                    Ok((parts[0], parts[1], parts[2], parts[3]))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let grid_size = args
+                .grid_size
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --grid-size\n\n{usage}"))?;
+            (
+                ser(SquareTiling::new(num_colors, tiles, grid_size))?,
                 resolved_variant.clone(),
             )
         }
@@ -7595,6 +8313,29 @@ fn create_random(
             )
         }
 
+        "VertexCover" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let usage =
+                "Usage: pred create VertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (
+                ser(VertexCover::new(graph, k))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -7630,6 +8371,20 @@ fn create_random(
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
+                variant,
+            )
+        }
+
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(graph))?,
                 variant,
             )
         }
@@ -7682,6 +8437,21 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(HamiltonianCircuit::new(graph))?, variant)
+        }
+
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
+                variant,
+            )
         }
 
         // HamiltonianPath (graph only, no weights)
@@ -7927,8 +8697,8 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, VertexCover, TravelingSalesman, \
+             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, MaximumLeafSpanningTree, SteinerTree, \
              OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
@@ -7940,6 +8710,34 @@ fn create_random(
     };
 
     emit_problem_output(&output, out)
+}
+
+/// Parse implication rules from semicolon-separated "antecedents>consequent" strings.
+///
+/// Format: "0,1>2;3>4;5,6,7>0" where antecedents are comma-separated indices
+/// before the `>` and the consequent is the single index after.
+fn parse_implications(s: &str) -> Result<Vec<(Vec<usize>, usize)>> {
+    let mut implications = Vec::new();
+    for part in s.split(';') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (lhs, rhs) = part.split_once('>').ok_or_else(|| {
+            anyhow::anyhow!("Each implication must contain '>' separator: {part}")
+        })?;
+        let antecedents: Vec<usize> = lhs
+            .split(',')
+            .map(|x| x.trim().parse::<usize>())
+            .collect::<Result<_, _>>()
+            .context(format!("Invalid antecedent index in implication: {part}"))?;
+        let consequent: usize = rhs
+            .trim()
+            .parse()
+            .context(format!("Invalid consequent index in implication: {part}"))?;
+        implications.push((antecedents, consequent));
+    }
+    Ok(implications)
 }
 
 #[cfg(test)]
@@ -9133,6 +9931,7 @@ mod tests {
             r_weights: None,
             s_weights: None,
             partition: None,
+            partitions: None,
             bundles: None,
             universe: None,
             biedges: None,
@@ -9160,6 +9959,8 @@ mod tests {
             string: None,
             arc_costs: None,
             arcs: None,
+            left_arcs: None,
+            right_arcs: None,
             values: None,
             precedences: None,
             distance_matrix: None,
@@ -9225,6 +10026,21 @@ mod tests {
             assignment: None,
             initial_marking: None,
             output_arcs: None,
+            gate_types: None,
+            true_sentences: None,
+            implications: None,
+            loop_length: None,
+            loop_variables: None,
+            inputs: None,
+            outputs: None,
+            assignments: None,
+            num_variables: None,
+            truth_table: None,
+            test_matrix: None,
+            num_tests: None,
+            tiles: None,
+            grid_size: None,
+            num_colors: None,
         }
     }
 
