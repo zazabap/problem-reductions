@@ -1,0 +1,454 @@
+{
+  "reduction": "Planar3Satisfiability_to_MinimumGeometricConnectedDominatingSet",
+  "source_problem": "Planar3Satisfiability",
+  "source_variant": {},
+  "target_problem": "MinimumGeometricConnectedDominatingSet",
+  "target_variant": {},
+  "test_vectors": [
+    {
+      "label": "yes_single_clause",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      },
+      "target": {
+        "num_points": 10,
+        "radius": 2.5,
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            2.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            2.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            2.0
+          ],
+          [
+            2.0,
+            -3.0
+          ],
+          [
+            1.0,
+            -1.5
+          ],
+          [
+            2.0,
+            -1.5
+          ],
+          [
+            3.0,
+            -1.5
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "source_solution": [
+        false,
+        false,
+        true
+      ],
+      "target_min_cds": 3
+    },
+    {
+      "label": "yes_all_negated",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_points": 13,
+        "radius": 2.5,
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            2.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            2.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            2.0
+          ],
+          [
+            2.0,
+            -3.0
+          ],
+          [
+            0.6667,
+            0.3333
+          ],
+          [
+            1.3333,
+            -1.3333
+          ],
+          [
+            2.0,
+            0.3333
+          ],
+          [
+            2.0,
+            -1.3333
+          ],
+          [
+            3.3333,
+            0.3333
+          ],
+          [
+            2.6667,
+            -1.3333
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "source_solution": [
+        false,
+        false,
+        false
+      ],
+      "target_min_cds": 3
+    },
+    {
+      "label": "yes_two_clauses",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_points": 20,
+        "radius": 2.5,
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            2.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            2.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            2.0
+          ],
+          [
+            2.0,
+            -3.0
+          ],
+          [
+            1.0,
+            -1.5
+          ],
+          [
+            2.0,
+            -1.5
+          ],
+          [
+            3.0,
+            -1.5
+          ],
+          [
+            2.0,
+            -6.0
+          ],
+          [
+            0.5,
+            0.0
+          ],
+          [
+            1.0,
+            -2.0
+          ],
+          [
+            1.5,
+            -4.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            -2.0
+          ],
+          [
+            2.0,
+            -4.0
+          ],
+          [
+            3.5,
+            0.0
+          ],
+          [
+            3.0,
+            -2.0
+          ],
+          [
+            2.5,
+            -4.0
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "source_solution": [
+        false,
+        false,
+        true
+      ],
+      "target_min_cds": 4
+    },
+    {
+      "label": "yes_mixed_literals",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            -2,
+            3
+          ]
+        ]
+      },
+      "target": {
+        "num_points": 11,
+        "radius": 2.5,
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            2.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            2.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            2.0
+          ],
+          [
+            2.0,
+            -3.0
+          ],
+          [
+            1.0,
+            -1.5
+          ],
+          [
+            2.0,
+            0.3333
+          ],
+          [
+            2.0,
+            -1.3333
+          ],
+          [
+            3.0,
+            -1.5
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "source_solution": [
+        false,
+        false,
+        false
+      ],
+      "target_min_cds": 3
+    },
+    {
+      "label": "yes_four_vars_two_clauses",
+      "source": {
+        "num_vars": 4,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -2,
+            -3,
+            -4
+          ]
+        ]
+      },
+      "target": {
+        "num_points": 22,
+        "radius": 2.5,
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            2.0
+          ],
+          [
+            2.0,
+            0.0
+          ],
+          [
+            2.0,
+            2.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            2.0
+          ],
+          [
+            6.0,
+            0.0
+          ],
+          [
+            6.0,
+            2.0
+          ],
+          [
+            2.0,
+            -3.0
+          ],
+          [
+            1.0,
+            -1.5
+          ],
+          [
+            2.0,
+            -1.5
+          ],
+          [
+            3.0,
+            -1.5
+          ],
+          [
+            4.0,
+            -6.0
+          ],
+          [
+            2.5,
+            0.0
+          ],
+          [
+            3.0,
+            -2.0
+          ],
+          [
+            3.5,
+            -4.0
+          ],
+          [
+            4.0,
+            0.0
+          ],
+          [
+            4.0,
+            -2.0
+          ],
+          [
+            4.0,
+            -4.0
+          ],
+          [
+            5.5,
+            0.0
+          ],
+          [
+            5.0,
+            -2.0
+          ],
+          [
+            4.5,
+            -4.0
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "source_solution": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "target_min_cds": 5
+    }
+  ]
+}

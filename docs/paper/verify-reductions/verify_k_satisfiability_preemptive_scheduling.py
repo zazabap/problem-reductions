@@ -3,11 +3,10 @@
 Verification script: KSatisfiability(K3) -> PreemptiveScheduling
 
 Reduction from 3-SAT to Preemptive Scheduling via Ullman (1975).
-The reduction constructs a unit-task scheduling instance with precedence
-constraints and variable capacity at each time step. A schedule meeting
-the deadline exists iff the 3-SAT formula is satisfiable.
+The reduction constructs a unit-task scheduling instance (P4) with
+precedence constraints and variable capacity at each time step.
+A schedule meeting the deadline exists iff the 3-SAT formula is satisfiable.
 
-Ullman's construction: 3-SAT -> P4 (variable-capacity unit-task scheduling).
 Since unit-task scheduling is a special case of preemptive scheduling
 (unit tasks cannot be preempted), this directly yields a preemptive
 scheduling instance.
@@ -62,165 +61,149 @@ def is_3sat_satisfiable(num_vars: int, clauses: list[list[int]]) -> bool:
     return solve_3sat_brute(num_vars, clauses) is not None
 
 
-def solve_p4(
+# ============================================================
+# P4 constructive solver
+# ============================================================
+
+
+def construct_p4_schedule(
     num_jobs: int,
     precedences: list[tuple[int, int]],
     capacities: list[int],
     time_limit: int,
+    meta: dict,
+    truth_assignment: list[bool],
+    clauses: list[list[int]],
 ) -> list[int] | None:
     """
-    Solve the P4 scheduling problem: assign each job to a time step in [0, time_limit)
-    such that:
-    - If j1 < j2 (precedence), then f(j1) < f(j2) (strict ordering of start times)
-    - At each time step i, exactly c_i jobs are assigned to it
-    - All jobs are assigned
+    Given a truth assignment, construct the P4 schedule following Ullman's proof.
 
-    Uses constraint propagation + backtracking search.
-    Returns assignment (list of time steps per job) or None if infeasible.
+    Returns job-to-time-step assignment list, or None if the assignment
+    doesn't lead to a valid schedule.
+
+    Schedule structure (Ullman 1975):
+    - x_i = True  => x_{i,j} at time j, xbar_{i,j} at time j+1
+    - x_i = False => xbar_{i,j} at time j, x_{i,j} at time j+1
+    - Forcing jobs placed at the earliest time after their predecessor
+    - For each clause, exactly 1 of 7 clause jobs goes at time M+1
+      (the one whose binary pattern matches the truth assignment),
+      the other 6 go at time M+2.
     """
+    M = meta["source_num_vars"]
+    N = meta["source_num_clauses"]
     T = time_limit
+    var_chain_id = meta["var_chain_id_fn"]
+    forcing_id = meta["forcing_id_fn"]
+    clause_job_id = meta["clause_job_id_fn"]
 
-    # Build adjacency lists
-    succ_of = [[] for _ in range(num_jobs)]
-    pred_of = [[] for _ in range(num_jobs)]
+    assignment = [-1] * num_jobs
+
+    # Step 1: Assign variable chain jobs
+    for i in range(1, M + 1):
+        if truth_assignment[i - 1]:  # x_i = True
+            for j in range(M + 1):
+                assignment[var_chain_id(i, j, True)] = j       # x_{i,j} at time j
+                assignment[var_chain_id(i, j, False)] = j + 1  # xbar_{i,j} at time j+1
+        else:  # x_i = False
+            for j in range(M + 1):
+                assignment[var_chain_id(i, j, False)] = j       # xbar_{i,j} at time j
+                assignment[var_chain_id(i, j, True)] = j + 1    # x_{i,j} at time j+1
+
+    # Step 2: Assign forcing jobs
+    for i in range(1, M + 1):
+        pos_time = assignment[var_chain_id(i, i - 1, True)]
+        neg_time = assignment[var_chain_id(i, i - 1, False)]
+        assignment[forcing_id(i, True)] = pos_time + 1
+        assignment[forcing_id(i, False)] = neg_time + 1
+
+    # Step 3: Assign clause jobs
+    # For each clause, determine which pattern matches the truth assignment.
+    # Pattern j (1..7) has binary bits a_1 a_2 a_3.
+    # The clause job D_{i,j} whose pattern matches the literal values
+    # has all predecessors at time M (the "true" chain endpoints),
+    # so it can go at time M+1.
+    # All other D_{i,j'} have at least one predecessor at time M+1,
+    # so they must go at time M+2.
+    for ci in range(N):
+        clause = clauses[ci]
+        # Determine the pattern: for each literal position, is it true?
+        pattern = 0
+        for p in range(3):
+            lit = clause[p]
+            var = abs(lit)
+            lit_positive = lit > 0
+            val = truth_assignment[var - 1]
+            lit_true = val if lit_positive else not val
+            if lit_true:
+                pattern |= (1 << (2 - p))
+
+        for j in range(1, 8):
+            if j == pattern:
+                assignment[clause_job_id(ci + 1, j)] = M + 1
+            else:
+                assignment[clause_job_id(ci + 1, j)] = M + 2
+
+    # If pattern == 0 for any clause, the clause is unsatisfied
+    # and no clause job can go at M+1, which means capacity at M+1
+    # won't be met. Return None.
+    for ci in range(N):
+        clause = clauses[ci]
+        pattern = 0
+        for p in range(3):
+            lit = clause[p]
+            var = abs(lit)
+            lit_positive = lit > 0
+            val = truth_assignment[var - 1]
+            lit_true = val if lit_positive else not val
+            if lit_true:
+                pattern |= (1 << (2 - p))
+        if pattern == 0:
+            return None  # Clause not satisfied
+
+    # Check all jobs assigned
+    if any(a < 0 for a in assignment):
+        return None
+
+    # Check time bounds
+    if any(a >= T for a in assignment):
+        return None
+
+    # Check capacities
+    slot_counts = [0] * T
+    for t in assignment:
+        slot_counts[t] += 1
+    if slot_counts != list(capacities):
+        return None
+
+    # Check precedences
     for p, s in precedences:
-        succ_of[p].append(s)
-        pred_of[s].append(p)
-
-    # Compute earliest and latest possible time for each job
-    earliest = [0] * num_jobs
-    latest = [T - 1] * num_jobs
-
-    # Forward pass: earliest[j] = max over predecessors of (earliest[pred] + 1)
-    in_deg = [0] * num_jobs
-    for p, s in precedences:
-        in_deg[s] += 1
-    queue = [j for j in range(num_jobs) if in_deg[j] == 0]
-    topo = []
-    temp_in_deg = in_deg[:]
-    while queue:
-        u = queue.pop(0)
-        topo.append(u)
-        for v in succ_of[u]:
-            earliest[v] = max(earliest[v], earliest[u] + 1)
-            temp_in_deg[v] -= 1
-            if temp_in_deg[v] == 0:
-                queue.append(v)
-
-    if len(topo) != num_jobs:
-        return None  # Cycle
-
-    # Backward pass: latest[j] = min over successors of (latest[succ] - 1)
-    for j in reversed(topo):
-        for v in succ_of[j]:
-            latest[j] = min(latest[j], latest[v] - 1)
-
-    # Check feasibility
-    for j in range(num_jobs):
-        if earliest[j] > latest[j]:
-            return None
-        if earliest[j] >= T or latest[j] < 0:
-            return None
-
-    # Group jobs by their possible time ranges and try assignment
-    # Use greedy: assign time steps, filling capacity
-    assignment = [None] * num_jobs
-    remaining_cap = list(capacities)
-
-    # Try to assign in topological order, choosing earliest feasible time
-    for j in topo:
-        assigned = False
-        for t in range(earliest[j], latest[j] + 1):
-            if remaining_cap[t] > 0:
-                # Check all predecessors are assigned to earlier times
-                ok = True
-                for p in pred_of[j]:
-                    if assignment[p] is None or assignment[p] >= t:
-                        ok = False
-                        break
-                if ok:
-                    assignment[j] = t
-                    remaining_cap[t] -= 1
-                    assigned = True
-                    break
-        if not assigned:
-            # Greedy failed, try full backtracking for small instances
-            if num_jobs <= 60:
-                return _solve_p4_backtrack(num_jobs, precedences, capacities,
-                                           T, pred_of, succ_of, earliest, latest)
-            return None
-
-    # Verify all capacities are filled
-    for t in range(T):
-        if remaining_cap[t] != 0:
-            # Some slots unfilled - this shouldn't happen if sum(cap) == num_jobs
-            if num_jobs <= 60:
-                return _solve_p4_backtrack(num_jobs, precedences, capacities,
-                                           T, pred_of, succ_of, earliest, latest)
+        if assignment[p] >= assignment[s]:
             return None
 
     return assignment
 
 
-def _solve_p4_backtrack(
+def solve_p4_constructive(
     num_jobs: int,
     precedences: list[tuple[int, int]],
     capacities: list[int],
-    T: int,
-    pred_of: list[list[int]],
-    succ_of: list[list[int]],
-    earliest: list[int],
-    latest: list[int],
+    time_limit: int,
+    meta: dict,
+    clauses: list[list[int]],
 ) -> list[int] | None:
-    """Backtracking solver for P4."""
-    assignment = [None] * num_jobs
-    remaining_cap = list(capacities)
+    """
+    Solve P4 by trying all 2^M truth assignments.
+    For each, construct the schedule deterministically.
+    """
+    M = meta["source_num_vars"]
 
-    # Compute in-degree for scheduling order
-    in_deg = [len(pred_of[j]) for j in range(num_jobs)]
-    # Topological order
-    topo = []
-    queue = [j for j in range(num_jobs) if in_deg[j] == 0]
-    temp_in_deg = in_deg[:]
-    while queue:
-        u = queue.pop(0)
-        topo.append(u)
-        for v in succ_of[u]:
-            temp_in_deg[v] -= 1
-            if temp_in_deg[v] == 0:
-                queue.append(v)
+    for bits in itertools.product([False, True], repeat=M):
+        ta = list(bits)
+        result = construct_p4_schedule(
+            num_jobs, precedences, capacities, time_limit, meta, ta, clauses)
+        if result is not None:
+            return result
 
-    def backtrack(idx):
-        if idx == num_jobs:
-            return all(rc == 0 for rc in remaining_cap)
-
-        j = topo[idx]
-        lo = earliest[j]
-        hi = latest[j]
-
-        # Tighten based on assigned predecessors
-        for p in pred_of[j]:
-            if assignment[p] is not None:
-                lo = max(lo, assignment[p] + 1)
-
-        # Tighten based on assigned successors
-        for s in succ_of[j]:
-            if assignment[s] is not None:
-                hi = min(hi, assignment[s] - 1)
-
-        for t in range(lo, hi + 1):
-            if remaining_cap[t] > 0:
-                assignment[j] = t
-                remaining_cap[t] -= 1
-                if backtrack(idx + 1):
-                    return True
-                assignment[j] = None
-                remaining_cap[t] += 1
-
-        return False
-
-    if backtrack(0):
-        return assignment
     return None
 
 
@@ -261,29 +244,44 @@ def reduce(num_vars: int,
     capacities[1] = 2 * M + 1
     for i in range(2, M + 1):
         capacities[i] = 2 * M + 2
-    if M + 1 < T:
-        capacities[M + 1] = N + M + 1
-    if M + 2 < T:
-        capacities[M + 2] = 6 * N
+    capacities[M + 1] = N + M + 1
+    capacities[M + 2] = 6 * N
+
+    # But wait: we need N <= 3M for this capacity count to work.
+    # Also need to verify: at time M+2 we have 6N clause jobs.
+    # But we only have 7N clause jobs total, and they all go at time M+2.
+    # The capacity at M+2 must be >= 7N... but Ullman says c_{M+2} = 6N.
+    # That means only 6N of the 7N clause jobs can fit at time M+2.
+    #
+    # Wait -- re-reading the paper:
+    # "Since c_{m+1} = n + m + 1, we must be able to execute n of the D's
+    #  if we are to have a solution. ... at most one of D_{i1}, ..., D_{i7}
+    #  can be executed at time m+1."
+    #
+    # Ah, I see: the D jobs are NOT all at time M+2. Some are at time M+1,
+    # and the rest at time M+2.
+    #
+    # Re-reading more carefully:
+    # c_{M+1} = N + M + 1: at this time, M remaining x/xbar chain endpoints
+    #   plus 1 forcing job plus N clause jobs (one per clause) execute.
+    # c_{M+2} = 6N: the remaining 6N clause jobs execute.
+    #
+    # So for each clause i, exactly 1 of D_{i,1}..D_{i,7} goes at time M+1,
+    # and the other 6 go at time M+2. Which one goes at M+1 depends on which
+    # satisfying assignment pattern is "active".
 
     # ---- Job IDs ----
-    # Variable chain: x_{i,j} and xbar_{i,j}
-    # Layout: for each var i (1..M), for each step j (0..M):
-    #   x_{i,j}    = (i-1) * (M+1) * 2 + j * 2
-    #   xbar_{i,j} = (i-1) * (M+1) * 2 + j * 2 + 1
     def var_chain_id(var_i, step_j, positive):
         base = (var_i - 1) * (M + 1) * 2
         return base + step_j * 2 + (0 if positive else 1)
 
     num_var_chain = M * (M + 1) * 2
 
-    # Forcing: y_i, ybar_i
     forcing_base = num_var_chain
     def forcing_id(var_i, positive):
         return forcing_base + 2 * (var_i - 1) + (0 if positive else 1)
     num_forcing = 2 * M
 
-    # Clause: D_{i,j} for i in 1..N, j in 1..7
     clause_base = forcing_base + num_forcing
     def clause_job_id(clause_i, sub_j):
         return clause_base + (clause_i - 1) * 7 + (sub_j - 1)
@@ -310,20 +308,18 @@ def reduce(num_vars: int,
         precs.append((var_chain_id(i, i - 1, False), forcing_id(i, False)))
 
     # (iii) Clause precedences
-    # For clause D_i with literals l1, l2, l3:
-    # For each pattern j=1..7 (binary a1 a2 a3, where a1a2a3 is j in binary):
-    #   For each position p (0,1,2):
-    #     If a_p = 1: the literal's chain endpoint at M precedes D_{i,j}
-    #     If a_p = 0: the literal's NEGATION chain endpoint at M precedes D_{i,j}
+    # From Ullman: For clause D_i = {l_1, l_2, l_3}:
+    # D_{i,j} where j has binary representation a_1 a_2 a_3:
+    #   If a_p = 1: z_{k_p, M} < D_{i,j} (literal's chain endpoint)
+    #   If a_p = 0: zbar_{k_p, M} < D_{i,j} (literal's negation endpoint)
     #
-    # Ullman's paper (p.387): "If a_p = 1, we have z_{k_p,m} < D_{ij}.
-    # If a_p = 0, we have zbar_{k_p,m} < D_{ij}."
-    # where z stands for x or xbar depending on the literal polarity.
+    # Here z_{k_p} refers to the variable in the literal:
+    #   if l_p = x_alpha, then z_{k_p} = x_alpha, zbar_{k_p} = xbar_alpha
+    #   if l_p = xbar_alpha, then z_{k_p} = xbar_alpha, zbar_{k_p} = x_alpha
 
     for ci in range(N):
         clause = clauses[ci]
         for j in range(1, 8):
-            # j in binary with 3 bits: bit 2 (MSB) = a_1, bit 1 = a_2, bit 0 = a_3
             bits = [(j >> (2 - p)) & 1 for p in range(3)]
             for p in range(3):
                 lit = clause[p]
@@ -331,13 +327,9 @@ def reduce(num_vars: int,
                 lit_positive = lit > 0
 
                 if bits[p] == 1:
-                    # Literal's own chain endpoint precedes clause job
-                    # If lit is positive (x_var), use x_{var,M}
-                    # If lit is negative (xbar_var), use xbar_{var,M}
                     precs.append((var_chain_id(var, M, lit_positive),
                                   clause_job_id(ci + 1, j)))
                 else:
-                    # Literal's NEGATION chain endpoint precedes clause job
                     precs.append((var_chain_id(var, M, not lit_positive),
                                   clause_job_id(ci + 1, j)))
 
@@ -368,7 +360,6 @@ def extract_solution(assignment: list[int], metadata: dict) -> list[bool]:
     Extract a 3-SAT solution from a P4 schedule.
 
     Per Ullman: x_i is True iff x_{i,0} is executed at time 0.
-    (Equivalently, x_i is False iff xbar_{i,0} is executed at time 0.)
     """
     M = metadata["source_num_vars"]
     var_chain_id = metadata["var_chain_id_fn"]
@@ -417,6 +408,8 @@ def is_valid_target(num_jobs: int, precedences: list[tuple[int, int]],
         return False
     if sum(capacities) != num_jobs:
         return False
+    if any(c < 0 for c in capacities):
+        return False
     for p, s in precedences:
         if p < 0 or p >= num_jobs or s < 0 or s >= num_jobs:
             return False
@@ -441,11 +434,10 @@ def closed_loop_check(num_vars: int, clauses: list[list[int]]) -> bool:
     assert is_valid_source(num_vars, clauses)
 
     num_jobs, precs, caps, T, meta = reduce(num_vars, clauses)
-    assert is_valid_target(num_jobs, precs, caps, T), \
-        "Target instance invalid"
+    assert is_valid_target(num_jobs, precs, caps, T), "Target instance invalid"
 
     source_sat = is_3sat_satisfiable(num_vars, clauses)
-    target_assign = solve_p4(num_jobs, precs, caps, T)
+    target_assign = solve_p4_constructive(num_jobs, precs, caps, T, meta, clauses)
     target_sat = target_assign is not None
 
     if source_sat != target_sat:
@@ -476,12 +468,6 @@ def closed_loop_check(num_vars: int, clauses: list[list[int]]) -> bool:
             print(f"FAIL: extraction failed")
             print(f"  source: n={num_vars}, clauses={clauses}")
             print(f"  extracted: {s_sol}")
-            # Debug: show which chain starts are at time 0
-            var_chain_id = meta["var_chain_id_fn"]
-            for i in range(1, num_vars + 1):
-                pos_t = target_assign[var_chain_id(i, 0, True)]
-                neg_t = target_assign[var_chain_id(i, 0, False)]
-                print(f"    x_{i},0 at t={pos_t}, xbar_{i},0 at t={neg_t}")
             return False
 
     return True
@@ -499,7 +485,6 @@ def exhaustive_small() -> int:
     total_checks = 0
 
     for n in range(3, 6):
-        # All clauses with 3 distinct variables
         valid_clauses = set()
         for combo in itertools.combinations(range(1, n + 1), 3):
             for signs in itertools.product([1, -1], repeat=3):
@@ -508,7 +493,7 @@ def exhaustive_small() -> int:
         valid_clauses = sorted(valid_clauses)
 
         if n == 3:
-            # Single-clause: 8 sign patterns on (1,2,3)
+            # Single-clause
             for c in valid_clauses:
                 clause_list = [list(c)]
                 if is_valid_source(n, clause_list):
@@ -516,7 +501,7 @@ def exhaustive_small() -> int:
                         f"FAILED: n={n}, clause={c}"
                     total_checks += 1
 
-            # Two-clause combinations
+            # Two-clause
             pairs = list(itertools.combinations(valid_clauses, 2))
             for c1, c2 in pairs:
                 clause_list = [list(c1), list(c2)]
@@ -571,10 +556,10 @@ def random_stress(num_checks: int = 5000) -> int:
     passed = 0
 
     for _ in range(num_checks):
-        n = random.randint(3, 6)
+        n = random.randint(3, 7)
         ratio = random.uniform(0.5, 8.0)
         m = max(1, int(n * ratio))
-        m = min(m, 8)
+        m = min(m, 10)
 
         clauses = []
         for _ in range(m):
@@ -607,17 +592,16 @@ def generate_test_vectors() -> dict:
         ("yes_two_clauses_negated", 4, [[1, 2, 3], [-1, 3, 4]]),
         ("yes_all_negated", 3, [[-1, -2, -3]]),
         ("yes_mixed", 4, [[1, -2, 3], [2, -3, 4]]),
-        ("no_contradictory", 3, [[1, 2, 3], [-1, -2, -3],
-                                  [1, -2, 3], [-1, 2, -3],
-                                  [1, 2, -3], [-1, -2, 3],
-                                  [-1, 2, 3], [1, -2, -3]]),
+        ("no_all_8_clauses_3vars", 3,
+         [[1, 2, 3], [-1, -2, -3], [1, -2, 3], [-1, 2, -3],
+          [1, 2, -3], [-1, -2, 3], [-1, 2, 3], [1, -2, -3]]),
     ]
 
     for label, nv, cls in test_cases:
         num_jobs, precs, caps, T, meta = reduce(nv, cls)
         source_sol = solve_3sat_brute(nv, cls)
         source_sat = source_sol is not None
-        target_assign = solve_p4(num_jobs, precs, caps, T)
+        target_assign = solve_p4_constructive(num_jobs, precs, caps, T, meta, cls)
         target_sat = target_assign is not None
 
         extracted = None
