@@ -1,0 +1,154 @@
+{
+  "source": "Satisfiability",
+  "target": "NonTautology",
+  "issue": 868,
+  "yes_instance": {
+    "input": {
+      "num_vars": 4,
+      "clauses": [
+        [
+          1,
+          -2,
+          3
+        ],
+        [
+          -1,
+          2,
+          4
+        ],
+        [
+          2,
+          -3,
+          -4
+        ],
+        [
+          -1,
+          -2,
+          3
+        ]
+      ]
+    },
+    "output": {
+      "num_vars": 4,
+      "disjuncts": [
+        [
+          -1,
+          2,
+          -3
+        ],
+        [
+          1,
+          -2,
+          -4
+        ],
+        [
+          -2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          -3
+        ]
+      ]
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      true,
+      true,
+      true,
+      false
+    ],
+    "extracted_solution": [
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "num_vars": 3,
+      "clauses": [
+        [
+          1
+        ],
+        [
+          -1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          -2,
+          -3
+        ]
+      ]
+    },
+    "output": {
+      "num_vars": 3,
+      "disjuncts": [
+        [
+          -1
+        ],
+        [
+          1
+        ],
+        [
+          -2,
+          -3
+        ],
+        [
+          2,
+          3
+        ]
+      ]
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_vars": "num_vars",
+    "num_disjuncts": "num_clauses"
+  },
+  "claims": [
+    {
+      "tag": "de_morgan_negation",
+      "formula": "each target literal = negation of source literal",
+      "verified": true
+    },
+    {
+      "tag": "variable_preservation",
+      "formula": "num_vars_target = num_vars_source",
+      "verified": true
+    },
+    {
+      "tag": "disjunct_count",
+      "formula": "num_disjuncts = num_clauses",
+      "verified": true
+    },
+    {
+      "tag": "literal_count_preserved",
+      "formula": "total_literals_target = total_literals_source",
+      "verified": true
+    },
+    {
+      "tag": "forward_correctness",
+      "formula": "SAT feasible => NonTautology feasible",
+      "verified": true
+    },
+    {
+      "tag": "backward_correctness",
+      "formula": "NonTautology feasible => SAT feasible",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction_identity",
+      "formula": "falsifying assignment = satisfying assignment",
+      "verified": true
+    }
+  ]
+}

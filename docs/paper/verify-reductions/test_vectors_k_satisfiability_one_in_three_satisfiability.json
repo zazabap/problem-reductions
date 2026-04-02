@@ -1,0 +1,648 @@
+{
+  "reduction": "KSatisfiability_K3_to_OneInThreeSatisfiability",
+  "source_problem": "KSatisfiability",
+  "source_variant": {
+    "k": "K3"
+  },
+  "target_problem": "OneInThreeSatisfiability",
+  "target_variant": {},
+  "overhead": {
+    "num_vars": "num_vars + 2 + 6 * num_clauses",
+    "num_clauses": "1 + 5 * num_clauses"
+  },
+  "test_vectors": [
+    {
+      "label": "yes_single_clause",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      },
+      "target": {
+        "num_vars": 11,
+        "clauses": [
+          [
+            4,
+            4,
+            5
+          ],
+          [
+            1,
+            6,
+            9
+          ],
+          [
+            2,
+            7,
+            9
+          ],
+          [
+            6,
+            7,
+            10
+          ],
+          [
+            8,
+            9,
+            11
+          ],
+          [
+            3,
+            8,
+            4
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        true
+      ],
+      "target_witness": [
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "extracted_witness": [
+        false,
+        false,
+        true
+      ]
+    },
+    {
+      "label": "yes_two_clauses_negated",
+      "source": {
+        "num_vars": 4,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -1,
+            3,
+            4
+          ]
+        ]
+      },
+      "target": {
+        "num_vars": 18,
+        "clauses": [
+          [
+            5,
+            5,
+            6
+          ],
+          [
+            1,
+            7,
+            10
+          ],
+          [
+            2,
+            8,
+            10
+          ],
+          [
+            7,
+            8,
+            11
+          ],
+          [
+            9,
+            10,
+            12
+          ],
+          [
+            3,
+            9,
+            5
+          ],
+          [
+            -1,
+            13,
+            16
+          ],
+          [
+            3,
+            14,
+            16
+          ],
+          [
+            13,
+            14,
+            17
+          ],
+          [
+            15,
+            16,
+            18
+          ],
+          [
+            4,
+            15,
+            5
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "target_witness": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false
+      ],
+      "extracted_witness": [
+        false,
+        false,
+        true,
+        false
+      ]
+    },
+    {
+      "label": "yes_all_negated",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_vars": 11,
+        "clauses": [
+          [
+            4,
+            4,
+            5
+          ],
+          [
+            -1,
+            6,
+            9
+          ],
+          [
+            -2,
+            7,
+            9
+          ],
+          [
+            6,
+            7,
+            10
+          ],
+          [
+            8,
+            9,
+            11
+          ],
+          [
+            -3,
+            8,
+            4
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        false
+      ],
+      "target_witness": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "extracted_witness": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "label": "yes_mixed",
+      "source": {
+        "num_vars": 4,
+        "clauses": [
+          [
+            1,
+            -2,
+            3
+          ],
+          [
+            2,
+            -3,
+            4
+          ]
+        ]
+      },
+      "target": {
+        "num_vars": 18,
+        "clauses": [
+          [
+            5,
+            5,
+            6
+          ],
+          [
+            1,
+            7,
+            10
+          ],
+          [
+            -2,
+            8,
+            10
+          ],
+          [
+            7,
+            8,
+            11
+          ],
+          [
+            9,
+            10,
+            12
+          ],
+          [
+            3,
+            9,
+            5
+          ],
+          [
+            2,
+            13,
+            16
+          ],
+          [
+            -3,
+            14,
+            16
+          ],
+          [
+            13,
+            14,
+            17
+          ],
+          [
+            15,
+            16,
+            18
+          ],
+          [
+            4,
+            15,
+            5
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "target_witness": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "extracted_witness": [
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "label": "no_all_8_clauses_3vars",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -1,
+            -2,
+            -3
+          ],
+          [
+            1,
+            -2,
+            3
+          ],
+          [
+            -1,
+            2,
+            -3
+          ],
+          [
+            1,
+            2,
+            -3
+          ],
+          [
+            -1,
+            -2,
+            3
+          ],
+          [
+            -1,
+            2,
+            3
+          ],
+          [
+            1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_vars": 53,
+        "clauses": [
+          [
+            4,
+            4,
+            5
+          ],
+          [
+            1,
+            6,
+            9
+          ],
+          [
+            2,
+            7,
+            9
+          ],
+          [
+            6,
+            7,
+            10
+          ],
+          [
+            8,
+            9,
+            11
+          ],
+          [
+            3,
+            8,
+            4
+          ],
+          [
+            -1,
+            12,
+            15
+          ],
+          [
+            -2,
+            13,
+            15
+          ],
+          [
+            12,
+            13,
+            16
+          ],
+          [
+            14,
+            15,
+            17
+          ],
+          [
+            -3,
+            14,
+            4
+          ],
+          [
+            1,
+            18,
+            21
+          ],
+          [
+            -2,
+            19,
+            21
+          ],
+          [
+            18,
+            19,
+            22
+          ],
+          [
+            20,
+            21,
+            23
+          ],
+          [
+            3,
+            20,
+            4
+          ],
+          [
+            -1,
+            24,
+            27
+          ],
+          [
+            2,
+            25,
+            27
+          ],
+          [
+            24,
+            25,
+            28
+          ],
+          [
+            26,
+            27,
+            29
+          ],
+          [
+            -3,
+            26,
+            4
+          ],
+          [
+            1,
+            30,
+            33
+          ],
+          [
+            2,
+            31,
+            33
+          ],
+          [
+            30,
+            31,
+            34
+          ],
+          [
+            32,
+            33,
+            35
+          ],
+          [
+            -3,
+            32,
+            4
+          ],
+          [
+            -1,
+            36,
+            39
+          ],
+          [
+            -2,
+            37,
+            39
+          ],
+          [
+            36,
+            37,
+            40
+          ],
+          [
+            38,
+            39,
+            41
+          ],
+          [
+            3,
+            38,
+            4
+          ],
+          [
+            -1,
+            42,
+            45
+          ],
+          [
+            2,
+            43,
+            45
+          ],
+          [
+            42,
+            43,
+            46
+          ],
+          [
+            44,
+            45,
+            47
+          ],
+          [
+            3,
+            44,
+            4
+          ],
+          [
+            1,
+            48,
+            51
+          ],
+          [
+            -2,
+            49,
+            51
+          ],
+          [
+            48,
+            49,
+            52
+          ],
+          [
+            50,
+            51,
+            53
+          ],
+          [
+            -3,
+            50,
+            4
+          ]
+        ]
+      },
+      "source_satisfiable": false,
+      "target_satisfiable": false,
+      "source_witness": null,
+      "target_witness": null,
+      "extracted_witness": null
+    }
+  ]
+}

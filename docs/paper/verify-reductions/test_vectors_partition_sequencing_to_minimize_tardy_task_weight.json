@@ -1,0 +1,145 @@
+{
+  "source": "Partition",
+  "target": "SequencingToMinimizeTardyTaskWeight",
+  "issue": 471,
+  "yes_instance": {
+    "input": {
+      "sizes": [
+        3,
+        5,
+        2,
+        4,
+        1,
+        5
+      ]
+    },
+    "output": {
+      "lengths": [
+        3,
+        5,
+        2,
+        4,
+        1,
+        5
+      ],
+      "weights": [
+        3,
+        5,
+        2,
+        4,
+        1,
+        5
+      ],
+      "deadlines": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "K": 10
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    "extracted_solution": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "sizes": [
+        3,
+        5,
+        7
+      ]
+    },
+    "output": {
+      "lengths": [
+        3,
+        5,
+        7
+      ],
+      "weights": [
+        3,
+        5,
+        7
+      ],
+      "deadlines": [
+        0,
+        0,
+        0
+      ],
+      "K": 0
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_tasks": "num_elements",
+    "lengths_i": "sizes_i",
+    "weights_i": "sizes_i",
+    "deadlines_i": "total_sum / 2 (even) or 0 (odd)",
+    "K": "total_sum / 2 (even) or 0 (odd)"
+  },
+  "claims": [
+    {
+      "tag": "tasks_equal_elements",
+      "formula": "num_tasks = num_elements",
+      "verified": true
+    },
+    {
+      "tag": "length_equals_size",
+      "formula": "l(t_i) = s(a_i)",
+      "verified": true
+    },
+    {
+      "tag": "weight_equals_length",
+      "formula": "w(t_i) = l(t_i) = s(a_i)",
+      "verified": true
+    },
+    {
+      "tag": "common_deadline",
+      "formula": "d(t_i) = B/2 for all i",
+      "verified": true
+    },
+    {
+      "tag": "bound_equals_half",
+      "formula": "K = B/2",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "balanced partition => tardy weight <= K",
+      "verified": true
+    },
+    {
+      "tag": "backward_direction",
+      "formula": "tardy weight <= K => balanced partition",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "on-time tasks => first subset, tardy => second",
+      "verified": true
+    },
+    {
+      "tag": "odd_sum_infeasible",
+      "formula": "B odd => both source and target infeasible",
+      "verified": true
+    }
+  ]
+}

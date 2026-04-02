@@ -1,0 +1,736 @@
+{
+  "vectors": [
+    {
+      "label": "yes_sigma_lt_2t",
+      "source": {
+        "sizes": [
+          1,
+          5,
+          6,
+          8
+        ],
+        "target": 11
+      },
+      "target": {
+        "sizes": [
+          1,
+          5,
+          6,
+          8,
+          2
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        1,
+        1,
+        0
+      ],
+      "target_solution": [
+        0,
+        1,
+        1,
+        0,
+        0
+      ],
+      "extracted_solution": [
+        0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "label": "yes_sigma_gt_2t",
+      "source": {
+        "sizes": [
+          10,
+          20,
+          30
+        ],
+        "target": 10
+      },
+      "target": {
+        "sizes": [
+          10,
+          20,
+          30,
+          40
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        1,
+        1,
+        0
+      ],
+      "extracted_solution": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "yes_sigma_eq_2t",
+      "source": {
+        "sizes": [
+          3,
+          5,
+          2,
+          6
+        ],
+        "target": 8
+      },
+      "target": {
+        "sizes": [
+          3,
+          5,
+          2,
+          6
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "no_target_exceeds_sum",
+      "source": {
+        "sizes": [
+          1,
+          2,
+          3
+        ],
+        "target": 100
+      },
+      "target": {
+        "sizes": [
+          1,
+          2,
+          3,
+          194
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "no_no_subset",
+      "source": {
+        "sizes": [
+          3,
+          7,
+          11
+        ],
+        "target": 5
+      },
+      "target": {
+        "sizes": [
+          3,
+          7,
+          11,
+          11
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "yes_single_element",
+      "source": {
+        "sizes": [
+          5
+        ],
+        "target": 5
+      },
+      "target": {
+        "sizes": [
+          5,
+          5
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "target_solution": [
+        0,
+        1
+      ],
+      "extracted_solution": [
+        1
+      ]
+    },
+    {
+      "label": "no_single_element",
+      "source": {
+        "sizes": [
+          5
+        ],
+        "target": 3
+      },
+      "target": {
+        "sizes": [
+          5,
+          1
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "yes_uniform",
+      "source": {
+        "sizes": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "target": 8
+      },
+      "target": {
+        "sizes": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "yes_target_zero",
+      "source": {
+        "sizes": [
+          1,
+          2,
+          3
+        ],
+        "target": 0
+      },
+      "target": {
+        "sizes": [
+          1,
+          2,
+          3,
+          6
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "yes_target_full_sum",
+      "source": {
+        "sizes": [
+          2,
+          3,
+          5
+        ],
+        "target": 10
+      },
+      "target": {
+        "sizes": [
+          2,
+          3,
+          5,
+          10
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_0",
+      "source": {
+        "sizes": [
+          9
+        ],
+        "target": 1
+      },
+      "target": {
+        "sizes": [
+          9,
+          7
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "random_1",
+      "source": {
+        "sizes": [
+          9,
+          4,
+          2,
+          13,
+          18,
+          18,
+          11
+        ],
+        "target": 43
+      },
+      "target": {
+        "sizes": [
+          9,
+          4,
+          2,
+          13,
+          18,
+          18,
+          11,
+          11
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "random_2",
+      "source": {
+        "sizes": [
+          6
+        ],
+        "target": 2
+      },
+      "target": {
+        "sizes": [
+          6,
+          2
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "random_3",
+      "source": {
+        "sizes": [
+          18,
+          11,
+          8,
+          6,
+          1,
+          14
+        ],
+        "target": 11
+      },
+      "target": {
+        "sizes": [
+          18,
+          11,
+          8,
+          6,
+          1,
+          14,
+          36
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_4",
+      "source": {
+        "sizes": [
+          3,
+          1,
+          11,
+          15,
+          4,
+          2,
+          3
+        ],
+        "target": 42
+      },
+      "target": {
+        "sizes": [
+          3,
+          1,
+          11,
+          15,
+          4,
+          2,
+          3,
+          45
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "random_5",
+      "source": {
+        "sizes": [
+          5,
+          1,
+          10
+        ],
+        "target": 13
+      },
+      "target": {
+        "sizes": [
+          5,
+          1,
+          10,
+          10
+        ]
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "target_solution": null,
+      "extracted_solution": null
+    },
+    {
+      "label": "random_6",
+      "source": {
+        "sizes": [
+          9,
+          16,
+          2,
+          10,
+          11,
+          17,
+          16,
+          7
+        ],
+        "target": 77
+      },
+      "target": {
+        "sizes": [
+          9,
+          16,
+          2,
+          10,
+          11,
+          17,
+          16,
+          7,
+          66
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_7",
+      "source": {
+        "sizes": [
+          1,
+          13,
+          17,
+          14,
+          18,
+          20
+        ],
+        "target": 62
+      },
+      "target": {
+        "sizes": [
+          1,
+          13,
+          17,
+          14,
+          18,
+          20,
+          41
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "target_solution": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "extracted_solution": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "label": "random_8",
+      "source": {
+        "sizes": [
+          12,
+          17,
+          2,
+          6,
+          3,
+          16,
+          9
+        ],
+        "target": 21
+      },
+      "target": {
+        "sizes": [
+          12,
+          17,
+          2,
+          6,
+          3,
+          16,
+          9,
+          23
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "target_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "label": "random_9",
+      "source": {
+        "sizes": [
+          11,
+          18,
+          13,
+          3,
+          15,
+          13
+        ],
+        "target": 73
+      },
+      "target": {
+        "sizes": [
+          11,
+          18,
+          13,
+          3,
+          15,
+          13,
+          73
+        ]
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "extracted_solution": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "total_checks": 472872
+}

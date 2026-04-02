@@ -1,0 +1,202 @@
+{
+  "source": "HamiltonianPathBetweenTwoVertices",
+  "target": "LongestPath",
+  "issue": 359,
+  "yes_instance": {
+    "input": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "source_vertex": 0,
+      "target_vertex": 4
+    },
+    "output": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "edge_lengths": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "source_vertex": 0,
+      "target_vertex": 4,
+      "bound": 4
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      0,
+      3,
+      1,
+      2,
+      4
+    ],
+    "extracted_solution": [
+      0,
+      3,
+      1,
+      2,
+      4
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "source_vertex": 0,
+      "target_vertex": 4
+    },
+    "output": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "edge_lengths": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "source_vertex": 0,
+      "target_vertex": 4,
+      "bound": 4
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_vertices": "num_vertices",
+    "num_edges": "num_edges",
+    "bound": "num_vertices - 1"
+  },
+  "claims": [
+    {
+      "tag": "graph_preserved",
+      "formula": "G' = G",
+      "verified": true
+    },
+    {
+      "tag": "unit_lengths",
+      "formula": "l(e) = 1 for all e",
+      "verified": true
+    },
+    {
+      "tag": "endpoints_preserved",
+      "formula": "s' = s, t' = t",
+      "verified": true
+    },
+    {
+      "tag": "bound_formula",
+      "formula": "K = n - 1",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "Ham path => path length = n-1 = K",
+      "verified": true
+    },
+    {
+      "tag": "backward_direction",
+      "formula": "path length >= K => exactly n-1 edges => Hamiltonian",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "edge config -> vertex path via tracing",
+      "verified": true
+    }
+  ]
+}

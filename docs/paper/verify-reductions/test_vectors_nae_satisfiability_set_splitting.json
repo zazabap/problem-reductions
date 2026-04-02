@@ -1,0 +1,197 @@
+{
+  "source": "NAESatisfiability",
+  "target": "SetSplitting",
+  "issue": 382,
+  "yes_instance": {
+    "input": {
+      "num_vars": 4,
+      "clauses": [
+        [
+          1,
+          -2,
+          3
+        ],
+        [
+          -1,
+          2,
+          -4
+        ],
+        [
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    "output": {
+      "universe_size": 8,
+      "subsets": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          0,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          7
+        ],
+        [
+          2,
+          4,
+          6
+        ]
+      ]
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      1,
+      1,
+      0,
+      1
+    ],
+    "extracted_solution": [
+      1,
+      1,
+      0,
+      1
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "num_vars": 3,
+      "clauses": [
+        [
+          1,
+          2
+        ],
+        [
+          -1,
+          -2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          -2,
+          -3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          -1,
+          -3
+        ]
+      ]
+    },
+    "output": {
+      "universe_size": 6,
+      "subsets": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          5
+        ]
+      ]
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "universe_size": "2 * num_vars",
+    "num_subsets": "num_vars + num_clauses"
+  },
+  "claims": [
+    {
+      "tag": "universe_even",
+      "formula": "universe_size = 2n",
+      "verified": true
+    },
+    {
+      "tag": "num_subsets_formula",
+      "formula": "num_subsets = n + m",
+      "verified": true
+    },
+    {
+      "tag": "complementarity_forces_different_colors",
+      "formula": "chi(2i) != chi(2i+1)",
+      "verified": true
+    },
+    {
+      "tag": "forward_nae_to_splitting",
+      "formula": "NAE-sat => valid splitting",
+      "verified": true
+    },
+    {
+      "tag": "backward_splitting_to_nae",
+      "formula": "valid splitting => NAE-sat",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "alpha(x_{i+1}) = chi(2i)",
+      "verified": true
+    },
+    {
+      "tag": "literal_mapping_positive",
+      "formula": "x_k -> 2(k-1)",
+      "verified": true
+    },
+    {
+      "tag": "literal_mapping_negative",
+      "formula": "-x_k -> 2(k-1)+1",
+      "verified": true
+    }
+  ]
+}
