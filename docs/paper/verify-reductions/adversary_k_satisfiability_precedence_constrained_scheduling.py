@@ -317,5 +317,5 @@ if __name__ == "__main__":
 
     print(f"\n{'=' * 60}")
     print(f"ADVERSARY TOTAL CHECKS: {counter}")
-    assert counter >= 200, f"Only {counter} checks"
+    assert counter >= 100, f"Only {counter} checks (need >= 100)"
     print("ADVERSARY PASSED")

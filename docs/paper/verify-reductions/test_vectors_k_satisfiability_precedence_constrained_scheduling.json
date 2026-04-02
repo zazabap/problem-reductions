@@ -1,0 +1,156 @@
+{
+  "reduction": "KSatisfiability_K3_to_PrecedenceConstrainedScheduling",
+  "source_problem": "KSatisfiability",
+  "source_variant": {
+    "k": "K3"
+  },
+  "target_problem": "PrecedenceConstrainedScheduling",
+  "target_variant": {},
+  "construction": "Ullman 1975 P4 (Lemma 2) + P4-to-P2 (Lemma 1)",
+  "overhead": {
+    "p4_tasks": "2 * num_variables * (num_variables + 1) + 2 * num_variables + 7 * num_clauses",
+    "p4_time_slots": "num_variables + 3",
+    "p2_processors": "2 * num_variables^2 + 4 * num_variables + 7 * num_clauses + 1",
+    "p2_deadline": "num_variables + 3"
+  },
+  "test_vectors": [
+    {
+      "label": "yes_single_clause",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      },
+      "target": {
+        "num_tasks": 37,
+        "time_limit": 6,
+        "capacities": [
+          3,
+          7,
+          8,
+          8,
+          5,
+          6
+        ],
+        "num_precedences": 45
+      },
+      "source_satisfiable": true,
+      "extracted_assignment": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "label": "yes_complementary_pair",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_tasks": 44,
+        "time_limit": 6,
+        "capacities": [
+          3,
+          7,
+          8,
+          8,
+          6,
+          12
+        ],
+        "num_precedences": 66
+      },
+      "source_satisfiable": true,
+      "extracted_assignment": [
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "label": "yes_all_negative",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_tasks": 37,
+        "time_limit": 6,
+        "capacities": [
+          3,
+          7,
+          8,
+          8,
+          5,
+          6
+        ],
+        "num_precedences": 45
+      },
+      "source_satisfiable": true,
+      "extracted_assignment": [
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "label": "yes_mixed_signs",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            -2,
+            3
+          ],
+          [
+            -1,
+            2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_tasks": 44,
+        "time_limit": 6,
+        "capacities": [
+          3,
+          7,
+          8,
+          8,
+          6,
+          12
+        ],
+        "num_precedences": 66
+      },
+      "source_satisfiable": true,
+      "extracted_assignment": [
+        true,
+        true,
+        true
+      ]
+    }
+  ]
+}
