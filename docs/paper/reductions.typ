@@ -3718,11 +3718,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("QuadraticCongruences")
-  let a = x.instance.a
-  let b = x.instance.b
-  let c = x.instance.c
+  let a = int(x.instance.a)
+  let b = int(x.instance.b)
+  let c = int(x.instance.c)
   let config = x.optimal_config
-  let xval = config.at(0) + 1
+  let xval = range(config.len()).map(i => config.at(i) * calc.pow(2, i)).sum()
   // Collect all x in {1..c-1} and check x² mod b == a
   let rows = range(1, c).map(xi => {
     let sq = xi * xi
@@ -9175,6 +9175,53 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
 ]
 
+#let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
+#let mvc_lcs_sol = mvc_lcs.solutions.at(0)
+#reduction-rule("MinimumVertexCover", "LongestCommonSubsequence",
+  example: true,
+  example-caption: [Path graph $P_4$: VC $arrow.r$ LCS via vertex symbols],
+  extra: [
+    #{
+      let source-cover = mvc_lcs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let target-config = mvc_lcs_sol.target_config
+      let witness = target-config.filter(x => x < mvc_lcs.target.instance.alphabet_size)
+      let num-strings = mvc_lcs.target.instance.strings.len()
+      let total-length = mvc_lcs.target.instance.strings.map(s => s.len()).fold(0, (acc, n) => acc + n)
+      let fmt-seq(xs) = "(" + xs.map(str).join(", ") + ")"
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
+          "pred reduce mvc.json --to " + target-spec(mvc_lcs) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mvc.json --config " + mvc_lcs_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* Path graph $P_4$ with $n = #graph-num-vertices(mvc_lcs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_lcs.source.instance)$ edges. The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$.
+
+        *Step 2 -- Construct the LCS instance.* Alphabet $Sigma = {0, dots, #((mvc_lcs.target.instance.alphabet_size) - 1)}$ and $#num-strings$ strings: $S_0 = #fmt-seq(mvc_lcs.target.instance.strings.at(0))$, $S_1 = #fmt-seq(mvc_lcs.target.instance.strings.at(1))$, $S_2 = #fmt-seq(mvc_lcs.target.instance.strings.at(2))$, $S_3 = #fmt-seq(mvc_lcs.target.instance.strings.at(3))$. The target has `max_length` $#mvc_lcs.target.instance.max_length$ and total input length $#total-length$.
+
+        *Step 3 -- Verify the witness.* The stored target config is #fmt-seq(target-config), so the non-padding common subsequence is $w = #fmt-seq(witness)$ and the corresponding independent set is ${#witness.map(str).join(", ")}$. Taking the complement gives $V backslash w = {#source-cover.map(str).join(", ")} = C$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(|V| |E|)$ reduction follows #cite(<maier1978>, form: "prose") and the Garey--Johnson entry SR10 @garey1979. Each source vertex becomes one alphabet symbol, one template string lists the vertices in sorted order, and each source edge contributes a two-block constraint string. The longest common subsequence length equals the maximum independent-set size, so a size-$K$ vertex cover exists exactly when the target LCS has length at least $|V| - K$.
+][
+  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$ with $V = {0, 1, dots, n-1}$, build a Longest Common Subsequence instance as follows. Let $Sigma = V$. Create the template string $S_0 = (0, 1, dots, n-1)$. For each edge $\{u, v\} in E$, rename the endpoints so that $u < v$, then add the edge string
+  $
+    S_(\{u,v\}) = (0, dots, hat(u), dots, n-1) thick || thick (0, dots, hat(v), dots, n-1),
+  $
+  where $hat(u)$ means that symbol $u$ is omitted. The target string family is $R = {S_0} union {S_e : e in E}$. Its alphabet size is $n$, it has $|E| + 1$ strings, `max_length` $= n$, and total input length $n + 2 |E| (n - 1)$. Set the target threshold to $K' = n - K$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover of size $K$, then $I = V backslash C$ is an independent set of size $n - K$. List the vertices of $I$ in increasing order. This sequence is a subsequence of $S_0$ immediately. For an edge string $S_(\{u,v\})$, at most one endpoint lies in $I$. If neither endpoint lies in $I$, every symbol of $I$ appears in both halves, so the subsequence is immediate. If only the larger endpoint $v$ lies in $I$, then every symbol of $I$ still appears in the first half $(V backslash {u})$, so the same ordered list is a subsequence there. If only the smaller endpoint $u$ lies in $I$, then all symbols of $I$ smaller than $u$ appear in the first half, while $u$ and every larger symbol appear in the second half $(V backslash {v})$; concatenating the two halves therefore still contains the sorted list of $I$ as a subsequence. Hence every edge string contains that sequence, so the target LCS has length at least $|I| = n - K = K'$.
+
+  ($arrow.l.double$) Let $w$ be a common subsequence of the target strings with $|w| >= K'$. Because $w$ is a subsequence of $S_0 = (0, 1, dots, n-1)$, its symbols are distinct and already appear in increasing order. Consider any edge $\{u, v\}$ with $u < v$. In $S_(\{u,v\})$, the symbol $v$ appears only in the first half and the symbol $u$ appears only in the second half, so any embedding of both symbols would force $v$ to be matched before $u$. That contradicts the increasing order forced by $S_0$. Therefore $w$ contains at most one endpoint of every edge, so its symbols form an independent set $I$ of size at least $K' = n - K$. The complement $V backslash I$ is then a vertex cover of size at most $K$.
+
+  _Solution extraction._ Given an LCS witness $w$, mark every symbol that appears before the padding symbol as "outside the cover" and return its complement: $c_v = 1$ iff $v in.not w$, and $c_v = 0$ iff $v in w$.
+]
+
 #let mvc_fvs = load-example("MinimumVertexCover", "MinimumFeedbackVertexSet")
 #let mvc_fvs_sol = mvc_fvs.solutions.at(0)
 #let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
@@ -9498,6 +9545,55 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $a = y_1 y_2$, the Rosenberg penalty term vanishes and $H = y_1 y_2 y_3$ counts the clause violation faithfully. ($arrow.l.double$) If $a != y_1 y_2$, the penalty $M(dots.c) >= 1$ strictly exceeds the clause-counting contribution (at most 1), so any minimizer must have $a = y_1 y_2$ for every clause. Among such assignments, $H$ counts unsatisfied clauses, and minimizers maximize satisfiability.
 
   _Solution extraction._ Discard auxiliary variables: return $bold(x)[0..n]$.
+]
+
+#let ksat_qc = load-example("KSatisfiability", "QuadraticCongruences")
+#let ksat_qc_sol = ksat_qc.solutions.at(0)
+#reduction-rule("KSatisfiability", "QuadraticCongruences",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_qc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_qc.source.instance)$ clause mapped to a quadratic congruence with a $#ksat_qc.target.instance.b.len()$-digit modulus],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_qc) + " -o bundle.json",
+      "pred evaluate ksat.json --config " + ksat_qc_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let a = ksat_qc.target.instance.a
+      let b = ksat_qc.target.instance.b
+      let c = ksat_qc.target.instance.c
+      let witness-bits = ksat_qc_sol.target_config.len()
+      [
+        *Step 1 -- Source instance.* The canonical formula is the single clause $(x_1 or x_2 or x_3)$, witnessed by the satisfying assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Enumerate standard clauses.* With $l = 3$ active variables, the construction lists all $M = 8$ signed 3-clauses on ${x_1, x_2, x_3}$. This yields $N = 2M + l = 19$ lifted coefficients in the doubled knapsack encoding.
+
+        *Step 3 -- Lift by CRT.* Using $N+1 = 20$ odd primes starting at 13, the reduction builds the CRT gadgets $theta_0, dots, theta_N$ and outputs $(a, b, c)$. In the canonical fixture these numbers have $#a.len()$, $#b.len()$, and $#c.len()$ decimal digits respectively, so the paper reports their sizes rather than expanding them inline.
+
+        *Step 4 -- Verify the stored witness.* The example DB keeps the target witness in binary using $#witness-bits$ bits. Evaluating that witness satisfies $x^2 equiv a mod b$ with $1 <= x < c$, and extraction recovers the original source assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
+
+    *Multiplicity:* The fixture stores one canonical satisfying witness.
+  ],
+)[
+  Manders and Adleman's number-theoretic reduction encodes a 3-SAT assignment as a pattern of signs $alpha_j in {-1, +1}$ in a bounded knapsack-style congruence, then uses carefully chosen prime powers and the Chinese Remainder Theorem to realize those signs as divisibility conditions on $H - x$ and $H + x$. Squaring removes the sign ambiguity and yields one quadratic congruence $x^2 equiv a mod b$ together with an explicit bound $x < c$. The bound is essential: without it, the composite-modulus quadratic residuosity problem becomes much easier once the factorization of $b$ is known.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables, first deduplicate clauses and restrict to the active variables. Enumerate all signed 3-clauses over those variables as $sigma_1, dots, sigma_M$. Define the base-8 clause weight $8^j$ for $sigma_j$, form $tau_phi = -sum_(sigma_j in phi) 8^j$, and for each variable compute the positive and negative occurrence sums $f_i^+$ and $f_i^-$. In doubled form, set $N = 2M + l$ and coefficients
+  $ d_0 = 2, quad d_(2k-1) = -8^k, quad d_(2k) = -2 dot 8^k, quad d_(2M+i) = f_i^+ - f_i^- $
+  together with
+  $ tau_2 = 2 tau_phi + sum_(j=0)^N d_j + 2 sum_(i=1)^l f_i^- $
+  modulo $2 dot 8^(M+1)$.
+
+  Choose distinct odd primes $p_0, dots, p_N >= 13$ and let $K = product_(j=0)^N p_j^(N+1)$. For each $j$, construct $theta_j$ so that
+  $ theta_j equiv d_j mod 2 dot 8^(M+1), quad theta_j equiv 0 mod product_(i != j) p_i^(N+1) $
+  and $p_j$ does not divide $theta_j$. Set $H = sum_j theta_j$, $b = 2 dot 8^(M+1) dot K$, and
+  $ a = (2 dot 8^(M+1) + K)^(-1) (K tau_2^2 + 2 dot 8^(M+1) H^2) mod b, quad c = H + 1. $
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment determines signs $alpha_j in {-1, +1}$ for the lifted knapsack system so that $x = sum_j alpha_j theta_j$ obeys both $x equiv tau_2 mod 2 dot 8^(M+1)$ and $(H+x)(H-x) equiv 0 mod K$. These together imply $x^2 equiv a mod b$ with $0 <= x <= H < c$. ($arrow.l.double$) Any witness $x < c$ with $x^2 equiv a mod b$ yields, for each $j$, a unique sign from whether $p_j^(N+1)$ divides $H-x$ or $H+x$. Those signs recover an exact knapsack solution and hence a satisfying assignment of the original 3-SAT instance.
+
+  _Solution extraction._ Recover each sign $alpha_j$ from the divisibility of $H - x$ and $H + x$ by $p_j^(N+1)$. For variable coordinates $j = 2M+i$, interpret $alpha_j = -1$ as $x_i = 1$ and $alpha_j = +1$ as $x_i = 0$.
 ]
 
 #let ksat_ss = load-example("KSatisfiability", "SubsetSum")
@@ -10028,6 +10124,54 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) Given a satisfying assignment, select $"pos"_i$ if $x_i = 1$, else $"neg"_i$. This dominates all triangle vertices (each triangle has one selected vertex adjacent to both others). Each clause $C_j$ has at least one true literal, so $c_j$ is adjacent to at least one selected vertex. Total size: $n$. ($arrow.l.double$) Any dominating set needs $>= 1$ vertex per triangle (to dominate $"dum"_i$). A set of size $n$ has exactly one per triangle. If $"dum"_i$ is selected, it does not dominate any clause vertex; but it does dominate $"pos"_i$ and $"neg"_i$, which still need to cover clauses. Since $"dum"_i$ has no clause neighbors, we can swap it for $"pos"_i$ or $"neg"_i$ without losing domination of the triangle. After swapping, each clause vertex $c_j$ must be dominated by some $"pos"_i$ or $"neg"_i$, defining a consistent satisfying assignment.
 
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
+]
+
+#let sat_ifha = load-example("Satisfiability", "IntegralFlowHomologousArcs")
+#let sat_ifha_sol = sat_ifha.solutions.at(0)
+#reduction-rule("Satisfiability", "IntegralFlowHomologousArcs",
+  example: true,
+  example-caption: [3-variable 4-clause SAT to equality-constrained integral flow],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_ifha) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_ifha_sol.source_config.map(str).join(","),
+    )
+    SAT assignment: $(x_1, x_2, x_3) = (#sat_ifha_sol.source_config.map(str).join(", "))$ \
+    Target network: $#sat_ifha.target.instance.graph.num_vertices$ vertices, $#sat_ifha.target.instance.graph.arcs.len()$ arcs, #sat_ifha.target.instance.homologous_pairs.len() homologous pairs, and $R = #sat_ifha.target.instance.requirement$ \
+    The stored flow witness gives bottleneck loads $1, 1, 1, 0$ across the four clause stages, so every stage respects its unit capacity #sym.checkmark
+
+    *Step 1 -- Choose variable channels.* The fixture assignment sends one unit on the $T$ channel of $x_1$, one unit on the $F$ channel of $x_2$, and one unit on the $T$ channel of $x_3$. Because $R = 3$, any feasible witness must route exactly one unit out of each split node.
+
+    *Step 2 -- Process the clauses.* Clause $C_1 = (x_1 or x_2)$ sends the false channels of $x_1$ and $x_2$ through the first bottleneck, so only the chosen $F_2$ path contributes. Clause $C_2 = (not x_1 or x_3)$ sends $T_1$ and $F_3$ through stage 2, giving load $1$. Clause $C_3 = (not x_2 or not x_3)$ sends $T_2$ and $T_3$ through stage 3, again giving load $1$. Clause $C_4 = (x_1 or x_3)$ sends $F_1$ and $F_3$ through stage 4, so the chosen assignment contributes load $0$.
+
+    *Step 3 -- Verify a witness.* The sink receives all three units, and each homologous pair forces the flow entering a collector from variable $x_i$ to leave the matching distributor arc for the same variable/channel. The unsatisfying assignment $(1, 1, 1)$ is rejected because stage 3 would send both $T_2$ and $T_3$ through a unit-capacity bottleneck.
+
+    *Multiplicity:* The fixture stores one canonical satisfying assignment / flow pair. Other satisfying assignments induce different T/F channel choices, but the clause-stage bottleneck test is always determined by which literals of each clause are false.
+  ],
+)[
+  This $O(n m + L)$ reduction @sahni1974 @garey1979 constructs a directed network with one unit-capacity variable path per Boolean variable and one capacity-$(|C_j| - 1)$ bottleneck per clause. A feasible integral flow of value $n$ exists if and only if the SAT formula is satisfiable. For $n$ variables, $m$ clauses, and total literal count $L = sum_j |C_j|$, the target has $2 n m + 3 n + 2 m + 2$ vertices, $2 n m + 5 n + m + L$ arcs, and $L$ homologous pairs.
+][
+  _Construction._ Let $phi = and.big_(j=1)^m C_j$ with variables $x_1, dots, x_n$ and clause widths $k_j = |C_j|$. Introduce source $s$, sink $t$, split vertices $"split"_i$ for $i in {1, dots, n}$, true/false pipeline vertices $T_(j,i)$ and $F_(j,i)$ for every boundary $j in {0, dots, m}$, and a collector/distributor pair $(gamma_j, delta_j)$ for each clause stage $j in {1, dots, m}$.
+
+  _Variable stage._ For each variable $x_i$, add $(s, "split"_i)$, $( "split"_i, T_(0,i))$, and $( "split"_i, F_(0,i))$, all with capacity $1$. Any feasible flow of value $n$ must therefore choose exactly one of the two channels for each variable.
+
+  _Clause stage._ For clause $C_j$, add a bottleneck arc $(gamma_j, delta_j)$ of capacity $k_j - 1$. For each variable $x_i$:
+  - if $x_i in C_j$, route the false channel through the bottleneck via $(F_(j-1,i), gamma_j)$ and $(delta_j, F_(j,i))$, while the true channel bypasses directly from $T_(j-1,i)$ to $T_(j,i)$;
+  - if $overline(x_i) in C_j$, route the true channel through the bottleneck via $(T_(j-1,i), gamma_j)$ and $(delta_j, T_(j,i))$, while the false channel bypasses directly from $F_(j-1,i)$ to $F_(j,i)$;
+  - otherwise both channels bypass directly from boundary $j - 1$ to boundary $j$.
+  Finally add $(T_(m,i), t)$ and $(F_(m,i), t)$ of capacity $1$ for every variable, and set the requirement to $R = n$.
+
+  For every literal occurrence in $C_j$, declare the corresponding collector-entry and distributor-exit arcs homologous: pair $(F_(j-1,i), gamma_j)$ with $(delta_j, F_(j,i))$ when $x_i in C_j$, and pair $(T_(j-1,i), gamma_j)$ with $(delta_j, T_(j,i))$ when $overline(x_i) in C_j$.
+
+  _Variable mapping._ Choosing the T-channel for $x_i$ represents $x_i = 1$; choosing the F-channel represents $x_i = 0$. A literal of $not C_j$ is true exactly when its designated channel is forced through the stage-$j$ bottleneck.
+
+  _Correctness._ ($arrow.r.double$) Let $sigma$ satisfy $phi$. Route one unit from $s$ through $"split"_i$ along the T-channel when $sigma(x_i) = 1$ and along the F-channel otherwise. In clause stage $j$, exactly those literals of $not C_j$ that are true under $sigma$ attempt to use $(gamma_j, delta_j)$. Since $sigma$ satisfies $C_j$, at least one literal of $C_j$ is true, so at least one literal of $not C_j$ is false. Hence at most $k_j - 1$ chosen channels use the bottleneck, respecting its capacity. The homologous equalities are satisfied because every chosen collector entry for variable $x_i$ is matched with the corresponding distributor exit on the same variable/channel.
+
+  ($arrow.l.double$) Let $f$ be a feasible integral flow of value at least $n$. The only outgoing arcs of $s$ are the $n$ unit-capacity arcs $(s, "split"_i)$, so each variable contributes exactly one unit. Conservation at $"split"_i$ forces that unit onto exactly one of $( "split"_i, T_(0,i))$ or $( "split"_i, F_(0,i))$, defining a truth assignment $sigma$. In clause stage $j$, the bottleneck allows at most $k_j - 1$ literal channels of $not C_j$ to carry flow. Because homologous pairs prevent flow from entering through one variable's channel and exiting through another's, this load counts genuine literals of $not C_j$ made true by $sigma$. Therefore at least one literal of $not C_j$ is false, so the corresponding literal of $C_j$ is true. Every clause is satisfied.
+
+  _Solution extraction._ Read the base channel choice for each variable: output $x_i = 1$ iff the flow on $( "split"_i, T_(0,i))$ is $1$, and $x_i = 0$ iff the flow on $( "split"_i, F_(0,i))$ is $1$.
 ]
 
 #reduction-rule("KSatisfiability", "Satisfiability")[
@@ -10957,6 +11101,54 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid splitting has at least one element in $S_2$ ($sum >= 1$) and at least one in $S_1$ ($sum <= |C|-1$) for every $C$. ($arrow.l.double$) Any feasible ILP solution defines a valid 2-coloring.
 
   _Solution extraction._ $S_2 = {u_i : x_i = 1}$, $S_1 = U without S_2$.
+]
+
+#let ss_bt = load-example("SetSplitting", "Betweenness")
+#let ss_bt_sol = ss_bt.solutions.at(0)
+#reduction-rule("SetSplitting", "Betweenness",
+  example: true,
+  example-caption: [$|U| = #ss_bt.source.instance.universe_size$, $#ss_bt.source.instance.subsets.len()$ subsets, no normalization auxiliaries needed],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
+      "pred reduce set-splitting.json --to " + target-spec(ss_bt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate set-splitting.json --config " + ss_bt_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let source = ss_bt.source.instance
+      let target = ss_bt.target.instance
+      let source_config = ss_bt_sol.source_config
+      let target_config = ss_bt_sol.target_config
+      let pole = source.universe_size
+      [
+        *Step 1 -- Source instance.* The canonical Set Splitting fixture has universe $U = {0, 1, 2, 3, 4}$ and subsets $S_1 = {#source.subsets.at(0).map(str).join(", ")}$, $S_2 = {#source.subsets.at(1).map(str).join(", ")}$, $S_3 = {#source.subsets.at(2).map(str).join(", ")}$, and $S_4 = {#source.subsets.at(3).map(str).join(", ")}$. The stored splitting is $(#source_config.map(str).join(", "))$, so colors 0 and 1 both appear in every subset.
+
+        *Step 2 -- Add the pole and clause auxiliaries.* Because every subset already has size 3, normalization adds no universe elements. The target therefore uses pole $p = a_#pole$ together with one auxiliary element for each subset, namely $d_1 = 6$, $d_2 = 7$, $d_3 = 8$, and $d_4 = 9$, for a total of $#target.num_elements$ elements.
+
+        *Step 3 -- Form the betweenness triples.* The four subsets become the triple pairs $(#target.triples.at(0).map(str).join(", "))$, $(#target.triples.at(1).map(str).join(", "))$; $(#target.triples.at(2).map(str).join(", "))$, $(#target.triples.at(3).map(str).join(", "))$; $(#target.triples.at(4).map(str).join(", "))$, $(#target.triples.at(5).map(str).join(", "))$; and $(#target.triples.at(6).map(str).join(", "))$, $(#target.triples.at(7).map(str).join(", "))$. Each pair uses one auxiliary $d_j$ to force the corresponding 3-set to place at least one element on each side of the pole.
+
+        *Step 4 -- Verify the ordering and extraction.* The stored Betweenness witness is $f = (#target_config.map(str).join(", "))$, so the pole $p = 5$ sits at position $f(p) = #target_config.at(pole)$. Original elements $1, 3, 4$ lie to the left of the pole, while $0, 2$ lie to the right, so extraction returns $(#source_config.map(str).join(", "))$ exactly. For example, $(0, 6, 1)$ holds because $f(1) = #target_config.at(1) < f(6) = #target_config.at(6) < f(0) = #target_config.at(0)$, and $(6, 5, 2)$ holds because $f(6) = #target_config.at(6) < f(5) = #target_config.at(5) < f(2) = #target_config.at(2)$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(n + sum_(S in cal(C)) |S|)$ reduction @garey1979[MS1] first normalizes each large subset to size 2 or 3 with complementarity pairs, then builds a Betweenness instance with one pole element $p$, one element $a_u$ per normalized universe element, and one auxiliary betweenness element for each size-3 subset. If the normalized Set Splitting instance has universe size $n'$ with $s_2$ size-2 subsets and $s_3$ size-3 subsets, the target has $n' + 1 + s_3$ elements and $s_2 + 2 s_3$ triples.
+][
+  _Construction._ Given Set Splitting instance $(U, cal(C))$, first normalize every subset to size 2 or 3. For a subset $S = {s_1, dots, s_k}$ with $k >= 4$, introduce fresh elements $y^+, y^-$, replace $S$ by the size-3 subset ${s_1, s_2, y^+}$ and the complementarity subset ${y^+, y^-}$, and continue recursively on ${y^-, s_3, dots, s_k}$. Repeating this step yields an equivalent normalized instance $(U', cal(C)')$ in which every subset has size 2 or 3.
+
+  Create one Betweenness element $a_u$ for each $u in U'$ and one distinguished pole $p$. For every size-2 subset ${u, v} in cal(C)'$, add triple $(a_u, p, a_v)$. For every size-3 subset ${u, v, w} in cal(C)'$, introduce a fresh auxiliary element $d_(u,v,w)$ and add triples $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$.
+
+  _Correctness._ The normalization identity preserves splittability: a coloring splits ${s_1, dots, s_k}$ if and only if it can be extended to fresh elements $y^+, y^-$ so that ${s_1, s_2, y^+}$, ${y^+, y^-}$, and ${y^-, s_3, dots, s_k}$ are all non-monochromatic. Thus it suffices to reason about normalized subsets.
+
+  ($arrow.r.double$) Let $chi: U' -> {0, 1}$ split every subset of $cal(C)'$. Place all $a_u$ with $chi(u) = 0$ to the left of $p$ and all $a_u$ with $chi(u) = 1$ to the right. For a size-2 subset ${u, v}$, non-monochromaticity gives $chi(u) != chi(v)$, so $p$ lies between $a_u$ and $a_v$, satisfying $(a_u, p, a_v)$. For a size-3 subset ${u, v, w}$, not all three colors are equal. If $u$ and $v$ lie on the same side of $p$, then $w$ lies on the opposite side; place $d_(u,v,w)$ between $a_u$ and $a_v$ on their shared side. If $u$ and $v$ lie on opposite sides of $p$, place $d_(u,v,w)$ between them on the side opposite $a_w$. In both cases $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$ hold.
+
+  ($arrow.l.double$) Suppose an ordering satisfies all Betweenness triples. Define $chi(u) = 0$ iff $a_u$ lies left of $p$, and $chi(u) = 1$ otherwise. For a size-2 subset ${u, v}$, the triple $(a_u, p, a_v)$ forces $a_u$ and $a_v$ onto opposite sides of $p$, so the subset is non-monochromatic. For a size-3 subset ${u, v, w}$, the triple $(a_u, d_(u,v,w), a_v)$ puts $d_(u,v,w)$ between $a_u$ and $a_v$. If $a_u, a_v, a_w$ were all on the same side of $p$, then $d_(u,v,w)$ would also lie on that side, making $(d_(u,v,w), p, a_w)$ impossible because $p$ cannot lie between two elements on the same side. Hence every size-3 subset is non-monochromatic. By normalization equivalence, the original Set Splitting instance is splittable.
+
+  _Solution extraction._ For each original universe element $i in {0, dots, |U| - 1}$, return color 0 when $f(a_i) < f(p)$ and color 1 otherwise.
 ]
 
 #reduction-rule("KClique", "ILP")[
@@ -13349,6 +13541,58 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
 ]
 
+#let ksat_1in3 = load-example("KSatisfiability", "OneInThreeSatisfiability")
+#let ksat_1in3_sol = ksat_1in3.solutions.at(0)
+#reduction-rule("KSatisfiability", "OneInThreeSatisfiability",
+  example: true,
+  example-caption: [Single clause ($n = #ksat_1in3.source.instance.num_vars$, $m = #sat-num-clauses(ksat_1in3.source.instance)$): 3-SAT $arrow.r$ 1-in-3 SAT],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_1in3) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_1in3_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source formula has one clause $c_1 = (x_1 or x_2 or x_3)$. The canonical satisfying assignment is $(#ksat_1in3_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 0$, $x_2 = 0$, $x_3 = 1$.
+
+    *Step 2 -- Add the global false literal.* Introduce $z_0$ (index 4) and $z_T$ (index 5), then add the forcing clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means "exactly one of $u, v, w$ is true." In the stored witness, $(z_0, z_T) = (0, 1)$, which is the unique satisfying pattern of that clause.
+
+    *Step 3 -- Build the clause gadget.* Introduce auxiliaries $a_1, b_1, c_1, d_1, e_1, f_1$ at indices 6 through 11 and replace $c_1$ by the five 1-in-3 clauses
+    $
+      R(x_1, a_1, d_1), quad
+      R(x_2, b_1, d_1), quad
+      R(a_1, b_1, e_1), quad
+      R(c_1, d_1, f_1), quad
+      R(x_3, c_1, z_0).
+    $
+    In the exported target instance these become exactly the six clauses
+    $(4, 4, 5)$, $(1, 6, 9)$, $(2, 7, 9)$, $(6, 7, 10)$, $(8, 9, 11)$, $(3, 8, 4)$.
+
+    *Step 4 -- Verify a witness.* The canonical target witness is $(#ksat_1in3_sol.target_config.map(str).join(", "))$. Reading off the auxiliaries gives $(a_1, b_1, c_1, d_1, e_1, f_1) = (0, 0, 0, 1, 1, 0)$. Every target clause has exactly one true literal #sym.checkmark, and restricting to the first three coordinates recovers $(0, 0, 1)$, which satisfies the original clause #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. This single-clause source formula has 7 satisfying assignments, and each satisfying literal pattern extends to at least one target witness by the gadget construction.
+  ],
+)[
+  This $O(n + m)$ reduction @schaefer1978 @garey1979[LO4] preserves the original variables, adds two global variables $z_0$ and $z_T$, and introduces six fresh auxiliaries per clause. Each 3-SAT clause $(ell_1 or ell_2 or ell_3)$ is replaced by a five-clause gadget of exact-one constraints. The target therefore has $n + 2 + 6m$ variables and $1 + 5m$ clauses.
+][
+  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. Introduce global variables $z_0$ and $z_T$, and add the clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means that exactly one of the three literals is true. This forces $z_0 = 0$ and $z_T = 1$. For every source clause $C_j = (ell_1^j or ell_2^j or ell_3^j)$, introduce six fresh auxiliaries $a_j, b_j, c_j, d_j, e_j, f_j$ and append the five target clauses
+  $
+    R(ell_1^j, a_j, d_j), quad
+    R(ell_2^j, b_j, d_j), quad
+    R(a_j, b_j, e_j), quad
+    R(c_j, d_j, f_j), quad
+    R(ell_3^j, c_j, z_0).
+  $
+  Negated source literals are copied directly; no complement variables are needed because 1-in-3 SAT clauses in this codebase may contain negated literals.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable. Set the first $n$ target variables according to any satisfying source assignment, and set $(z_0, z_T) = (0, 1)$. Consider one clause gadget. Because $ell_1^j or ell_2^j or ell_3^j = 1$, the truth triple $(ell_1^j, ell_2^j, ell_3^j)$ is one of the seven nonzero 0/1 patterns. For each such pattern there is a choice of $(a_j, b_j, c_j, d_j, e_j, f_j)$ satisfying all five exact-one clauses; the implementation uses the gadget directly and the worked example shows one such extension. Doing this independently for every clause yields a satisfying 1-in-3 assignment.
+
+  ($arrow.l.double$) Suppose the target instance is satisfiable. The global clause forces $z_0 = 0$. Fix any clause gadget, and assume for contradiction that $ell_1^j = ell_2^j = ell_3^j = 0$. Then $R(ell_3^j, c_j, z_0)$ forces $c_j = 1$. Next $R(c_j, d_j, f_j)$ forces $d_j = f_j = 0$. Then $R(ell_1^j, a_j, d_j)$ and $R(ell_2^j, b_j, d_j)$ force $a_j = b_j = 1$. But now $R(a_j, b_j, e_j)$ has two true literals, impossible. Therefore every source clause has at least one true literal, so the restriction to the original variables satisfies $phi$.
+
+  _Solution extraction._ Return the first $n$ target coordinates unchanged, discarding $z_0$, $z_T$, and all clause auxiliaries.
+]
+
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
 #let part_swi_sol = part_swi.solutions.at(0)
 #reduction-rule("Partition", "SequencingWithinIntervals",
@@ -13464,6 +13708,187 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) A satisfying assignment picks one true literal per clause; these vertices form a clique since they span all clauses without contradiction. ($arrow.l.double$) A $k$-clique has exactly one vertex per clause group; the selected literals are pairwise non-contradictory, defining a satisfying assignment.
 
   _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
+]
+
+#let ksat_co = load-example("KSatisfiability", "CyclicOrdering")
+#let ksat_co_sol = ksat_co.solutions.at(0)
+#reduction-rule("KSatisfiability", "CyclicOrdering",
+  example: true,
+  example-caption: [Single-clause 3-SAT reduced to #ksat_co.target.instance.num_elements cyclic-order elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_co) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_co_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical formula is $phi = (x_1 or x_2 or x_3)$ with $n = #ksat_co.source.instance.num_vars$ variables and $m = #ksat_co.source.instance.clauses.len()$ clause. The stored satisfying assignment is $(#ksat_co_sol.source_config.map(str).join(", "))$, so every literal in the clause is true.
+
+    *Step 2 -- Create variable and clause elements.* The reduction introduces three variable elements per Boolean variable, giving variable triples $(alpha_1, beta_1, gamma_1) = (0, 1, 2)$, $(alpha_2, beta_2, gamma_2) = (3, 4, 5)$, and $(alpha_3, beta_3, gamma_3) = (6, 7, 8)$. The single clause adds five auxiliary elements $(j, k, l, m, n) = (9, 10, 11, 12, 13)$, so the target has $3n + 5m = #ksat_co.target.instance.num_elements$ elements total.
+
+    *Step 3 -- Emit the ten cyclic-ordering triples.* Because the clause literals are $(x_1, x_2, x_3)$, the literal-orientation triples are the forward variable triples. The target constraints are exactly #{ksat_co.target.instance.triples.map(t => "(" + t.map(str).join(", ") + ")").join(", ")}, so $|Delta| = #ksat_co.target.instance.triples.len() = 10m$.
+
+    *Step 4 -- Verify a solution.* The target witness permutation is $(#ksat_co_sol.target_config.map(str).join(", "))$. It satisfies all ten cyclic-order constraints #sym.checkmark. For each variable triple, the forward orientation $(alpha_i, beta_i, gamma_i)$ is _not_ derived by this permutation, so extraction returns $(#ksat_co_sol.source_config.map(str).join(", "))$, which satisfies $phi$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Any cyclic permutation of the target order is also valid, and other satisfying assignments of $phi$ induce additional valid cyclic orders.
+  ],
+)[
+  This $O(n + m)$ reduction @garey1979 @galilMegiddo1977 represents each variable by a three-element orientation gadget and each clause by five auxiliary elements linked through ten cyclic-ordering triples. For $n$ variables and $m$ clauses it produces $3n + 5m$ target elements and $10m$ triples.
+][
+  _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. For each variable $x_i$, create three target elements $alpha_i, beta_i, gamma_i$. For a positive literal $x_i$, define its associated cyclically ordered triple as $(alpha_i, beta_i, gamma_i)$; for a negative literal $not x_i$, define it as $(alpha_i, gamma_i, beta_i)$. For each clause $C_nu = (ell_1 or ell_2 or ell_3)$, write the three associated literal triples as $(a, b, c)$, $(d, e, f)$, and $(g, h, i)$. Add five fresh auxiliary elements $j_nu, k_nu, l_nu, m_nu, n_nu$ and the ten cyclic-ordering triples
+  $
+  (a, c, j_nu), (b, j_nu, k_nu), (c, k_nu, l_nu), (d, f, j_nu), (e, j_nu, l_nu),
+  (f, l_nu, m_nu), (g, i, k_nu), (h, k_nu, m_nu), (i, m_nu, n_nu), (n_nu, m_nu, l_nu).
+  $
+
+  _Correctness._ ($arrow.r.double$) Let $S$ be a satisfying assignment of $phi$. For each variable, exactly one of the two opposite orientations $(alpha_i, beta_i, gamma_i)$ and $(alpha_i, gamma_i, beta_i)$ is derived by any cyclic order; interpret the literal made true by $S$ as the one whose associated orientation is _not_ derived. In every clause at least one literal is true, and Galil--Megiddo's clause gadget lemma shows that the ten triples above are then consistent with the three literal orientations for that clause @galilMegiddo1977. Because different clauses use disjoint auxiliary element sets, the per-clause cyclic orders combine into one global cyclic order satisfying all target triples. ($arrow.l.double$) Conversely, let a cyclic ordering satisfy every target triple. For each variable $x_i$, put $x_i = 1$ iff $(alpha_i, beta_i, gamma_i)$ is _not_ derived. If some clause had all three literals false under this rule, then all three associated literal orientations would be derived. The same clause gadget lemma implies that the ten triples for that clause would then be inconsistent, contradicting feasibility. Hence every clause contains a true literal, so the extracted assignment satisfies $phi$.
+
+  _Variable mapping._ Positive literal $x_i$ is read through the orientation $(alpha_i, beta_i, gamma_i)$, while negative literal $not x_i$ is read through the reversed orientation $(alpha_i, gamma_i, beta_i)$.
+
+  _Solution extraction._ Given a target permutation $f$, set $x_i = 1$ iff $(f(alpha_i), f(beta_i), f(gamma_i))$ is _not_ in cyclic order; otherwise set $x_i = 0$.
+]
+
+#let ksat_ps = load-example("KSatisfiability", "PreemptiveScheduling")
+#let ksat_ps_sol = ksat_ps.solutions.at(0)
+#reduction-rule("KSatisfiability", "PreemptiveScheduling",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_ps.source.instance.num_vars$ variables and $m = #ksat_ps.source.instance.clauses.len()$ clause $arrow.r$ unit-task preemptive schedule on #ksat_ps.target.instance.lengths.len() jobs and $#ksat_ps.target.instance.num_processors$ processors],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_ps) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_ps_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = ksat_ps.source.instance.num_vars
+      let m = ksat_ps.source.instance.clauses.len()
+      let t = n + 3
+      let p = ksat_ps.target.instance.num_processors
+      let num-jobs = ksat_ps.target.instance.lengths.len()
+      let original-jobs = 2 * n * (n + 1) + 2 * n + 7 * m
+      let filler-jobs = num-jobs - original-jobs
+      let sigma = range(num-jobs).map(job =>
+        range(num-jobs).filter(slot => ksat_ps_sol.target_config.at(job * num-jobs + slot) == 1).at(0)
+      )
+      let slot-counts = range(t).map(slot =>
+        range(num-jobs).filter(job => sigma.at(job) == slot).len()
+      )
+      let clause-slots = range(7).map(i => sigma.at(30 + i))
+      [
+        *Step 1 -- Source instance.* The formula is $phi = (x_1 or x_2 or x_3)$ with satisfying assignment $(x_1, x_2, x_3) = (#ksat_ps_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Build Ullman's unit-task gadgets.* For $n = #n$, the reduction creates $2 n (n + 1) = #(2 * n * (n + 1))$ chain jobs $x_(i,j), overline(x)_(i,j)$, $2n = #(2 * n)$ forcing jobs $y_i, overline(y)_i$, and $7m = #(7 * m)$ clause jobs $D_(r,s)$. The slot capacities are $(#(n), #(2 * n + 1), #(2 * n + 2), #(2 * n + 2), #(m + n + 1), #(6 * m)) = (3, 7, 8, 8, 5, 6)$. We realize these capacities with $p = max(2n + 2, 6m) = #p$ processors and $F = #filler-jobs$ filler jobs, giving $#num-jobs$ total unit jobs. In this example the filler counts are $(5, 1, 0, 0, 3, 2)$.
+
+        *Step 3 -- Verify a schedule.* The witness schedule has exactly $p = #p$ jobs in each of the $T = #t$ slots: $(#slot-counts.map(str).join(", "))$. The positive chain starters $x_(1,0), x_(2,0), x_(3,0)$ are jobs $0, 8, 16$, placed at slots $(#sigma.at(0), #sigma.at(8), #sigma.at(16)) = (1, 1, 0)$, so extraction reads $(0, 0, 1)$ back from slot 0. The clause-pattern jobs are indices $30, dots, 36$; their slots are $(#clause-slots.map(str).join(", "))$, so exactly one clause job is promoted to slot $n + 1 = 4$ and the remaining six sit at slot $n + 2 = 5$.
+
+        *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments induce different slot-0 choices for the variable chains and therefore different valid schedules meeting the same threshold.
+      ]
+    }
+  ],
+)[
+  Ullman's reduction first builds a variable-capacity unit-task scheduling instance for 3-SAT, then pads each time slot with chained filler jobs so a fixed number of processors simulates the desired capacity profile. Because every task has length $1$, preemption is irrelevant: the resulting instance is already a valid preemptive scheduling instance whose optimal makespan is at most $T = n + 3$ iff the formula is satisfiable @ullman1975 @garey1979.
+][
+  _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. Create unit jobs $x_(i,j)$ and $overline(x)_(i,j)$ for $1 <= i <= n$ and $0 <= j <= n$, plus forcing jobs $y_i, overline(y)_i$, and clause jobs $D_(r,s)$ for $1 <= r <= m$, $1 <= s <= 7$. Add chain precedences $x_(i,j) prec x_(i,j+1)$ and $overline(x)_(i,j) prec overline(x)_(i,j+1)$, and branching precedences $x_(i,i-1) prec y_i$, $overline(x)_(i,i-1) prec overline(y)_i$. Set $T = n + 3$ and slot capacities $c_0 = n$, $c_1 = 2n + 1$, $c_t = 2n + 2$ for $2 <= t <= n$, $c_(n+1) = m + n + 1$, and $c_(n+2) = 6m$.
+  For each clause $C_r = (ell_1 or ell_2 or ell_3)$ and each nonzero bit pattern $b in {1, dots, 7}$, create clause job $D_(r,b)$. Its predecessors are the three chain endpoints chosen according to the bits of $b$: for literal position $k$, use the endpoint of $ell_k$ when bit $k$ is 1 and of $not ell_k$ when bit $k$ is 0. This makes exactly one clause job per clause ready one slot earlier when the clause is satisfied.
+
+  To convert the variable-capacity instance to fixed processors, let $p = max(2n + 2, 6m)$. For every slot $t$, add $p - c_t$ filler jobs and impose complete-bipartite precedences from every filler at slot $t$ to every filler at slot $t+1$. Keep every task length equal to $1$ and use $p$ processors. The total work is exactly $p T$, so any schedule of makespan at most $T$ must saturate every slot and therefore realizes the intended capacities.
+
+  _Correctness._ ($arrow.r.double$) Given a satisfying assignment, place exactly one of $x_(i,0), overline(x)_(i,0)$ at slot $0$ for each variable, propagate the two chains forward one step at a time, schedule the forcing jobs immediately after their branch points, and place the unique matching clause job for each clause at slot $n + 1$ (all other clause jobs at slot $n + 2$). The filler jobs occupy the remaining $p - c_t$ processor positions in slot $t$, so the schedule finishes by time $T = n + 3$. ($arrow.l.double$) Conversely, if the constructed instance has makespan at most $T$, then every slot is full and the filler chains force exactly $p - c_t$ filler jobs into slot $t$, leaving precisely $c_t$ non-filler positions. Ullman's capacity argument then applies: at slot $0$ exactly one of $x_(i,0), overline(x)_(i,0)$ is chosen per variable, this choice propagates consistently through the chains, and the availability of one clause job per clause at slot $n + 1$ implies each clause has a satisfied literal. Hence the extracted assignment satisfies $phi$.
+
+  _Solution extraction._ In the binary schedule encoding, inspect the row for each starter job $x_(i,0)$. Set $x_i = 1$ iff that row has its single $1$ in column $0$; otherwise set $x_i = 0$.
+]
+
+#let ksat_td = load-example("KSatisfiability", "TimetableDesign")
+#let ksat_td_sol = ksat_td.solutions.at(0)
+#let ksat_td_req = ksat_td.target.instance.requirements.flatten().filter(r => r > 0).len()
+#let ksat_td_blocker_c = ksat_td.target.instance.craftsman_avail.filter(row => row.filter(v => v == true).len() == 1).len()
+#let ksat_td_blocker_t = ksat_td.target.instance.task_avail.filter(row => row.filter(v => v == true).len() == 1).len()
+#reduction-rule("KSatisfiability", "TimetableDesign",
+  example: true,
+  example-caption: [Two-clause satisfiable formula reduced to a timetable gadget instance],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_td) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_td_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical formula has $n = #ksat_td.source.instance.num_vars$ variables and $m = #ksat_td.source.instance.clauses.len()$ clauses:
+    $ phi = (#ksat_td.source.instance.clauses.map(c => {
+      c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ }).join($or$)
+    }).join($) and ($)) $
+    The stored satisfying assignment is $(x_1, x_2) = (#ksat_td_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Normalize and assign periods.* The source has $L = #ksat_td.source.instance.clauses.map(c => c.literals.len()).sum()$ literal occurrences. Because $x_2$ appears four times, the bounded-occurrence preprocessing replaces it by a cycle of occurrence variables, so the normalized instance uses $#(ksat_td.target.instance.num_periods / 4)$ transformed variables and therefore $4q = #ksat_td.target.instance.num_periods$ timetable periods/colors.
+
+    *Step 3 -- Compile the gadget graph.* The list-edge-coloring gadget becomes a timetable with $#ksat_td.target.instance.num_craftsmen$ craftsmen, $#ksat_td.target.instance.num_tasks$ tasks, and #ksat_td_req binary requirements. Among these rows, #ksat_td_blocker_c craftsmen and #ksat_td_blocker_t tasks are one-period blockers used only to forbid colors on internal gadget vertices.
+
+    *Step 4 -- Verify a solution.* The target witness has #ksat_td_sol.target_config.filter(x => x == 1).len() scheduled pairs, exactly matching the #ksat_td_req nonzero requirements. Hence each required craftsman-task pair is scheduled once, every blocker occupies its designated period, and `pred evaluate` accepts the timetable. Reading back the distinguished variable-gadget periods recovers $(#ksat_td_sol.source_config.map(str).join(", "))$, which satisfies both clauses #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Different satisfying assignments, or different satisfying choices for the clause-edge colors, can induce distinct feasible timetables for the same formula.
+  ],
+)[
+  This polynomial-time implementation#footnote[The repository encodes the reduction via an explicit bounded-occurrence list-edge-coloring gadget chain rather than reproducing the original three-period presentation of @evenItaiShamir1976 verbatim. The implementation is still a many-one reduction to the general Timetable Design model.] realizes the NP-hardness of Timetable Design @evenItaiShamir1976 by normalizing the formula and compiling a constrained edge-coloring instance into a timetable. It uses $4L$ periods in the worst case, where $L$ is the source literal count, and creates $O(L^2)$ craftsmen and tasks with binary requirements.
+][
+  _Construction._ Given a 3-CNF formula $phi$, first eliminate pure literals and fix their truth values. For every remaining variable with more than three literal occurrences, apply Tovey's cloning trick: replace each occurrence by a fresh variable and add a cycle of 2-clauses $(y_i or overline(y)_(i+1))$ so that all clones must agree. Let the transformed variables be $y_1, dots, y_q$; by construction each $y_i$ appears at most twice positively and at most twice negatively.
+
+  Reserve four colors for each transformed variable: $N_(i,2), N_(i,1), P_(i,2), P_(i,1)$. Build a bipartite core graph with one central vertex. For every $y_i$, add the six 2-list edges used by the implementation, with allowed color pairs $(P_(i,1), N_(i,2))$, $(P_(i,2), P_(i,1))$, $(P_(i,1), P_(i,2))$, $(P_(i,2), N_(i,1))$, $(N_(i,2), P_(i,2))$, and $(N_(i,1), P_(i,1))$. This variable gadget has exactly two proper colorings, which represent $y_i = 1$ and $y_i = 0$. For every transformed clause, add one clause edge from the center to a fresh clause vertex whose allowed colors are exactly the colors assigned to that clause's literal occurrences.
+
+  Next compile the list-edge-coloring instance to an ordinary edge-coloring instance with blocked colors on vertices. Every 2-list edge is replaced by a three-edge path whose two internal vertices block all colors except the two allowed ones. A 1-list or 3-list clause edge stays direct, and the clause endpoint blocks every disallowed color. Finally encode colors as timetable periods, left-side vertices as craftsmen, right-side vertices as tasks, and every graph edge as one unit requirement between its endpoints. Whenever color $h$ is blocked at a vertex $u$, add a one-period blocker craftsman or task that is available only in period $h$ and is forced to match $u$ once. This dummy assignment consumes the unique slot of $u$ in period $h$, so no adjacent core edge can use that color.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment extends to the cloned variables and chooses one of the two color patterns in each variable gadget. Because every clause has a satisfied literal, its clause edge can take the corresponding literal color. The path gadgets propagate the chosen colors on every 2-list edge, and the blocker pairs occupy exactly the forbidden periods. Translating each edge color into its period yields a feasible timetable satisfying availability, exclusivity, and exact requirements. ($arrow.l.double$) In any feasible timetable, each required pair is scheduled in exactly one period, so every core edge receives a unique color. The blocker pairs forbid exactly the blocked colors, and every expanded path forces its represented edge to use one of the two colors in its list. Hence each variable gadget collapses to one of the two mirror patterns, defining a Boolean value for each transformed variable. A clause edge can then be colored only by one of its literal colors, so some literal in every clause matches the extracted variable pattern. Projecting clone values back to the original variables and reinstating the fixed pure-literal assignments yields a satisfying assignment of $phi$.
+
+  _Variable mapping._ Pure literals removed during preprocessing are stored as fixed source assignments. Every remaining source variable is represented either by one transformed variable or by a cycle of clone variables introduced by the bounded-occurrence step; the added 2-clauses appear as ordinary clause gadgets and force all clones of one source variable to agree. Periods are indexed by the four colors attached to each transformed variable.
+
+  _Solution extraction._ The implementation reads the period of the distinguished `vb` edge in each variable gadget. Color $N_(i,2)$ is interpreted as truth value $1$, and color $P_(i,2)$ as truth value $0$. The recovered transformed assignment is then projected back to the original variables, with the fixed pure-literal values reinserted.
+]
+
+#let ksat_ap = load-example("KSatisfiability", "AcyclicPartition")
+#let ksat_ap_sol = ksat_ap.solutions.at(0)
+#reduction-rule("KSatisfiability", "AcyclicPartition",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_ap.source.instance.num_vars$ variables, $m = #ksat_ap.source.instance.clauses.len()$ clause $arrow.r$ acyclic partition on #ksat_ap.target.instance.graph.num_vertices vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_ap.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_ap) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_ap_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = ksat_ap.source.instance.num_vars
+      let m = ksat_ap.source.instance.clauses.len()
+      let tgt = ksat_ap.target.instance
+      [
+        *Step 1 -- Source instance.* The canonical formula has $n = #n$ variable and $m = #m$ clause. The stored satisfying assignment is $(#ksat_ap_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Compose the three-stage chain.* The reduction composes 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. First, the Sipser digit-encoding produces a Subset Sum instance with $2n + 2m$ elements. Second, the Subset Sum $arrow.r$ Partition padding appends at most one element. Third, the Partition $arrow.r$ Acyclic Partition gadget builds a bipartite digraph: for each of the Partition elements, create one item vertex; add a source vertex and a sink vertex, with arcs from source to every item vertex and from every item vertex to sink. The resulting digraph has #tgt.graph.num_vertices vertices and #tgt.graph.arcs.len() arcs. Vertex weights are doubled element sizes for items and $(Sigma + 1)$ for the two endpoints; the weight bound is $Sigma + 1 + Sigma - (Sigma mod 2)$ where $Sigma$ is the Partition total, and the arc-cost bound equals the number of items.
+
+        *Step 3 -- Verify a solution.* The target witness $(#ksat_ap_sol.target_config.map(str).join(", "))$ partitions the #tgt.graph.num_vertices vertices into two blocks. The source and sink land in different blocks, ensuring the quotient digraph is acyclic. The item vertices split so that the doubled sizes on each side, together with the endpoint weight, respect the weight cap. Extracting back through Partition and Subset Sum recovers $(#ksat_ap_sol.source_config.map(str).join(", "))$, which satisfies the formula #sym.checkmark
+
+        *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments of the source formula induce different balanced partitions of the item vertices.
+      ]
+    }
+  ],
+)[
+  This composed reduction realizes 3-SAT $arrow.r$ Acyclic Partition via the witness-preserving chain 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. The first two stages are the classical Sipser digit encoding @sipser2012 and Garey--Johnson padding @garey1979; the final stage embeds the balanced partition into a bipartite source--sink digraph whose two-block quotient is automatically acyclic. For $n$ variables and $m$ clauses, the target has $2n + 2m + 3$ vertices and $4n + 4m + 2$ arcs.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+
+  (i) Apply the Sipser digit-encoding reduction (see KSatisfiability $arrow.r$ SubsetSum) to obtain a Subset Sum instance with $2n + 2m$ elements and target $T$.
+
+  (ii) Apply the Subset Sum $arrow.r$ Partition reduction (see SubsetSum $arrow.r$ Partition) to obtain a Partition instance with at most $2n + 2m + 1$ elements and total $Sigma$.
+
+  (iii) For each Partition element $a_i$, create one item vertex with weight $2 a_i$. Add a source vertex $s$ and a sink vertex $t$, each with weight $Sigma + 1$. Create arcs $(s, v_i)$ and $(v_i, t)$ for every item vertex $v_i$, all with unit cost. Set the weight bound $B = Sigma + 1 + Sigma - (Sigma mod 2)$ and the arc-cost bound $K =$ number of items.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment of $phi$ yields a Subset Sum solution, which yields a balanced Partition, which splits the item vertices into two groups of equal total size. Placing one group with $s$ and the other with $t$ gives a two-block partition. Each block's weight is $Sigma + 1 + Sigma <= B$. The arcs from $s$ to the opposite group and from the opposite group to $t$ form the cut, and the quotient digraph $s$-block $arrow$ $t$-block is acyclic. ($arrow.l.double$) Any feasible acyclic partition must separate $s$ and $t$ (otherwise the digon $s arrow v arrow t$ and $s arrow v' arrow t$ would create a quotient cycle). The weight bound forces the doubled item sizes in each block to be nearly balanced, recovering a balanced Partition. Reversing the Subset Sum and 3-SAT stages then yields a satisfying assignment.
+
+  _Solution extraction._ Identify the block containing $s$ and the block containing $t$. Assign each item vertex to Partition side 0 or 1 according to whether it shares a block with $t$. Reverse the Subset Sum $arrow.r$ Partition extraction, then reverse the 3-SAT $arrow.r$ Subset Sum extraction.
 ]
 
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
@@ -14038,6 +14463,50 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $alpha(x_(i+1)) = chi(2i)$ for $i = 0, dots, n-1$.
 ]
 
+// 6b. NAESatisfiability → PartitionIntoPerfectMatchings (#845)
+#let nae_ppm = load-example("NAESatisfiability", "PartitionIntoPerfectMatchings")
+#let nae_ppm_sol = nae_ppm.solutions.at(0)
+#reduction-rule("NAESatisfiability", "PartitionIntoPerfectMatchings",
+  example: true,
+  example-caption: [$n = #nae_ppm.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ppm.source.instance)$ clauses, target $K = #nae_ppm.target.instance.num_matchings$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_ppm) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_ppm_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let target = nae_ppm.target.instance
+      let config = nae_ppm_sol.target_config
+      [
+        *Step 1 -- Source instance.* The canonical NAE-SAT fixture has clauses $C_1 = (x_1 or x_2 or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The stored source witness is $(#nae_ppm_sol.source_config.map(str).join(", "))$, so the clause truth patterns are $(1, 1, 0)$ and $(0, 1, 1)$, hence both clauses satisfy the NAE condition.
+
+        *Step 2 -- Lay out the gadgets.* Each variable contributes 4 vertices, each clause contributes 6 signal vertices and 4 clause-gadget vertices, and each literal occurrence contributes one 2-vertex equality-chain pair. Concretely the target has $#target.graph.num_vertices$ vertices and $#target.graph.edges.len()$ edges: variable gadgets occupy vertices $0, dots, 11$, signal pairs occupy $12, dots, 23$, the two $K_4$ clause gadgets occupy $24, dots, 31$, and the equality-chain pairs occupy $32, dots, 43$.
+
+        *Step 3 -- Propagate the literal values.* Because $x_1 = x_2 = 1$ and $x_3 = 0$, the three signal vertices for clause $C_1$ are in groups $(#config.at(12), #config.at(14), #config.at(16)) = (0, 0, 1)$, while the three signal vertices for clause $C_2$ are in groups $(#config.at(18), #config.at(20), #config.at(22)) = (1, 0, 0)$. The equality-chain pairs at $(32, 33), dots, (42, 43)$ carry the complementary groups needed to keep each copied signal synchronized with the appropriate $t_i$ or $f_i$.
+
+        *Step 4 -- Verify the clause gadgets and extraction.* The first $K_4$ gadget uses groups $(#config.at(24), #config.at(25), #config.at(26), #config.at(27)) = (1, 1, 0, 0)$, and the second uses $(#config.at(28), #config.at(29), #config.at(30), #config.at(31)) = (0, 1, 1, 0)$. Each gadget therefore splits $2 + 2$, so every clause gadget induces a perfect matching inside each group. Reading the truth assignment back from the variable vertices $(0, 4, 8)$ gives groups $(#config.at(0), #config.at(4), #config.at(8)) = (0, 0, 1)$, which extracts to $(#nae_ppm_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(n + m)$ reduction @schaefer1978 @garey1979[GT16] normalizes each 2-literal clause $(ell_1, ell_2)$ to $(ell_1, ell_1, ell_2)$, then builds 4-vertex variable gadgets, 2-vertex signal pairs, 4-vertex $K_4$ clause gadgets, and 2-vertex equality-chain links. For $m$ normalized clauses it produces $4n + 16m$ vertices, $3n + 21m$ edges, and fixes $K = 2$.
+][
+  _Construction._ Let $phi$ be a NAE-SAT instance on variables $x_1, dots, x_n$ whose clauses have size 2 or 3, matching the implemented rule. Replace every 2-literal clause $(ell_1, ell_2)$ by $(ell_1, ell_1, ell_2)$, yielding normalized 3-literal clauses $C_j = (ell_(j,0), ell_(j,1), ell_(j,2))$ for $j = 0, dots, m - 1$. For each variable $x_i$, create vertices $t_i, t'_i, f_i, f'_i$ with edges $(t_i, t'_i)$, $(f_i, f'_i)$, and $(t_i, f_i)$. For each clause position $(j, k)$, create a signal pair $s_(j,k), s'_(j,k)$ with edge $(s_(j,k), s'_(j,k))$. For each clause $C_j$, create vertices $w_(j,0), w_(j,1), w_(j,2), w_(j,3)$ forming a $K_4$, and add connection edges $(s_(j,k), w_(j,k))$ for $k in {0,1,2}$.
+
+  For each variable, chain its positive occurrences starting from $t_i$ and its negative occurrences starting from $f_i$. If $(j, k)$ is the next occurrence in the chosen sign-order and $"src"$ is the current chain source, create fresh vertices $mu, mu'$ with edges $(mu, mu')$, $("src", mu)$, and $(s_(j,k), mu)$, then update $"src" := s_(j,k)$. Output the Partition Into Perfect Matchings instance $(G, 2)$.
+
+  _Correctness._ ($arrow.r.double$) Let $alpha$ be a NAE-satisfying assignment. Put $t_i, t'_i$ in group 0 and $f_i, f'_i$ in group 1 when $alpha(x_i) = 1$; swap the two groups when $alpha(x_i) = 0$. Every equality-chain pair forces its signal vertex to share the group of the current chain source, so positive occurrences inherit the group of $t_i$ and negative occurrences inherit the group of $f_i$. In each normalized clause, the three signals are not all equal because $alpha$ satisfies the NAE condition. Assign $w_(j,k)$ to the opposite group from $s_(j,k)$ for $k = 0, 1, 2$, and assign $w_(j,3)$ to the minority group among $w_(j,0), w_(j,1), w_(j,2)$. Then every variable gadget, signal pair, and equality-chain pair contributes exactly one same-group edge, and each $K_4$ splits $2 + 2$, so every vertex has exactly one same-group neighbor.
+
+  ($arrow.l.double$) Suppose $(G, 2)$ admits a partition into two perfect matchings. In each variable gadget, the edges $(t_i, t'_i)$ and $(f_i, f'_i)$ force those pairs to share a group, while the edge $(t_i, f_i)$ forces $t_i$ and $f_i$ to lie in opposite groups. Each equality-chain pair forces its signal vertex to share the group of the chain source, so positive signals copy $t_i$ and negative signals copy $f_i$. In a clause gadget, each signal vertex is opposite its corresponding $w_(j,k)$, and the $K_4$ must split $2 + 2$; therefore $w_(j,0), w_(j,1), w_(j,2)$ cannot all share one group, so neither can the three signal vertices. Defining $alpha(x_i) = 1$ iff $t_i$ lies in group 0 makes every normalized clause NAE-satisfied, hence every original clause is NAE-satisfied as well.
+
+  _Solution extraction._ Read the variable gadgets: set $alpha(x_i) = 1$ iff $t_i$ lies in group 0.
+]
+
 // 7. ExactCoverBy3Sets → SubsetProduct (#388)
 #let x3c_sp = load-example("ExactCoverBy3Sets", "SubsetProduct")
 #let x3c_sp_sol = x3c_sp.solutions.at(0)
@@ -14157,7 +14626,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Select subset $j$ iff $y_j != 0$.
 ]
 
-// 10. KSatisfiability → SimultaneousIncongruences (#554)
+// 11. KSatisfiability → SimultaneousIncongruences (#554)
 #let ksat_si = load-example("KSatisfiability", "SimultaneousIncongruences")
 #let ksat_si_sol = ksat_si.solutions.at(0)
 #reduction-rule("KSatisfiability", "SimultaneousIncongruences",
@@ -14197,7 +14666,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
 ]
 
-// 11. Partition → SequencingToMinimizeTardyTaskWeight (#471)
+// 12. Partition → SequencingToMinimizeTardyTaskWeight (#471)
 #let part_stw = load-example("Partition", "SequencingToMinimizeTardyTaskWeight")
 #let part_stw_sol = part_stw.solutions.at(0)
 #reduction-rule("Partition", "SequencingToMinimizeTardyTaskWeight",
@@ -14345,6 +14814,121 @@ The following table shows concrete variable overhead for example instances, take
   ($arrow.l.double$) Suppose a cut has weight at least $n (m + 1) + 2m$. The $m$ clause triangles contribute at most $2m$ in total, so the variable edges must contribute at least $n (m + 1)$. Since each variable edge contributes at most $M = m + 1$, all $n$ variable edges are cut. Thus $p_i$ and $n_i$ lie on opposite sides for every variable, and the cut defines a consistent Boolean assignment by reading the side of $p_i$. The remaining $2m$ weight must come from the clause triangles, so each triangle contributes exactly 2 and therefore has vertices on both sides of the cut. Hence every clause contains both a true and a false literal, and the extracted assignment NAE-satisfies $phi$. Because a satisfying instance attains $n (m + 1) + 2m$, every optimal cut of the target has this form.
 
   _Solution extraction._ Read the positive literal vertices: $x_i = 1$ iff vertex $2i$ lies on side 1 of the cut.
+]
+
+#let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
+#let tdm_tp_sol = tdm_tp.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ThreePartition",
+  example: true,
+  example-caption: [$q = #tdm_tp.source.instance.universe_size$, $t = #tdm_tp.source.instance.triples.len()$, target has #tdm_tp.target.instance.sizes.len() numbers],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_tp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_tp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_tp.source.instance.universe_size
+      let t = tdm_tp.source.instance.triples.len()
+      let r = 32 * q
+      let r4 = calc.pow(r, 4)
+      let T1 = 40 * r4
+      let a0 = 16 * (10 * r4) + 1
+      let b0 = 16 * (10 * r4) + 2
+      let c0 = 16 * (10 * r4) + 4
+      let d0 = 16 * (10 * r4) + 8
+      let T2 = 16 * T1 + 15
+      let B = 64 * T2 + 4
+      let target = tdm_tp.target.instance
+
+      [
+        *Step 1 -- Source instance.* The canonical source has $q = #q$ and a single triple $M = {(0, 0, 0)}$, so the witness $(#tdm_tp_sol.source_config.map(str).join(", "))$ selects the only available triple and is therefore a perfect 3-dimensional matching #sym.checkmark.
+
+        *Step 2 -- Encode the ABCD and tagged 4-partition numbers.* Here $r = 32 q = #r$ and $T_1 = 40 r^4 = #T1$. Because every coordinate is 0 and occurs once, the ABCD numbers are all $10 r^4 = #(10 * r4)$. After the mod-16 tags, the 4-partition numbers become $(#a0, #b0, #c0, #d0)$ and sum to $T_2 = 16 T_1 + 15 = #T2$.
+
+        *Step 3 -- Build the 3-partition gadget.* From the 4 tagged numbers the construction creates #target.sizes.len() target numbers: 4 regular numbers, 12 pairing numbers, and 5 fillers. The target bound is $B = 64 T_2 + 4 = #B$, matching the exported instance's bound $#target.bound$. The canonical target witness is $(#tdm_tp_sol.target_config.map(str).join(", "))$: groups 0 and 1 are the non-filler triples, and the remaining 5 groups each contain one filler together with one unused pairing pair.
+
+        *Step 4 -- Verify the witness.* The target configuration partitions all #target.sizes.len() numbers into $#(target.sizes.len() / 3)$ triples summing to $B = #B$ #sym.checkmark. Reversing the gadget recovers the unique tagged 4-set, whose $B$, $C$, and $D$ members are all first occurrences, so the extracted source witness is again $(#tdm_tp_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. In this $q = 1$ instance there is only one source matching, but the target still admits multiple equivalent 3-partition witnesses because any choice of one pairing gadget to split the unique 4-set yields a valid solution.
+      ]
+    }
+  ],
+)[
+  This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
+][
+  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If some coordinate of $W union X union Y$ is absent from all triples, the source instance is trivially NO, so the implementation returns a fixed infeasible 3-Partition instance with sizes $(6, 6, 6, 6, 7, 9)$ and bound $20$.
+
+  Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
+  $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r $,
+  one $B$-item $10 r^4 + a_l r$ on the first occurrence of coordinate $a_l$ and $11 r^4 + a_l r$ on later occurrences, one $C$-item $10 r^4 + b_l r^2$ on the first occurrence of $b_l$ and $11 r^4 + b_l r^2$ later, and one $D$-item $10 r^4 + c_l r^3$ on the first occurrence of $c_l$ and $8 r^4 + c_l r^3$ later. This is the ABCD-Partition instance.
+
+  Tag the four classes modulo 16:
+  $ a'_i = 16 a_i + 1, b'_i = 16 b_i + 2, c'_i = 16 c_i + 4, d'_i = 16 d_i + 8 $
+  with target $T_2 = 16 T_1 + 15$. Enumerate the resulting $4 t$ tagged numbers as $a_0, dots, a_(4 t - 1)$.
+
+  For every tagged number create one regular element $w_i = 4(5 T_2 + a_i) + 1$. For every unordered pair $i < j$, create pairing elements
+  $ u_(i j) = 4(6 T_2 - a_i - a_j) + 2 $
+  and
+  $ u'_(i j) = 4(5 T_2 + a_i + a_j) + 2 $.
+  Finally add $8 t^2 - 3 t$ filler elements of size $20 T_2$ and set the 3-Partition bound to $B = 64 T_2 + 4$.
+
+  _Correctness._ The fixed preprocessing case is immediate: an uncovered coordinate makes the 3DM instance infeasible, and $(6, 6, 6, 6, 7, 9; 20)$ is a valid infeasible 3-Partition instance.
+
+  Assume now that every coordinate appears at least once.
+
+  ($arrow.r.double$) Given a perfect matching $M'$, form one ABCD group for every source triple. If $m_l in M'$, combine $u_l$ with the unique first-occurrence $B$, $C$, and $D$ items of coordinates $(a_l, b_l, c_l)$; otherwise combine $u_l$ with the corresponding later-occurrence dummy items. Because $r = 32 q$ prevents carries between the $r$, $r^2$, $r^3$, and $r^4$ digits, every such group sums to $T_1$, so the tagged instance has a 4-partition. For each tagged 4-set choose any two members $a_i, a_j$ and let the other two be $a_k, a_l$. Then ${w_i, w_j, u_(i j)}$ and ${w_k, w_l, u'_(i j)}$ both sum to $B$. Every pairing gadget not used this way joins one filler in a triple ${u_(i j), u'_(i j), 20 T_2}$. Hence the produced 3-Partition instance is feasible.
+
+  ($arrow.l.double$) In any feasible target solution every number lies strictly between $B / 4$ and $B / 2$, so the partition really is into triples. Modulo 4, regular numbers are congruent to 1, pairing numbers to 2, and fillers to 0. Therefore every triple is either of type $(1, 1, 2)$ or $(0, 2, 2)$. The $(0, 2, 2)$ triples identify the unused pairing gadgets, leaving a family of $(1, 1, 2)$ triples that reconstructs a 4-partition of the tagged numbers. Since $1 + 2 + 4 + 8 equiv 15 mod 16$, every recovered tagged 4-set contains exactly one former $A$-, $B$-, $C$-, and $D$-item. The carry-free base-$r$ encoding then forces each ABCD group to be either a real group (all first occurrences) or a dummy group (all later occurrences). The real groups pick exactly $q$ source triples, one for each coordinate of $W$, $X$, and $Y$, so they form a perfect 3-dimensional matching.
+
+  _Solution extraction._ Reverse the 4-Partition $arrow.r$ 3-Partition gadget by pairing each triple containing some $u_(i j)$ with the unique triple containing the matching $u'_(i j)$. This recovers the tagged 4-set. Undo the mod-16 tags to obtain one ABCD group, discard every dummy group whose $B$, $C$, and $D$ items are not first occurrences, and read the selected source triple from the surviving $A$-item.
+]
+
+#let tdm_ilp = load-example("ThreeDimensionalMatching", "ILP")
+#let tdm_ilp_sol = tdm_ilp.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ILP",
+  example: true,
+  example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.num_vars variables and #tdm_ilp.target.instance.constraints.len() constraints],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_ilp.source.instance.universe_size
+      let t = tdm_ilp.source.instance.triples.len()
+      let triples = tdm_ilp.source.instance.triples
+      [
+        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $t = #t$ triples: #triples.map(tr => "(" + tr.map(str).join(", ") + ")").join(", "). The stored witness $(#tdm_ilp_sol.source_config.map(str).join(", "))$ selects triples #tdm_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", "), which cover every element of $W$, $X$, and $Y$ exactly once #sym.checkmark.
+
+        *Step 2 -- Build the ILP.* One binary variable $x_j$ per triple ($j = 0, dots, #(t - 1)$). For each of the $3q = #(3 * q)$ elements across the three sets $W$, $X$, $Y$, add an equality constraint requiring that the sum of $x_j$ over all triples containing that element equals 1. This yields #tdm_ilp.target.instance.constraints.len() constraints and #tdm_ilp.target.instance.num_vars variables.
+
+        *Step 3 -- Verify a solution.* The target configuration $(#tdm_ilp_sol.target_config.map(str).join(", "))$ is identical to the source configuration because the mapping is one variable per triple with identity extraction. Each element-coverage constraint sums to exactly 1 #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  Direct ILP formulation: one binary variable per triple, with $3q$ equality constraints ensuring each element of $W$, $X$, and $Y$ is covered exactly once. The ILP has $t$ variables and $3q$ constraints.
+][
+  _Construction._ Given a 3DM instance with universe size $q$ and triples $m_0, dots, m_(t-1)$ where $m_l = (w_(a_l), x_(b_l), y_(c_l))$. Create binary variables $x_0, dots, x_(t-1)$. For each element $e in {0, dots, q - 1}$ in $W$, add constraint $sum_(l : a_l = e) x_l = 1$. Similarly for each element in $X$ and $Y$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(l : a_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(W-coverage)" \
+    & sum_(l : b_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(X-coverage)" \
+    & sum_(l : c_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(Y-coverage)" \
+    & x_l in {0, 1} quad forall l in {0, dots, t - 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A perfect 3-dimensional matching selects $q$ triples covering every element exactly once. Setting $x_l = 1$ for selected triples satisfies all $3q$ equality constraints. ($arrow.l.double$) Any binary feasible solution selects a set of triples in which every element of $W$, $X$, and $Y$ appears exactly once, which is a perfect 3-dimensional matching.
+
+  _Solution extraction._ Return the ILP solution vector directly: $x_l = 1$ iff triple $m_l$ is selected.
 ]
 
 #let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")
