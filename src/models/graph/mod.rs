@@ -70,7 +70,6 @@
 //! - [`IntegralFlowWithMultipliers`]: Integral flow with vertex multipliers on a directed graph
 //! - [`UndirectedFlowLowerBounds`]: Feasible s-t flow in an undirected graph with lower/upper bounds
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
-//! - [`VertexCover`]: Decision version of Minimum Vertex Cover (Karp's 21)
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 //! - [`DisjointConnectingPaths`]: Vertex-disjoint paths connecting prescribed terminal pairs
 //! - [`MinimumGraphBandwidth`]: Minimum graph bandwidth (minimize maximum edge stretch)
@@ -150,8 +149,6 @@ pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 pub(crate) mod undirected_flow_lower_bounds;
 pub(crate) mod undirected_two_commodity_integral_flow;
-pub(crate) mod vertex_cover;
-
 pub use acyclic_partition::AcyclicPartition;
 pub use balanced_complete_bipartite_subgraph::BalancedCompleteBipartiteSubgraph;
 pub use biclique_cover::BicliqueCover;
@@ -227,8 +224,6 @@ pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
 pub use undirected_flow_lower_bounds::UndirectedFlowLowerBounds;
 pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFlow;
-pub use vertex_cover::VertexCover;
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
@@ -239,6 +234,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(maximum_leaf_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
+    specs.extend(minimum_vertex_cover::decision_canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());
     specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
@@ -258,6 +254,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(monochromatic_triangle::canonical_model_example_specs());
     specs.extend(minimum_intersection_graph_basis::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
+    specs.extend(minimum_dominating_set::decision_canonical_model_example_specs());
     specs.extend(minimum_metric_dimension::canonical_model_example_specs());
     specs.extend(minimum_geometric_connected_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
@@ -295,7 +292,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(disjoint_connecting_paths::canonical_model_example_specs());
     specs.extend(undirected_flow_lower_bounds::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
-    specs.extend(vertex_cover::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());

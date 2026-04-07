@@ -733,3 +733,64 @@ fn test_find_all_paths_mode_aggregate_rejects_witness_only() {
     );
     assert!(paths.is_empty());
 }
+
+#[test]
+fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "DecisionMinimumVertexCover",
+        "MinimumVertexCover",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "DecisionMinimumVertexCover",
+        "MinimumVertexCover",
+        ReductionMode::Witness,
+    ));
+}
+
+#[test]
+fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "DecisionMinimumDominatingSet",
+        "MinimumDominatingSet",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "DecisionMinimumDominatingSet",
+        "MinimumDominatingSet",
+        ReductionMode::Witness,
+    ));
+}
+
+#[test]
+fn test_optimization_to_decision_turing_edges() {
+    let graph = ReductionGraph::new();
+
+    // MinimumVertexCover → DecisionMinimumVertexCover (Turing)
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Turing,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Aggregate,
+    ));
+
+    // MinimumDominatingSet → DecisionMinimumDominatingSet (Turing)
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumDominatingSet",
+        "DecisionMinimumDominatingSet",
+        ReductionMode::Turing,
+    ));
+}

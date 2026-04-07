@@ -178,7 +178,20 @@ pub(super) fn create_schema_driven(
         json_map.insert(field.name.clone(), value);
     }
 
-    let data = serde_json::Value::Object(json_map);
+    // Decision<P> types serialize as {inner: {graph, weights, ...}, bound} but schema
+    // fields are flat (graph, weights, bound).  Restructure when the canonical name
+    // indicates a Decision wrapper.
+    let data = if canonical.starts_with("Decision") {
+        let bound = json_map
+            .remove("bound")
+            .expect("Decision types require a bound field");
+        let mut outer = serde_json::Map::new();
+        outer.insert("inner".to_string(), serde_json::Value::Object(json_map));
+        outer.insert("bound".to_string(), bound);
+        serde_json::Value::Object(outer)
+    } else {
+        serde_json::Value::Object(json_map)
+    };
     validate_schema_driven_semantics(args, canonical, resolved_variant, &data)
         .map_err(|error| with_schema_usage(error, canonical, resolved_variant))?;
     (variant_entry.factory)(data.clone()).map_err(|error| {
@@ -1501,8 +1514,19 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "DecisionMinimumVertexCover" => match graph_type {
+            Some("KingsSubgraph") => {
+                "--positions \"0,0;1,0;1,1;0,1\" --weights 1,1,1,1 --bound 2"
+            }
+            Some("TriangularSubgraph") => {
+                "--positions \"0,0;0,1;1,0;1,1\" --weights 1,1,1,1 --bound 2"
+            }
+            Some("UnitDiskGraph") => {
+                "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5 --weights 1,1,1 --bound 2"
+            }
+            _ => "--graph 0-1,1-2,0-2,2-3 --weights 1,1,1,1 --bound 2",
+        },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "VertexCover" => "--graph 0-1,1-2,0-2,2-3 --k 2",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"

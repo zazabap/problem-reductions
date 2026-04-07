@@ -3,6 +3,7 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -167,6 +168,50 @@ crate::declare_variants! {
     default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
 }
 
+impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumDominatingSet<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+    W::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
+{
+    const DECISION_NAME: &'static str = "DecisionMinimumDominatingSet";
+}
+
+impl Decision<MinimumDominatingSet<SimpleGraph, i32>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        (*self.bound()).try_into().unwrap_or(0)
+    }
+}
+
+crate::register_decision_variant!(
+    MinimumDominatingSet<SimpleGraph, i32>,
+    "DecisionMinimumDominatingSet",
+    "1.4969^num_vertices",
+    &[],
+    "Decision version: does a dominating set of cost <= bound exist?",
+    dims: [
+        VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        VariantDimension::new("weight", "i32", &["i32"]),
+    ],
+    fields: [
+        FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed dominating-set cost)" },
+    ],
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -177,6 +222,55 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         optimal_config: vec![0, 0, 1, 1, 0],
         optimal_value: serde_json::json!(2),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_minimum_dominating_set_simplegraph_i32",
+        instance: Box::new(Decision::new(
+            MinimumDominatingSet::new(
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                vec![1i32; 5],
+            ),
+            2,
+        )),
+        optimal_config: vec![0, 0, 1, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_minimum_dominating_set_to_minimum_dominating_set",
+        build: || {
+            use crate::example_db::specs::assemble_rule_example;
+            use crate::export::SolutionPair;
+            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+
+            let source = crate::models::decision::Decision::new(
+                MinimumDominatingSet::new(
+                    SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                    vec![1i32; 5],
+                ),
+                2,
+            );
+            let result = source.reduce_to_aggregate();
+            let target = result.target_problem();
+            let config = vec![0, 0, 1, 1, 0];
+            assemble_rule_example(
+                &source,
+                target,
+                vec![SolutionPair {
+                    source_config: config.clone(),
+                    target_config: config,
+                }],
+            )
+        },
     }]
 }
 

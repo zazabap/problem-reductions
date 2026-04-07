@@ -3,6 +3,7 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -155,6 +156,50 @@ crate::declare_variants! {
     MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices",
 }
 
+impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumVertexCover<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+    W::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
+{
+    const DECISION_NAME: &'static str = "DecisionMinimumVertexCover";
+}
+
+impl Decision<MinimumVertexCover<SimpleGraph, i32>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        (*self.bound()).try_into().unwrap_or(0)
+    }
+}
+
+crate::register_decision_variant!(
+    MinimumVertexCover<SimpleGraph, i32>,
+    "DecisionMinimumVertexCover",
+    "1.1996^num_vertices",
+    &["DMVC"],
+    "Decision version: does a vertex cover of cost <= bound exist?",
+    dims: [
+        VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        VariantDimension::new("weight", "i32", &["i32"]),
+    ],
+    fields: [
+        FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed cover cost)" },
+    ],
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -165,6 +210,55 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         optimal_config: vec![1, 0, 0, 1, 1],
         optimal_value: serde_json::json!(3),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_minimum_vertex_cover_simplegraph_i32",
+        instance: Box::new(crate::models::decision::Decision::new(
+            MinimumVertexCover::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                vec![1i32; 4],
+            ),
+            2,
+        )),
+        optimal_config: vec![1, 0, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_minimum_vertex_cover_to_minimum_vertex_cover",
+        build: || {
+            use crate::example_db::specs::assemble_rule_example;
+            use crate::export::SolutionPair;
+            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+
+            let source = crate::models::decision::Decision::new(
+                MinimumVertexCover::new(
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                    vec![1i32; 4],
+                ),
+                2,
+            );
+            let result = source.reduce_to_aggregate();
+            let target = result.target_problem();
+            let config = vec![1, 0, 1, 0];
+            assemble_rule_example(
+                &source,
+                target,
+                vec![SolutionPair {
+                    source_config: config.clone(),
+                    target_config: config,
+                }],
+            )
+        },
     }]
 }
 

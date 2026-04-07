@@ -62,8 +62,18 @@
   }
 }
 
-#let graph-num-vertices(instance) = instance.graph.num_vertices
-#let graph-num-edges(instance) = instance.graph.edges.len()
+#let graph-instance(instance) = {
+  if "graph" in instance {
+    instance
+  } else if "inner" in instance and "graph" in instance.inner {
+    instance.inner
+  } else {
+    instance
+  }
+}
+
+#let graph-num-vertices(instance) = graph-instance(instance).graph.num_vertices
+#let graph-num-edges(instance) = graph-instance(instance).graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
 #let sat-num-clauses(instance) = instance.clauses.len()
 #let subsetsum-num-elements(instance) = instance.sizes.len()
@@ -234,7 +244,7 @@
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
   "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "MinimumMetricDimension": [Minimum Metric Dimension],
-  "VertexCover": [Vertex Cover],
+  "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -649,22 +659,23 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("VertexCover")
+  let x = load-model-example("DecisionMinimumVertexCover")
+  let inner = x.instance.inner
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let k = x.instance.k
+  let k = x.instance.bound
   let sol = x.optimal_config
   let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
-    #problem-def("VertexCover")[
-      Given an undirected graph $G = (V, E)$ and a positive integer $k <= |V|$, determine whether there exists a vertex cover of size at most $k$: a subset $V' subset.eq V$ with $|V'| <= k$ such that for each edge ${u, v} in E$, at least one of $u, v$ belongs to $V'$.
+    #problem-def("DecisionMinimumVertexCover")[
+      Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> RR_(gt.eq 0)$ and an integer bound $k$, determine whether there exists a vertex cover $S subset.eq V$ with $sum_(v in S) w(v) <= k$ such that every edge has at least one endpoint in $S$.
     ][
-    Vertex Cover is one of Karp's 21 NP-complete problems @karp1972 and the decision version of Minimum Vertex Cover @garey1979. The best known exact algorithm runs in $O^*(1.1996^n)$ time (Chen, Kanj, and Xia, 2010).
+    Decision Minimum Vertex Cover is the decision version of Minimum Vertex Cover and one of Karp's 21 NP-complete problems @karp1972 @garey1979. It asks whether the optimization objective can be achieved within a prescribed budget rather than minimizing the cover weight directly.
 
-    *Example.* Consider a graph on $n = #nv$ vertices and $|E| = #ne$ edges with threshold $k = #k$. The cover $V' = {#cover.map(i => $v_#i$).join(", ")}$ with $|V'| = #cover.len() <= k$ is a valid vertex cover.
+    *Example.* Consider a graph on $n = #nv$ vertices and $|E| = #ne$ edges with threshold $k = #k$. The cover $S = {#cover.map(i => $v_#i$).join(", ")}$ has total weight $2 <= #k$ and therefore certifies a yes-instance.
 
     #pred-commands(
-      "pred create --example VertexCover -o vc.json",
+      "pred create --example DecisionMinimumVertexCover -o vc.json",
       "pred solve vc.json",
       "pred evaluate vc.json --config " + sol.map(str).join(","),
     )
@@ -13086,8 +13097,13 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
     }
     unique
   }
+  // Skip trivial Decision<P> ↔ P edges (solve-and-compare, no interesting proof)
+  let is-decision-opt-pair(src, tgt) = {
+    src == "Decision" + tgt or tgt == "Decision" + src
+  }
   let missing = json-edges.filter(e => {
-    covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none
+    if is-decision-opt-pair(e.at(0), e.at(1)) { false }
+    else { covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none }
   })
   if missing.len() > 0 {
     block(width: 100%, inset: (x: 1em, y: 0.5em), fill: rgb("#fff3cd"), stroke: (left: 3pt + rgb("#ffc107")))[
