@@ -3,6 +3,14 @@
 ## Project Overview
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
+## Philosophy
+- **Simple logic, maximum reuse.** Prefer straightforward code with fewer branches (less if-else).
+  Try best to reuse existing logic rather than adding ad hoc special cases.
+- **Root-cause fixes over patches.** When a bug surfaces, trace it to its origin.
+  A fix that prevents a class of bugs is better than one that handles a single case.
+- **Tests over implementation.** Spend more time designing tests than implementing code.
+  Well-designed tests catch bugs early and document intended behavior.
+
 ## Agent Preferences
 - For tasks with complex logic (implementing reductions, fixing CI, issue-to-pr, check-issue, etc.), prefer invoking the `codex` CLI (if installed) with the latest model: `codex exec -c model="gpt-5.4" "<prompt>"`.
 
