@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -50,6 +50,12 @@ help:
 	@echo "  worktree-issue ISSUE=<number> SLUG=<slug> - Create an issue worktree from origin/main"
 	@echo "  worktree-pr PR=<number> [REPO=<owner/repo>] - Checkout a PR into an isolated worktree"
 	@echo "  copilot-review - Request Copilot code review on current PR"
+	@echo ""
+	@echo "  papers         - Full paper fetch: lookup + download + scihub"
+	@echo "  papers-lookup  - Lookup arxiv/OA URLs for references.bib entries"
+	@echo "  papers-download - Download available free PDFs"
+	@echo "  papers-scihub  - Fetch remaining papers via Sci-Hub"
+	@echo "  papers-status  - Show paper collection stats"
 	@echo ""
 	@echo "  Set RUNNER=claude to use Claude instead of Codex (default: codex)"
 	@echo "  Override CODEX_MODEL or CLAUDE_MODEL to pick a different model"
@@ -593,3 +599,34 @@ copilot-review:
 	@PR=$$(gh pr view --json number --jq .number 2>/dev/null) || { echo "No PR found for current branch"; exit 1; }; \
 	echo "Requesting Copilot review on PR #$$PR..."; \
 	gh copilot-review $$PR
+
+# ── Research paper management ──────────────────────────────────────
+# Downloads referenced papers to docs/research/raw/ (gitignored).
+# Manifest in docs/research/manifest.json tracks URLs and sources.
+
+# Full pipeline: lookup URLs, download free PDFs, then try Sci-Hub for the rest
+papers: papers-lookup papers-download papers-scihub papers-status
+
+# Step 1: Find arxiv/OA URLs via Semantic Scholar + arxiv APIs
+papers-lookup:
+	python3 scripts/fetch_papers.py lookup
+
+# Step 2: Download papers with known free URLs
+papers-download:
+	python3 scripts/fetch_papers.py download
+
+# Step 3: Fetch remaining papers (with DOIs) via Sci-Hub
+papers-scihub:
+	python3 scripts/fetch_papers.py scihub
+
+# Step 4: Push PDFs to shared remote (requires rclone + PAPERS_REMOTE env var)
+papers-push:
+	python3 scripts/fetch_papers.py push
+
+# Pull PDFs from shared remote (collaborator setup)
+papers-pull:
+	python3 scripts/fetch_papers.py pull
+
+# Show current collection stats
+papers-status:
+	python3 scripts/fetch_papers.py status

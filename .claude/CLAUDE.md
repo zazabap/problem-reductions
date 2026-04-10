@@ -81,8 +81,13 @@ make run-review N=570 # Process a specific PR from the Review pool column
 make run-review-forever # Poll Review pool for eligible PRs, dispatch run-review
 make copilot-review # (Optional) Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
+make papers        # Full paper fetch: lookup + download + scihub
+make papers-status # Show research paper collection stats
+make papers-push   # Push PDFs to shared remote (requires rclone + PAPERS_REMOTE)
+make papers-pull   # Pull PDFs from shared remote
 # Set RUNNER=claude to use Claude instead of Codex (default: codex)
 # Default Codex model: CODEX_MODEL=gpt-5.4
+# Set PAPERS_REMOTE=gdrive:folder for paper sync (requires rclone)
 ```
 
 ## Git Safety
