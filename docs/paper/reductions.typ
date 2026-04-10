@@ -244,6 +244,7 @@
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
   "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "MinimumMetricDimension": [Minimum Metric Dimension],
+  "DecisionMinimumDominatingSet": [Decision Minimum Dominating Set],
   "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
@@ -3774,9 +3775,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("QuadraticDiophantineEquations")
-  let a = x.instance.a
-  let b = x.instance.b
-  let c = x.instance.c
+  let a = int(x.instance.a)
+  let b = int(x.instance.b)
+  let c = int(x.instance.c)
   let config = x.optimal_config
   let xval = config.at(0) + 1
   let yval = int((c - a * xval * xval) / b)
@@ -6633,11 +6634,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let count = sel-pairs.len()
   [
     #problem-def("MinimumFaultDetectionTestSet")[
-      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers all vertices $V$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers every internal vertex in $V minus (I union O)$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
     ][
-      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation can detect faults at the vertices it traverses, and the goal is to find the fewest test paths that collectively exercise every component. The problem generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
+      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation exercises the internal components it traverses, while the boundary pins themselves are fixed sources and sinks. The problem therefore asks for the fewest test pairs whose induced paths cover all internal vertices. It generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
 
-      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers ${0, 2, 3, 5}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers ${1, 3, 4, 6}$. Their union is all $#n$ vertices, giving an optimal count of $#count$.
+      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. The internal vertices are ${2, 3, 4}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers internal vertices ${2, 3}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers internal vertices ${3, 4}$. Their union is all internal vertices, giving an optimal count of $#count$.
 
       #pred-commands(
         "pred create --example MinimumFaultDetectionTestSet -o mfdts.json",
@@ -9237,6 +9238,78 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
 ]
 
+#let dmds_mmmc = load-example(
+  "DecisionMinimumDominatingSet",
+  "MinMaxMulticenter",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let dmds_mmmc_sol = dmds_mmmc.solutions.at(0)
+#reduction-rule("DecisionMinimumDominatingSet", "MinMaxMulticenter",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-target-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [6-vertex unit graph: dominating set of size 2 equals a 2-center of radius 1],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
+      "pred reduce dmds.json --to " + target-spec(dmds_mmmc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmds.json --config " + dmds_mmmc_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+
+    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign weight $1$ to every vertex, assign length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore still has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
+
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the maximum weighted distance is $1$. The extracted source witness is the same indicator vector, hence a dominating set of size $2$ #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction @garey1979[ND50] keeps the graph unchanged, replaces all vertex weights and edge lengths by $1$, and copies the decision budget $K$ into the target center count $k$. On such unit graphs, a $k$-center solution of radius at most $1$ exists exactly when every vertex is itself chosen or adjacent to a chosen vertex, which is the dominating-set condition.
+][
+  _Construction._ Given a unit-weight decision dominating-set instance $(G = (V, E), K)$, build a Min-Max Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$.
+
+  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every vertex is then either a center (distance $0$) or adjacent to one (distance $1$), so the target maximum weighted distance is at most $1$. ($arrow.l.double$) If a set $P subset.eq V$ of exactly $K$ centers has maximum weighted distance at most $1$, then every vertex lies at graph distance $0$ or $1$ from some vertex of $P$. Hence every vertex is either in $P$ or adjacent to a vertex of $P$, so $P$ is a dominating set of size $K$.
+
+  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
+]
+
+#let dmds_msmc = load-example(
+  "DecisionMinimumDominatingSet",
+  "MinimumSumMulticenter",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "i32"),
+)
+#let dmds_msmc_sol = dmds_msmc.solutions.at(0)
+#reduction-rule("DecisionMinimumDominatingSet", "MinimumSumMulticenter",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-caption: [6-vertex unit graph: dominating set of size 2 gives total distance 4],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
+      "pred reduce dmds.json --to " + target-spec(dmds_msmc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmds.json --config " + dmds_msmc_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+
+    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
+
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness is the same indicator vector, hence a valid YES witness for the original decision instance #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction @garey1979[ND51] keeps the graph unchanged, sets every vertex weight and edge length to $1$, copies the decision budget $K$ into the target center count $k$, and compares the target optimum against $B = |V| - K$. On such unit graphs, every exact-$K$ center placement has total distance at least $n - K$, with equality exactly when every non-center vertex is adjacent to a center.
+][
+  _Construction._ Given a decision dominating-set instance $(G = (V, E), K)$ with unit vertex weights, build a Minimum Sum Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$. Let $n = |V|$, and define the decision threshold $B = n - K$ for the target optimum.
+
+  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every chosen center contributes distance $0$, and every non-center vertex is adjacent to at least one chosen center, so every non-center contributes distance $1$. Hence the total weighted distance is exactly $n - K = B$.
+
+  ($arrow.l.double$) Suppose a set $P subset.eq V$ of exactly $K$ centers has total weighted distance at most $B = n - K$. Every non-center vertex has distance at least $1$ from $P$, so any exact-$K$ center placement has total distance at least $n - K$. Therefore total distance at most $n - K$ forces equality, meaning every non-center contributes exactly $1$. Thus every non-center vertex is adjacent to some center in $P$, so $P$ is a dominating set of size $K$.
+
+  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
+]
+
 #let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
 #let mvc_mmm_sol = mvc_mmm.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",
@@ -9430,6 +9503,40 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $C'$ is a vertex cover of size $K$, label its elements $v_1, dots, v_K$ and the edges $e_1, dots, e_m$. Since $C'$ covers every edge, each $e_j = {u_j, v_(r[j])}$ where $v_(r[j]) in C'$. The sequence of $K + m$ operations $z_i = {a_0} union {v_i}$ for $i = 1, dots, K$ followed by $z_(K+j) = {u_j} union z_(r[j])$ for $j = 1, dots, m$ produces every target subset in exactly $K + |E|$ steps. ($arrow.l.double$) An exchange argument (Garey & Johnson, PO9) shows that any minimum-length sequence can be normalized to use only ${a_0} union {u}$ and ${v} union z_k$ forms. Each edge contributes exactly one operation of the second form, so the number of first-form operations equals the sequence length minus $|E|$. Since the first-form vertices must cover all edges, the minimum sequence length is $K^* + |E|$.
 
   _Solution extraction._ From an optimal witness, collect all vertices appearing as singleton operands (indices $< |V|$). In a minimum-length normalized sequence, exactly the $K^*$ cover vertices appear as ${a_0}$-paired singletons.
+]
+
+#let mvc_aog = load-example("MinimumVertexCover", "MinimumWeightAndOrGraph")
+#let mvc_aog_sol = mvc_aog.solutions.at(0)
+#let mvc_aog_cover = mvc_aog_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumWeightAndOrGraph",
+  example: true,
+  example-caption: [Path $P_3$: vertex cover ${1}$ maps to an AND/OR graph of weight 5],
+  extra: [
+    #pred-commands(
+      "pred create --example MVC -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_aog) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_aog_sol.source_config.map(str).join(","),
+    )
+    Source VC: $C = {#mvc_aog_cover.map(str).join(", ")}$ (size #mvc_aog_cover.len()) on graph with $n = #graph-num-vertices(mvc_aog.source.instance)$ vertices, $m = #graph-num-edges(mvc_aog.source.instance)$ edges \
+    Target AND/OR graph: #mvc_aog.target.instance.num_vertices vertices, source $v_#mvc_aog.target.instance.source$ (AND), arcs: #{range(mvc_aog.target.instance.arcs.len()).map(i => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} \
+    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => mvc_aog.target.instance.arc_weights.at(i)).sum()}) #sym.checkmark
+  ],
+)[
+  This reduction encodes vertex cover as a minimum-weight solution subgraph problem on a three-layer AND/OR DAG. The root AND gate requires all edges to be covered; each edge becomes an OR gate selecting which endpoint covers it; and each vertex becomes a sink whose arc weight equals the vertex weight. The minimum-weight solution subgraph selects exactly the arcs corresponding to a minimum vertex cover.
+][
+  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$ with $n = |V|$ vertices and $m = |E|$ edges, build an AND/OR graph $D$ with $1 + m + 2n$ vertices arranged in three layers:
+
+  - *Root (AND gate):* A single vertex $r$ (index 0) with gate type AND.
+  - *Edge layer (OR gates):* For each edge $e_i = {u, v}$ ($i = 0, dots, m-1$), create vertex $e_i$ (index $1 + i$) with gate type OR and an arc $(r, e_i)$ of weight 1.
+  - *Cover layer (OR gates):* For each source vertex $v_j$ ($j = 0, dots, n-1$), create vertex $c_j$ (index $1 + m + j$) with gate type OR. For each edge $e_i = {u, v}$, add arcs $(e_i, c_u)$ and $(e_i, c_v)$, each of weight 1.
+  - *Sink layer (leaves):* For each source vertex $v_j$, create leaf $s_j$ (index $1 + m + n + j$) and arc $(c_j, s_j)$ with weight $w_j$.
+
+  Since $r$ is AND, any solution subgraph must include all arcs from $r$ to the edge-layer vertices (cost $m$). Each edge-OR vertex $e_i$ requires at least one of its two outgoing arcs to $c_u$ and $c_v$ (selecting which endpoint covers edge $i$). Each activated cover vertex $c_j$ requires its outgoing arc to $s_j$ (contributing $w_j$). The total weight is $m + |{"activated cover arcs"}| + sum_(j in C) w_j$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover with weight $W$, then for each edge $e_i = {u, v}$, at least one endpoint lies in $C$; select the arc from $e_i$ to that endpoint's cover vertex. Activate all cover-to-sink arcs for vertices in $C$. This satisfies the AND gate at the root (all edge arcs selected), every edge OR gate (at least one child selected), and all activated cover vertices (sink arc selected). The total weight is $m + |{"edge-to-cover arcs"}| + W$. ($arrow.l.double$) In any valid solution subgraph, the AND root forces all $m$ edge arcs. Each edge OR vertex selects at least one arc to a cover vertex, activating that cover vertex and its sink arc. The set of activated cover vertices forms a vertex cover (every edge has at least one endpoint activated). The sink arc weights sum to the cover weight, so any minimum-weight solution subgraph corresponds to a minimum vertex cover.
+
+  _Solution extraction._ Examine the cover-to-sink arcs (indices $3m, dots, 3m + n - 1$ in the arc list): $c_j = 1$ if arc $(c_j, s_j)$ is selected, $c_j = 0$ otherwise.
 ]
 
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
@@ -9699,6 +9806,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) A satisfying assignment determines signs $alpha_j in {-1, +1}$ for the lifted knapsack system so that $x = sum_j alpha_j theta_j$ obeys both $x equiv tau_2 mod 2 dot 8^(M+1)$ and $(H+x)(H-x) equiv 0 mod K$. These together imply $x^2 equiv a mod b$ with $0 <= x <= H < c$. ($arrow.l.double$) Any witness $x < c$ with $x^2 equiv a mod b$ yields, for each $j$, a unique sign from whether $p_j^(N+1)$ divides $H-x$ or $H+x$. Those signs recover an exact knapsack solution and hence a satisfying assignment of the original 3-SAT instance.
 
   _Solution extraction._ Recover each sign $alpha_j$ from the divisibility of $H - x$ and $H + x$ by $p_j^(N+1)$. For variable coordinates $j = 2M+i$, interpret $alpha_j = -1$ as $x_i = 1$ and $alpha_j = +1$ as $x_i = 0$.
+]
+
+#reduction-rule("KSatisfiability", "QuadraticDiophantineEquations")[
+  This reduction chains through the Manders--Adleman quadratic congruence construction. Given a 3-SAT instance $phi$, first reduce to a Quadratic Congruences instance $(a, b, c)$ with $x^2 equiv a mod b$ and $x < c$, then convert the bounded congruence into a Diophantine equation $x^2 + b' y = c'$ with $a' = 1$. The conversion exploits the fact that $x < c$ implies $x^2$ is bounded, so the residue $c' - x^2$ is always positive and divisible by $b'$ precisely when the congruence holds.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+
+  *Step 1.* Apply the Manders--Adleman reduction (KSatisfiability $arrow.r$ QuadraticCongruences) to obtain $(a, b, c)$ such that $phi$ is satisfiable iff $exists x < c: x^2 equiv a mod b$.
+
+  *Step 2.* Convert to a Diophantine equation. Let $h = c - 1$. Compute a padding value $p = floor((h^2 - a) \/ b) + 1$ and set $c' = a + b dot p$. Output the Diophantine equation $x^2 + b y = c'$ (i.e., $a' = 1$, $b' = b$). A positive integer $x$ with $x^2 + b y = c'$ must satisfy $y = (c' - x^2) \/ b > 0$, which requires $1 <= x <= h = c - 1$.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, the congruence has a witness $x_0 < c$ with $x_0^2 equiv a mod b$. Then $x_0^2 - a = b k$ for some non-negative integer $k$. Since $c' = a + b p$ and $x_0 <= c - 1 = h$, we have $c' - x_0^2 = b(p - k) > 0$, and $y = p - k$ is a positive integer. So $(x_0, y)$ is a solution to $x^2 + b y = c'$. ($arrow.l.double$) If $(x, y)$ satisfies $x^2 + b y = c'$ with $x, y >= 1$, then $x^2 = c' - b y equiv c' mod b equiv a mod b$ (since $c' = a + b p$). Also $x^2 < c' = a + b p <= h^2 + b$, and since $y >= 1$ we have $x^2 = c' - b y <= c' - b < h^2 + b - b = h^2$, so $x <= h < c$. Thus $x$ is a valid congruence witness, and the original formula is satisfiable.
+
+  _Solution extraction._ Decode the Diophantine witness $x$ from its little-endian binary encoding. Then extract a 3-SAT assignment by passing $x$ through the congruence-to-SAT extraction (sign recovery from divisibility by prime powers).
 ]
 
 #let ksat_ss = load-example("KSatisfiability", "SubsetSum")
@@ -10712,6 +10833,57 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $D = {v : x_v = 1}$.
 ]
 
+#let mfdts_ilp = load-example("MinimumFaultDetectionTestSet", "ILP")
+#let mfdts_ilp_sol = mfdts_ilp.solutions.at(0)
+#reduction-rule("MinimumFaultDetectionTestSet", "ILP",
+  example: true,
+  example-caption: [DAG with #mfdts_ilp.source.instance.num_vertices vertices, #mfdts_ilp.source.instance.inputs.len() inputs, #mfdts_ilp.source.instance.outputs.len() outputs, and #(mfdts_ilp.source.instance.num_vertices - mfdts_ilp.source.instance.inputs.len() - mfdts_ilp.source.instance.outputs.len()) internal vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
+      "pred reduce mfdts.json --to " + target-spec(mfdts_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mfdts.json --config " + mfdts_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let source = mfdts_ilp.source.instance
+      let target = mfdts_ilp.target.instance
+      let source-config = mfdts_ilp_sol.source_config
+      let target-config = mfdts_ilp_sol.target_config
+      [
+        *Step 1 -- Source instance.* The canonical DAG has $#source.num_vertices$ vertices and arcs #source.arcs.map(((u, v)) => [$(#u, #v)$]).join(", "). Inputs are ${#source.inputs.map(str).join(", ")}$, outputs are ${#source.outputs.map(str).join(", ")}$, so the internal vertices are ${2, 3, 4}$. The source configuration therefore has $#source.inputs.len() dot #source.outputs.len() = #target.num_vars$ input-output pair bits.
+
+        *Step 2 -- Build the covering ILP.* Order the pair variables as $(#source.inputs.at(0), #source.outputs.at(0))$, $(#source.inputs.at(0), #source.outputs.at(1))$, $(#source.inputs.at(1), #source.outputs.at(0))$, and $(#source.inputs.at(1), #source.outputs.at(1))$. Their internal coverage sets are ${2, 3}$, ${3}$, ${3}$, and ${3, 4}$, so the target has #target.num_vars binary variables, #target.constraints.len() covering constraints, and objective $min (x_0 + x_1 + x_2 + x_3)$. The exported constraints are exactly $x_0 >= 1$, $x_0 + x_1 + x_2 + x_3 >= 1$, and $x_3 >= 1$.
+
+        *Step 3 -- Verify the canonical witness.* The stored ILP witness is $(#target-config.map(str).join(", "))$. Because extraction is identity, the source witness is the same vector $(#source-config.map(str).join(", "))$, which selects pairs $(#source.inputs.at(0), #source.outputs.at(0))$ and $(#source.inputs.at(1), #source.outputs.at(1))$. These two pairs cover internal vertices ${2, 3}$ and ${3, 4}$ respectively, so their union covers every internal vertex and the optimum value is $2$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. Any feasible solution must include $x_0 = 1$ to cover internal vertex 2 and $x_3 = 1$ to cover internal vertex 4, so the unique optimum is $(1, 0, 0, 1)$.
+      ]
+    }
+  ],
+)[
+  This direct $O((|I| + |O|)(|V| + |A|) + |I| |O| |V|)$ ILP encoding#footnote[Standard set-cover ILP formulation over input-output pair coverage sets; no dedicated bibliography key is currently registered in `references.bib`.] precomputes the coverage set of each input-output pair, then introduces one binary selection variable per pair and one covering inequality per internal vertex ($|I| |O|$ variables and $|V backslash (I union O)|$ constraints).
+][
+  _Construction._ Let the source DAG be $G = (V, A)$ with input set $I = {i_0, dots, i_(a-1)}$ and output set $O = {o_0, dots, o_(b-1)}$. For each ordered pair $(i_r, o_s) in I times O$, define its coverage set
+  $
+    C_(r,s) = {v in V : v " is reachable from " i_r " and can reach " o_s}.
+  $
+  Let $W = V backslash (I union O)$ be the internal vertices. Use `ILP<bool>` with binary variables $t_(r,s)$ indexed by the source pair order $p = r b + s$, so the target has $a b$ variables. For every internal vertex $v in W$, add the covering constraint
+  $
+    sum_((r,s) : v in C_(r,s)) t_(r,s) >= 1.
+  $
+  The objective is
+  $
+    min sum_(r = 0)^(a - 1) sum_(s = 0)^(b - 1) t_(r,s),
+  $
+  so the ILP minimizes the number of selected input-output pairs.
+
+  _Correctness._ ($arrow.r.double$) If $T subset.eq I times O$ is a feasible source witness, set $t_(r,s) = 1$ exactly for pairs in $T$. Every internal vertex lies in the coverage set of at least one chosen pair, so each covering inequality holds, and the ILP objective equals $|T|$. ($arrow.l.double$) If the ILP is feasible, let $T = {(i_r, o_s) : t_(r,s) = 1}$. For every internal vertex $v in W$, the corresponding inequality ensures that some selected pair satisfies $v in C_(r,s)$, so the union of the chosen coverage sets covers all internal vertices. The source value is therefore exactly the ILP objective.
+
+  _Solution extraction._ The target variables already form the source binary selection vector in the same pair order, so return them unchanged.
+]
+
 #reduction-rule("MinimumFeedbackVertexSet", "ILP")[
   A directed graph is a DAG iff it admits a topological ordering. MTZ-style ordering variables enforce this: for each kept vertex, an integer position variable must increase strictly along every arc. Removed vertices relax the ordering constraints via big-$M$ terms.
 ][
@@ -10733,6 +10905,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
   _Solution extraction._ $S = {v : x_v = 1}$.
+]
+
+#let fvs_cg = load-example("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters")
+#let fvs_cg_sol = fvs_cg.solutions.at(0)
+#let fvs_cg_fvs = fvs_cg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters",
+  example: true,
+  example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
+  extra: [
+    #pred-commands(
+      "pred create --example MinimumFeedbackVertexSet -o fvs.json",
+      "pred reduce fvs.json --to " + target-spec(fvs_cg) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate fvs.json --config " + fvs_cg_sol.source_config.map(str).join(","),
+    )
+    Source FVS: $F = {#fvs_cg_fvs.map(str).join(", ")}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
+    Target DAG: #fvs_cg.target.instance.num_vertices vertices, left arcs $L$: #{fvs_cg.target.instance.left_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}, right arcs $R$: #{fvs_cg.target.instance.right_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")} \
+    Target evaluation order: $(#fvs_cg_sol.target_config.map(str).join(", "))$ with #fvs_cg_sol.target_config.len() instructions #sym.checkmark
+  ],
+)[
+  The Aho--Johnson--Ullman chain gadget construction @ahoJohnsonUllman1977 encodes a feedback vertex set problem as a code generation problem on an expression DAG with unlimited registers and 2-address instructions. Each source vertex becomes a leaf (input register), and each outgoing arc becomes an internal chain node. The number of LOAD (copy) instructions needed in an optimal program equals the size of a minimum feedback vertex set.
+][
+  _Construction._ Given a directed graph $G = (V, A)$ with $n = |V|$ vertices and $m = |A|$ arcs, build an expression DAG $D$ with $n + m$ vertices as follows. Vertices $0, dots, n-1$ are _leaves_ (one per source vertex), each stored in its own register. For each source vertex $x$ with outgoing arcs $(x, y_1), dots, (x, y_d)$, create a chain of $d$ internal nodes $x^1, dots, x^d$ where:
+  - $x^1$ has left child $x^0$ (the leaf for $x$) and right child $y_1^0$ (the leaf for $y_1$),
+  - $x^i$ ($i >= 2$) has left child $x^(i-1)$ (previous chain node) and right child $y_i^0$ (the leaf for $y_i$).
+  The left operand's register is destroyed by the OP instruction; a LOAD (copy) is needed whenever a leaf register must survive past its destruction.
+
+  _Correctness._ ($arrow.r.double$) If $F subset.eq V$ is a feedback vertex set of size $k$, then $G[V backslash F]$ is a DAG. The topological order of $G[V backslash F]$ induces an evaluation order of the chain nodes such that each leaf $x^0$ with $x in.not F$ is consumed (as a left child) only after all chain nodes that reference it as a right child have been evaluated. Only leaves corresponding to vertices in $F$ need a LOAD instruction (their register is destroyed before some right-child usage). Hence the program uses exactly $n + m - n + k = m + k$ instructions, of which $k$ are LOADs. ($arrow.l.double$) If an optimal program uses $k$ LOAD instructions, the $k$ leaves that require LOADs form a set $F$: removing $F$ from $G$ leaves a DAG (otherwise a directed cycle $v_1 -> dots -> v_l -> v_1$ would require each $v_i^0$ to be consumed before $v_(i+1)^0$, creating a circular register dependency that demands at least one additional LOAD for each cycle). Thus $F$ is a feedback vertex set of size $k$.
+
+  _Solution extraction._ Given a target evaluation order (permutation of internal nodes), identify which leaves require a LOAD: leaf $x^0$ needs a LOAD iff the chain-start node $x^1$ is evaluated before some other internal node that uses $x^0$ as a right child. Set $c_x = 1$ for such vertices and $c_x = 0$ otherwise.
 ]
 
 #reduction-rule("MaximumClique", "ILP")[
@@ -13234,6 +13436,69 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #{
+  let mfas_mlr = load-example("MinimumFeedbackArcSet", "MaximumLikelihoodRanking")
+  let mfas_mlr_sol = mfas_mlr.solutions.at(0)
+  let source-arcs = mfas_mlr.source.instance.graph.arcs
+  let target-matrix = mfas_mlr.target.instance.matrix
+  let ranking = mfas_mlr_sol.target_config
+  let removed-indices = mfas_mlr_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+  let removed-arcs = removed-indices.map(i => source-arcs.at(i))
+  let target-cost = 0
+  for a in range(target-matrix.len()) {
+    for b in range(target-matrix.len()) {
+      if a != b and ranking.at(a) > ranking.at(b) {
+        target-cost += target-matrix.at(a).at(b)
+      }
+    }
+  }
+  let fmt-mat(m) = m.map(row => row.map(v => str(v)).join(", ")).join("; ")
+  [
+    #reduction-rule("MinimumFeedbackArcSet", "MaximumLikelihoodRanking",
+      example: true,
+      example-caption: [5-vertex digraph ($n = #mfas_mlr.source.instance.graph.num_vertices$, $|A| = #source-arcs.len()$, unit weights) mapped to a skew-symmetric ranking matrix],
+      extra: [
+        #pred-commands(
+          "pred create --example " + problem-spec(mfas_mlr.source) + " -o mfas.json",
+          "pred reduce mfas.json --to " + target-spec(mfas_mlr) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mfas.json --config " + mfas_mlr_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The source digraph has vertices ${#range(mfas_mlr.source.instance.graph.num_vertices).map(str).join(", ")}$ and arcs #{source-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(", ")}, all with unit weight. The extracted optimal feedback arc set removes #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")}, so $|F| = #removed-arcs.len()$.
+
+        *Step 2 -- Build the comparison matrix.* The reduction keeps the same item set and writes $M_(i j) = 1$ when only $i arrow j$ exists, $M_(i j) = -1$ when only $j arrow i$ exists, and $M_(i j) = 0$ otherwise. For this instance,
+        $ M = mat(#fmt-mat(target-matrix)) $.
+        Every off-diagonal pair sums to $0$, so the target is a valid Maximum Likelihood Ranking instance with $c = 0$.
+
+        *Step 3 -- Verify a solution.* The stored ranking vector is $(#ranking.map(str).join(", "))$, interpreted as the map from items to ranks. The target disagreement cost is $#target-cost = 2 dot #removed-arcs.len() - #source-arcs.len()$, and the extracted source witness is exactly the backward-arc set #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")} #sym.checkmark
+
+        *Multiplicity:* The fixture stores one canonical optimum. Other optimal rankings exist because the DAG obtained after removing the two backward arcs has multiple valid topological orders.
+      ],
+    )[
+      This $O(n^2)$ reduction @garey1979 applies to unit-weight feedback arc set instances. It keeps the same vertex set as ranking items and encodes each unordered pair by a skew-symmetric entry in $\{-1, 0, 1\}$ with comparison count $c = 0$.
+    ][
+      _Construction._ Given a unit-weight Minimum Feedback Arc Set instance $(G = (V, A), bold(1))$ with $V = \{0, dots, n - 1\}$, construct the matrix $M in ZZ^(n times n)$ by setting $M_(i i) = 0$ and, for every distinct pair $i, j$,
+      $
+        M_(i j) = cases(
+          1 & "if" (i arrow j) in A and (j arrow i) not in A, \
+          -1 & "if" (j arrow i) in A and (i arrow j) not in A, \
+          0 & "otherwise"
+        ).
+      $
+      Then $M_(i j) + M_(j i) = 0$ for all $i != j$, so the target is a valid Maximum Likelihood Ranking instance with $n$ items.
+
+      _Correctness._ ($arrow.r.double$) Let $pi$ be any ranking and let $B(pi) = \{(u arrow v) in A : pi(u) > pi(v)\}$ be its backward arcs. Removing $B(pi)$ leaves only forward arcs, hence a DAG, so $B(pi)$ is a feedback arc set. Partition unordered vertex pairs into one-directional pairs $A_1$ and bidirectional pairs $A_2$. Every one-directional backward arc contributes $+1$ to the MLR objective, every one-directional forward arc contributes $-1$, and bidirectional or absent pairs contribute $0$. Therefore
+      $
+        "cost"(pi) = 2 |B(pi)| - (|A_1| + 2|A_2|) = 2 |B(pi)| - |A|.
+      $
+      The target objective is thus the source objective shifted by the constant $-|A|$, so minimizing disagreement cost minimizes feedback arc set size. ($arrow.l.double$) Let $F subset.eq A$ be a minimum feedback arc set, and take a topological order $pi$ of the DAG $G - F$. Every arc in $A backslash F$ is forward in $pi$, hence every backward arc under $pi$ lies in $F$, so $B(pi) subset.eq F$. Since $B(pi)$ is itself a feedback arc set by the previous argument, minimality of $F$ forces $|B(pi)| = |F|$. Therefore an optimal source solution yields an optimal target ranking.
+
+      _Solution extraction._ Given the target rank vector, output one source bit per source arc $(u arrow v)$ in source-arc order: set the bit to $1$ iff item $u$ is ranked after item $v$, and to $0$ otherwise.
+    ]
+  ]
+}
+
+#{
   let mlr_ilp = load-example("MaximumLikelihoodRanking", "ILP")
   let mlr_ilp_sol = mlr_ilp.solutions.at(0)
   let mlr_n = mlr_ilp.source.instance.matrix.len()
@@ -13869,6 +14134,37 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each variable $x_i$, inspect the truth-setting pair. Set $x_i = 1$ when the cover contains $u_i$, and set $x_i = 0$ otherwise.
 ]
 
+#let dmvc_hc = load-example("DecisionMinimumVertexCover", "HamiltonianCircuit")
+#let dmvc_hc_sol = dmvc_hc.solutions.at(0)
+#reduction-rule("DecisionMinimumVertexCover", "HamiltonianCircuit",
+  example: true,
+  example-caption: [3-vertex path with bound $k = #dmvc_hc.source.instance.bound$: one selector threads two cover-testing gadgets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
+      "pred reduce dmvc.json --to " + target-spec(dmvc_hc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmvc.json --config " + dmvc_hc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Decision Minimum Vertex Cover fixture has inner graph $G$ on vertices ${0, 1, 2}$ with edges #{dmvc_hc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")} and unit weights. The bound is $k = #dmvc_hc.source.instance.bound$, and the stored cover witness is $(#dmvc_hc_sol.source_config.map(str).join(", "))$, i.e.\ $C = {1}$.
+
+    *Step 2 -- Build the Hamiltonian graph.* There is one selector vertex $a_1$ and one 12-vertex gadget for each source edge, so the target graph has $1 + 2 dot 12 = #graph-num-vertices(dmvc_hc.target.instance)$ vertices. The path for source vertex $1$ chains the two gadgets through the connector from $(1, e_0, 6)$ to $(1, e_1, 1)$. The completed target has #graph-num-edges(dmvc_hc.target.instance) edges.
+
+    *Step 3 -- Verify a witness.* The stored Hamiltonian circuit is $(#dmvc_hc_sol.target_config.map(str).join(", "))$. Reading the cycle between selector contacts shows that the unique selector traverses first the gadget for edge $(0,1)$ in the "only vertex 1 chosen" mode and then the gadget for edge $(1,2)$ in the same mode, visiting every one of the 25 target vertices exactly once. Extracting the selector-adjacent path endpoints returns the source cover $(#dmvc_hc_sol.source_config.map(str).join(", ")) = {1}$, which indeed covers both source edges #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical Hamiltonian circuit. Rotating or reversing that same cycle yields equivalent target witnesses with the same extracted cover.
+  ],
+)[
+  Garey and Johnson's Theorem 3.4 replaces each source edge by a 12-vertex cover-testing gadget and uses $k$ selector vertices to choose $k$ source vertices whose incident gadget-paths together cover every gadget @garey1979. In the unit-weight decision setting, the constructed graph is Hamiltonian iff the source graph has a vertex cover of size at most $k$.
+][
+  _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ simple. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $C subset.eq V$ is a vertex cover with $|C| <= k$. Because all weights are 1, we may pad $C$ with arbitrary additional non-isolated vertices until it has exactly $k$ elements, say $v_1, dots, v_k$. For every edge gadget $e = {u, v}$, traverse it in one of the three gadget modes from @garey1979: if only $u in C$, follow the unique Hamiltonian path from $(u, e, 1)$ to $(u, e, 6)$ through all 12 gadget vertices; if only $v in C$, use the symmetric path from $(v, e, 1)$ to $(v, e, 6)$ through all 12 vertices; if both endpoints lie in $C$, use the two disjoint side paths from $(u, e, 1)$ to $(u, e, 6)$ and from $(v, e, 1)$ to $(v, e, 6)$. Chaining these gadget traversals along the paths for $v_1, dots, v_k$ and connecting consecutive paths through the selectors yields a Hamiltonian circuit of the target graph. ($arrow.l.double$) Suppose the target graph has a Hamiltonian circuit. Each selector has degree two inside the circuit and therefore cuts the circuit into $k$ selector-to-selector segments. Inside any edge gadget, the circuit can appear only in the three modes above, so each segment must stay on the path corresponding to one source vertex. Mark a source vertex $v$ selected exactly when both endpoints of its path are adjacent to selectors in the Hamiltonian circuit. This selects exactly $k$ source vertices. Every edge gadget must be completely visited, and that is possible only if at least one of its endpoint paths is selected, so every source edge has a selected endpoint. Hence the extracted set is a vertex cover of size at most $k$.
+
+  _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. The resulting indicator vector is a valid source-side vertex cover.
+]
+
 #let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
 #let ksat_mvc_sol = ksat_mvc.solutions.at(0)
 #reduction-rule("KSatisfiability", "MinimumVertexCover",
@@ -14038,6 +14334,39 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each variable $x_k$, set $tau(x_k) = 1$ iff $s_k^+$ appears before $s_k^-$ in the realization.
 ]
 
+#let ksat_rs = load-example("KSatisfiability", "RegisterSufficiency")
+#let ksat_rs_sol = ksat_rs.solutions.at(0)
+#reduction-rule("KSatisfiability", "RegisterSufficiency",
+  example: true,
+  example-caption: [Two-clause 3-SAT instance ($n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$) reduced to Register Sufficiency],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_rs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_rs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source formula is $phi = (x_1 or overline(x)_2 or x_3) and (overline(x)_1 or x_2 or overline(x)_3)$. The stored satisfying assignment is $(#ksat_rs_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build Sethi's DAG.* Here $n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$, and $b = max(0, 2n - m) = 4$. The construction creates $|A| = 2n + 1 = 7$, $|B| = b = 4$, $|C| = m = 2$, $|F| = 3m = 6$, $|M| = 3$, $|R| = n(n+1) = 12$, $|S| = |T| = n^2 = 9$, $|U| = 2n = 6$, $|W| = |Z| = n = 3$, and $|X| = 2n = 6$, for a total of $|V| = #ksat_rs.target.instance.num_vertices = 70$ vertices. The target bound is $K = #ksat_rs.target.instance.bound = 23$, and the construction emits $|A| = #ksat_rs.target.instance.arcs.len() = 152$ arcs. For clause $C_1$, the six literal-lock arcs are $(x_1^+, f_(1,1))$, $(x_2^-, f_(1,2))$, $(x_3^+, f_(1,3))$, $(x_1^-, f_(1,2))$, $(x_1^-, f_(1,3))$, and $(x_2^+, f_(1,3))$.
+
+    *Step 3 -- Verify extraction at $w_n$.* The target witness is a computation ordering on $70$ vertices. Reading the prefix ending at $w_3$ marks exactly those variables whose $x_k^+$ node has already been computed, which reconstructs $(#ksat_rs_sol.source_config.map(str).join(", "))$ #sym.checkmark. Evaluating the original 3-SAT formula under that assignment returns true #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical satisfying assignment. Different satisfying assignments can induce different valid computation orders in the target DAG.
+  ],
+)[
+  Sethi's Reduction I / Theorem 3.11 @sethi1975 @garey1979[PO1] builds a dependency DAG whose register pressure mirrors a literal-assignment phase followed by a clause-verification phase. For a 3-CNF formula with $n$ variables, $m$ clauses, and $b = max(0, 2n - m)$, the target has $3n^2 + 9n + 4m + b + 4$ vertices, $6n^2 + 19n + 16m + 2b + 1$ arcs, and register bound $K = 3m + 4n + 1 + b$.
+][
+  _Construction._ Let $phi = and_(i=1)^m C_i$ be a 3-CNF formula over variables $x_1, dots, x_n$, where $C_i = (Y_(i,1) or Y_(i,2) or Y_(i,3))$. Define $b = max(0, 2n - m)$. Create node families $A = {a_j : 1 <= j <= 2n+1}$, $B = {b_j : 1 <= j <= b}$, $C = {c_i : 1 <= i <= m}$, $F = {f_(i,j) : 1 <= i <= m, 1 <= j <= 3}$, $M = {"initial", d, "final"}$, $R = {r_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+2}$, $S = {s_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $T = {t_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $U = {u_(k,1), u_(k,2) : 1 <= k <= n}$, $W = {w_k : 1 <= k <= n}$, $X = {x_k^+, x_k^- : 1 <= k <= n}$, and $Z = {z_k : 1 <= k <= n}$. Add the ten arc families from Sethi's theorem exactly as stated in the issue: $"initial"$ depends on every node in $A union B union F union U$, every node in $C union R union S union T union W$ depends on $"initial"$, $"final"$ depends on $W union X union Z union {"initial", d}$, each variable gadget links $x_k^+$ and $x_k^-$ to $z_k$, $u_(k,1)$, $u_(k,2)$, $s_(k,*)$, $t_(k,*)$, $r_(k,*)$, and each clause gadget links $c_i$ to $w_n$, $z_n$, its three $f_(i,j)$ nodes, and the literal-lock edges determined by whether $Y_(i,j)$ is positive or negative.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable under assignment $tau$. Execute Sethi's eight-stage schedule. In the variable phase, the chain gadgets force a choice between the positive and negative side of each variable, and the schedule can be arranged so that by the moment $w_n$ is computed, $x_k^+$ has appeared iff $tau(x_k) = 1$. Because every clause has a satisfied literal, the corresponding $f_(i,j)$ node is unlocked during the clause phase, and the lock edges from the opposite literals prevent incompatible clause traversals. Sethi proves that this entire computation uses at most $K$ registers, so the target Register Sufficiency instance is feasible.
+
+  ($arrow.l.double$) Suppose the target instance has a computation using at most $K$ registers. Stop immediately after $w_n$ is computed. At that snapshot, for each variable gadget, at most one of $x_k^+$ and $x_k^-$ has been computed. Define $tau(x_k) = 1$ iff $x_k^+$ has already been computed. Now assume some clause $C_i$ is false under $tau$. Then every literal $Y_(i,j)$ is false, so the corresponding literal node has not yet been computed by the $w_n$ snapshot. Consequently each $f_(i,j)$ still has an uncomputed literal predecessor. Sethi's clause-phase invariant leaves no free register between the computation of $w_n$ and the later computation of $d$, so such a clause node $c_i$ could not be discharged without exceeding $K$, contradiction. Therefore every clause contains a true literal under $tau$, and $phi$ is satisfiable.
+
+  _Solution extraction._ Given a target computation ordering, let $t(w_n)$ be the position of $w_n$. Output $x_k = 1$ exactly when $t(x_k^+) < t(w_n)$. This is the corrected extraction rule: the snapshot is taken at $w_n$, not $z_n$, and the sign test uses $x_k^+$, not $x_k^-$.
+]
+
 #reduction-rule("FeasibleRegisterAssignment", "ILP",
   example: false,
 )[
@@ -14048,6 +14377,18 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
 
   _Solution extraction._ Read vertex positions from the permutation matrix.
+]
+
+#reduction-rule("RegisterSufficiency", "ILP",
+  example: false,
+)[
+  Direct ILP formulation of Register Sufficiency: integer evaluation times, latest-use times, binary pair-order selectors, and per-step live-value indicators. For a DAG with $n$ vertices, $m$ arcs, and $s$ sinks, the ILP has $(7n^2 + 3n)/2$ variables and $(21n^2 + 3n)/2 + 2m + s$ constraints.
+][
+  _Construction._ Let the source DAG use the repository convention that an arc $(v, u)$ means vertex $v$ depends on vertex $u$. Introduce integer variables $t_v in {0, dots, n-1}$ for evaluation positions and $l_v in {0, dots, n}$ for latest-use positions. For every unordered vertex pair ${u, v}$, add a binary selector $b_(u,v)$ with big-$M$ constraints forcing either $t_u < t_v$ or $t_v < t_u$; since all $t_v$ lie in the interval ${0, dots, n-1}$, the positions form a permutation. For every dependency arc $(v, u)$, enforce $t_v >= t_u + 1$ and $l_u >= t_v$. For every sink vertex (no dependents), set $l_u = n$. For each vertex-step pair $(u, s)$ with $s in {0, dots, n-1}$, add binary threshold variables $p_(u,s)$ and $q_(u,s)$ satisfying $p_(u,s) = 1$ iff $t_u <= s$ and $q_(u,s) = 1$ iff $l_u > s$, plus a binary live indicator $h_(u,s) = p_(u,s) and q_(u,s)$. Finally impose $sum_u h_(u,s) <= K$ for every step $s$.
+
+  _Correctness._ ($arrow.r.double$) Any valid computation ordering of the source DAG yields a feasible ILP solution: assign each $t_v$ to the vertex position in the ordering, each $l_v$ to the latest dependent position (or $n$ for sinks), and derive the binary threshold/live variables from those integers. The dependency constraints hold by topological validity, and the live-count inequalities hold because the source witness uses at most $K$ registers. ($arrow.l.double$) Any feasible ILP solution gives distinct positions $t_v$, hence a permutation of the vertices, and the arc constraints make that permutation topological. The live indicators $h_(u,s)$ certify exactly which values remain live after step $s$, so the step constraints prove that no more than $K$ values are simultaneously live. Therefore the extracted ordering is a valid Register Sufficiency witness.
+
+  _Solution extraction._ Return the first $n$ ILP coordinates $(t_0, dots, t_(n-1))$ as the vertex evaluation positions.
 ]
 
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
@@ -14690,6 +15031,87 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The selection vector is unchanged.
 ]
 
+#let x3c_mfdts = load-example("ExactCoverBy3Sets", "MinimumFaultDetectionTestSet")
+#let x3c_mfdts_sol = x3c_mfdts.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MinimumFaultDetectionTestSet",
+  example: true,
+  example-caption: [#x3c_mfdts.source.instance.subsets.len() triples over $3q = #x3c_mfdts.source.instance.universe_size$ elements, with one shared output],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_mfdts) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_mfdts_sol.source_config.map(str).join(","),
+    )
+
+    #let q = x3c_mfdts.source.instance.universe_size / 3
+    *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mfdts.source.instance.universe_size - 1)}$ with $q = #q$ and triples
+    #for (i, s) in x3c_mfdts.source.instance.subsets.enumerate() [
+      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mfdts.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Build the fault-detection DAG.* Create one input vertex for each triple, one internal vertex for each universe element, and one shared output. The target therefore has $#x3c_mfdts.target.instance.num_vertices$ vertices, $#x3c_mfdts.target.instance.arcs.len()$ arcs, inputs ${#x3c_mfdts.target.instance.inputs.map(str).join(", ")}$, and output ${#x3c_mfdts.target.instance.outputs.map(str).join(", ")}$. Input $i_j$ connects to exactly the three internal vertices for elements in $C_j$, and every internal vertex connects to the shared output.
+
+    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#x3c_mfdts_sol.source_config.map(str).join(", "))$ selects $C_0 = {#x3c_mfdts.source.instance.subsets.at(0).map(str).join(", ")}$ and $C_1 = {#x3c_mfdts.source.instance.subsets.at(1).map(str).join(", ")}$, which are disjoint and cover all six universe elements. The target configuration is identical: $(#x3c_mfdts_sol.target_config.map(str).join(", "))$. Pair $(0, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers internal vertices ${0, 1, 2}$, pair $(1, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers ${3, 4, 5}$, and together they cover every internal vertex with value $#q$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ selects exactly $q$ inputs, and since each selected pair covers only 3 internal vertices while there are $3q$ internal vertices overall, those $q$ neighborhoods must be pairwise disjoint and form an exact cover.
+  ],
+)[
+  This $O(m + q)$ reduction adapts the classical X3C gadget behind Fault Detection in Directed Graphs @garey1979[MS18] to the repository's internal-vertex coverage semantics. It creates one input per source triple, one internal vertex per universe element, and one shared output, so the target has $m + 3q + 1$ vertices and $3m + 3q$ arcs. The X3C instance is a YES-instance if and only if the Minimum Fault Detection Test Set optimum is at most $q = |U| / 3$.
+][
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$, where each $C_j subset.eq U$ has size $3$. Create input vertices $i_0, dots, i_(m-1)$, internal vertices $e_u$ for every $u in U$, and one shared output vertex $o$. Add arcs $(i_j, e_u)$ exactly when $u in C_j$, and add $(e_u, o)$ for every $u in U$. The implemented target counts only internal vertices, so the coverage requirement applies precisely to the $3q$ vertices $e_u$.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq cal(C)$ is an exact cover, select the corresponding input-output pairs $(i_j, o)$. Each chosen pair covers exactly the three internal vertices $e_u$ with $u in C_j$, and the $q$ chosen triples partition $U$, so all $3q$ internal vertices are covered using $q$ pairs. ($arrow.l.double$) Suppose the target admits a witness of value at most $q$. Every selected pair covers at most three internal vertices, while there are $3q$ internal vertices to cover, so an optimal witness of value at most $q$ must in fact have value exactly $q$ and each selected pair must cover three previously uncovered internal vertices. Hence the corresponding source triples are pairwise disjoint and together cover all of $U$, yielding an exact cover.
+
+  _Solution extraction._ The target configuration has one coordinate per source triple (there is only one output), so the extraction map is the identity.
+]
+
+#let x3c_mas = load-example("ExactCoverBy3Sets", "MinimumAxiomSet")
+#let x3c_mas_sol = x3c_mas.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MinimumAxiomSet",
+  example: true,
+  example-caption: [#x3c_mas.source.instance.subsets.len() triples over $3q = #x3c_mas.source.instance.universe_size$ elements, with decision bound $q = #(x3c_mas.source.instance.universe_size / 3)$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_mas) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_mas_sol.source_config.map(str).join(","),
+    )
+
+    #let x3c_mas_q = x3c_mas.source.instance.universe_size / 3
+    *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mas.source.instance.universe_size - 1)}$ with $q = #x3c_mas_q$ and candidate triples
+    #for (i, s) in x3c_mas.source.instance.subsets.enumerate() [
+      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mas.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Build the axiom system.* Create one element-sentence for each universe element and one set-sentence for each triple, so the target has $#x3c_mas.target.instance.num_sentences$ sentences and $#x3c_mas.target.instance.true_sentences.len()$ true sentences. Each triple contributes three forward implications and one backward implication, giving $#x3c_mas.target.instance.implications.len()$ implications total. The optimization instance itself stores only the axiom-system data; the X3C bound $q = #x3c_mas_q$ is checked externally against the optimum target value.
+
+    *Step 3 -- Verify the canonical witness.* The stored source config $(#x3c_mas_sol.source_config.map(str).join(", "))$ selects $C_3 = {#x3c_mas.source.instance.subsets.at(3).map(str).join(", ")}$ and $C_4 = {#x3c_mas.source.instance.subsets.at(4).map(str).join(", ")}$. These two triples are disjoint and cover all six universe elements #sym.checkmark. The target axiom vector $(#x3c_mas_sol.target_config.map(str).join(", "))$ selects exactly the set-sentence coordinates $#(x3c_mas.source.instance.universe_size + 3)$ and $#(x3c_mas.source.instance.universe_size + 4)$, namely $z_3$ and $z_4$. One closure round derives every element-sentence $e_0, dots, e_5$; then the backward rules derive the remaining set-sentences $z_0, z_1, z_2$, so the closure equals all $#x3c_mas.target.instance.true_sentences.len()$ true sentences. This witness therefore attains value $#x3c_mas_q$ #sym.checkmark, and extracting the chosen set-sentence coordinates recovers the exact cover.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ must select exactly $q$ set-sentences and no element-sentences, because each direct element axiom lowers the maximum possible element coverage by two.
+  ],
+)[
+  This $O(m)$ reduction @garey1979[LO17] encodes each source triple as a set-sentence with three forward implications to its elements and one backward implication from those three element-sentences back to the set-sentence. The target has $3q + m$ sentences and $4m$ implications, and the X3C instance is a YES-instance if and only if the Minimum Axiom Set optimum is at most $q = |U| / 3$.
+][
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$, where each $C_j = {a_j, b_j, c_j}$ has size $3$. Create one element-sentence $e_u$ for each $u in U$ and one set-sentence $z_j$ for each $C_j$, and let $T = S$ be the full sentence set. For every triple $C_j = {a_j, b_j, c_j}$ add the four implications
+  $
+    ({z_j}, e_(a_j)), quad ({z_j}, e_(b_j)), quad ({z_j}, e_(c_j)), quad ({e_(a_j), e_(b_j), e_(c_j)}, z_j).
+  $
+
+  _Variable mapping._ Source coordinate $j$ corresponds to set-sentence $z_j$. The target configuration lists the $3q$ element-sentence coordinates first and the $m$ set-sentence coordinates second.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq cal(C)$ is an exact cover, then $|cal(C)'| = q$. Choose the corresponding set-sentences as the only axioms. Their forward implications derive all $3q$ element-sentences in one round because the cover spans $U$. Once every element-sentence is true, every backward implication fires, so every set-sentence becomes true and the full closure equals $T$. Hence the target optimum is at most $q$.
+
+  ($arrow.l.double$) Suppose some axiom set $A$ of size at most $q$ derives all of $T$. Write $A = E union Z$, where $E$ contains the chosen element-sentences and $Z$ the chosen set-sentences. Backward implications never create a new element-sentence: if a backward rule derives $z_j$, its antecedent already contains the three element-sentences of $C_j$, and the forward rules from $z_j$ only repeat those same elements. Therefore the closure's element-sentences are exactly the chosen element axioms together with the elements that lie in triples indexed by $Z$. Since the closure contains all $3q$ element-sentences,
+  $
+    3q <= |E| + 3 |Z| <= |E| + 3(q - |E|) = 3q - 2 |E|.
+  $
+  Thus $|E| = 0$ and then $|Z| = q$. Equality also forces the chosen triples to be pairwise disjoint and to cover all $3q$ elements, so the corresponding source subsets form an exact cover.
+
+  _Solution extraction._ Given a target axiom vector, keep only the coordinates of the set-sentences $z_0, dots, z_(m-1)$. On every optimal target witness of value $q$, these coordinates select exactly $q$ disjoint triples covering $U$, so they are an X3C witness.
+]
+
 // ── Batch of 18 reduction rules from derivation document ──
 
 // 1. SubsetSum → Partition (#973)
@@ -14857,7 +15279,102 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Given a partition $V_0, dots, V_(k-1)$ into cliques, assign color $i$ to every vertex in $V_i$.
 ]
 
-// 4. KSatisfiability → Kernel (#882)
+// 4. KColoring → Clustering (#924)
+#reduction-rule("KColoring", "Clustering")[
+  This $O(n^2)$ reduction @garey1979[MS9] @brucker1978clustering keeps the vertex set as the ground set, assigns distance 1 to adjacent pairs and distance 0 to nonadjacent pairs, and fixes $K = 3$ and $B = 0$. A feasible clustering is therefore exactly a partition of the graph into at most three independent sets.
+][
+  _Construction._ Given a 3-Coloring instance $(G = (V, E), 3)$, build a Clustering instance on the same ground set $X = V$. Set $d(u, v) = 1$ if ${u, v} in E$, set $d(u, v) = 0$ if ${u, v} in.not E$, and set $d(u, u) = 0$ for every vertex $u$. Set the cluster bound to $K = 3$ and the diameter bound to $B = 0$.
+
+  _Correctness._ ($arrow.r.double$) A proper 3-coloring partitions $V$ into at most three color classes, and each color class is an independent set. Because independent sets contain no adjacent pair, every two vertices inside one color class have distance 0, so these classes form a feasible clustering. ($arrow.l.double$) Conversely, a feasible clustering with $B = 0$ puts only distance-0 pairs in the same cluster. By construction distance 0 means nonadjacent, so every cluster is an independent set. Assigning one color per cluster yields a proper 3-coloring.
+
+  _Solution extraction._ Read the cluster label of each source vertex as its color label.
+]
+
+#let clustering_ilp = load-example("Clustering", "ILP")
+#let clustering_ilp_sol = clustering_ilp.solutions.at(0)
+#reduction-rule("Clustering", "ILP",
+  example: true,
+  example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
+      "pred reduce clustering.json --to " + target-spec(clustering_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate clustering.json --config " + clustering_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = clustering_ilp.source.instance.distances.len()
+      let k = clustering_ilp.source.instance.num_clusters
+      let b = clustering_ilp.source.instance.diameter_bound
+      let distances = clustering_ilp.source.instance.distances
+      let source-config = clustering_ilp_sol.source_config
+      [
+        *Step 1 -- Source instance.* The canonical source has $n = #n$ elements, cluster bound $K = #k$, and diameter bound $B = #b$. Its distance rows are #distances.map(row => "(" + row.map(str).join(", ") + ")").join("; "), so the only pairs above the bound are $(0, 2)$, $(0, 3)$, $(1, 2)$, and $(1, 3)$.
+
+        *Step 2 -- Build the ILP.* Introduce one binary variable $x_(i,c)$ for each element-cluster pair, giving $n K = #(n * k)$ variables. The $n = #n$ assignment equalities $sum_c x_(i,c) = 1$ force every element into exactly one cluster, and the four violating pairs contribute $4 dot K = #(4 * k)$ conflict inequalities. The stored target therefore has #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints.
+
+        *Step 3 -- Verify the canonical witness.* The stored ILP vector is $(#clustering_ilp_sol.target_config.map(str).join(", "))$. Reading each block of $K = #k$ variables yields the clustering $(#source-config.map(str).join(", "))$, so cluster 0 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 0).map(((i, c)) => str(i)).join(", ")}$ and cluster 1 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 1).map(((i, c)) => str(i)).join(", ")}$. The only within-cluster distances are $d(0,1) = #distances.at(0).at(1)$ and $d(2,3) = #distances.at(2).at(3)$, both at most $B$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. Swapping the two cluster labels gives an equivalent second witness because the ILP distinguishes clusters only by index.
+      ]
+    }
+  ],
+)[
+  This direct $O(n^2 K)$ ILP encoding#footnote[Standard ILP formulation of diameter-bounded clustering; no specific literature key is currently registered in `references.bib`.] introduces one binary variable $x_(i,c)$ for each element $i$ and cluster $c$, forces every element into exactly one cluster, and forbids every pair with $d(i,j) > B$ from sharing a cluster ($n K$ variables and at most $n + n^2 K$ constraints).
+][
+  _Construction._ Given a Clustering instance on elements $X = {0, dots, n - 1}$ with cluster bound $K$ and diameter bound $B$, create binary variables $x_(i,c) in {0, 1}$ for every element $i in X$ and cluster $c in {0, dots, K - 1}$. Interpret $x_(i,c) = 1$ iff element $i$ is assigned to cluster $c$.
+
+  For every element $i$, add the assignment constraint $sum_(c=0)^(K-1) x_(i,c) = 1$. For every pair $i < j$ with $d(i,j) > B$ and every cluster $c$, add the conflict constraint $x_(i,c) + x_(j,c) <= 1$. Use the zero objective and minimize it, so the target is a pure feasibility ILP.
+
+  _Correctness._ ($arrow.r.double$) If the source instance has a feasible clustering, set $x_(i,c) = 1$ exactly for the cluster assigned to element $i$. Every element is assigned once, so all assignment equalities hold. Whenever $d(i,j) > B$, the source clustering never puts $i$ and $j$ together, so for every cluster $c$ at least one of $x_(i,c)$ or $x_(j,c)$ is 0 and every conflict inequality holds. ($arrow.l.double$) If the ILP is feasible, the assignment equalities choose exactly one cluster for each element. If some extracted cluster contained a pair $i, j$ with $d(i,j) > B$, then for that cluster $c$ we would have $x_(i,c) = x_(j,c) = 1$, contradicting the conflict inequality. Hence every extracted cluster has diameter at most $B$, so the extracted assignment is a feasible clustering using at most $K$ clusters.
+
+  _Variable mapping._ The implementation stores variable $x_(i,c)$ at index $i dot K + c$, i.e.\ consecutive blocks of $K$ variables per element.
+
+  _Solution extraction._ For each element $i$, scan the block $(x_(i,0), dots, x_(i,K-1))$ and return the unique cluster $c$ with value 1.
+]
+
+// 5. PartitionIntoCliques → MinimumCoveringByCliques (#889)
+#let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
+#let pic_mcbc_sol = pic_mcbc.solutions.at(0)
+#reduction-rule("PartitionIntoCliques", "MinimumCoveringByCliques",
+  example: true,
+  example-caption: [$n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edges, $K = #pic_mcbc.source.instance.num_cliques$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
+      "pred reduce partition-into-cliques.json --to " + target-spec(pic_mcbc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition-into-cliques.json --config " + pic_mcbc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#pic_mcbc_sol.source_config.map(str).join(", "))$, namely the cliques ${0,1}$ and ${2}$.
+
+    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
+
+    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#pic_mcbc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any permutation of the six target clique labels is equivalent.
+  ],
+)[
+  This $O((n + 2m)^2)$ reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 inlines Orlin's vertex-clique-cover to edge-clique-cover construction. Each source vertex $v_i$ becomes left/right copies $x_i$ and $y_i$, each directed source edge contributes a 4-vertex gadget, and two side cliques account for the additive $2m + 2$ slack. The target graph has an edge-clique cover of size at most $K + 2m + 2$ if and only if the source graph admits a partition into at most $K$ cliques.
+][
+  _Construction._ Let $(G = (V, E), K)$ be a Partition Into Cliques instance with $V = {v_1, dots, v_n}$ and $m = |E|$. Define the directed-edge index set $A = {(i,j) : i != j and {v_i,v_j} in E}$, so $|A| = 2m$. Create vertices $x_i, y_i$ for each source vertex $v_i$, gadget vertices $a_(i,j), b_(i,j)$ for each $(i,j) in A$, and two special vertices $z_L, z_R$. Let $L = {x_i : 1 <= i <= n} union {a_(i,j) : (i,j) in A}$ and $R = {y_i : 1 <= i <= n} union {b_(i,j) : (i,j) in A}$. Make $L$ a clique and $R$ a clique, join $z_L$ to every vertex of $L$ and $z_R$ to every vertex of $R$, add each matching edge $x_i y_i$, and for every $(i,j) in A$ add the four cross edges $x_i y_j$, $x_i b_(i,j)$, $a_(i,j) y_j$, and $a_(i,j) b_(i,j)$. Output the resulting Minimum Covering by Cliques instance. It has
+  $
+    |V(H)| = 2n + 4m + 2, quad |E(H)| = (n + 2m)^2 + 2n + 10m,
+  $
+  and threshold $K' = K + 2m + 2$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $G$ is partitioned into cliques $C_1, dots, C_t$ with $t <= K$. For each source clique $C_r$, define $D_r = {x_i, y_i : v_i in C_r}$. For each $(i,j) in A$, define $Q_(i,j) = {x_i, a_(i,j), b_(i,j), y_j}$. Also define $L^* = L union {z_L}$ and $R^* = R union {z_R}$. Every $D_r$ is a clique: if $v_i, v_j in C_r$ with $i != j$, then ${v_i,v_j} in E$, so the construction includes both cross edges $x_i y_j$ and $x_j y_i$. The family ${D_1, dots, D_t} union {Q_(i,j) : (i,j) in A} union {L^*, R^*}$ therefore covers every target edge, using at most $K + 2m + 2$ cliques.
+
+  ($arrow.l.double$) Conversely, suppose $H$ has an edge-clique cover with at most $K + 2m + 2$ cliques. Each gadget edge $a_(i,j) b_(i,j)$ belongs to the unique maximal clique $Q_(i,j)$, so covering all $2m$ such edges requires at least $2m$ distinct cliques. Likewise, some clique must contain $z_L$ and some clique must contain $z_R$, and neither of those cliques can contain a matching edge $x_i y_i$. Hence at most $K$ cliques remain available for the matching edges. If two matching edges $x_i y_i$ and $x_j y_j$ lie in the same target clique, that clique contains the four vertices $x_i, y_i, x_j, y_j$, so in particular $x_i y_j$ is an edge of $H$; by construction this implies ${v_i,v_j} in E$. Therefore the source vertices whose matching edges share one target-clique label form a clique of $G$. Grouping each $v_i$ by the label used on $x_i y_i$ yields a partition of $V$ into at most $K$ cliques.
+
+  _Variable mapping._ The source witness labels source vertices by clique. The target witness labels target edges by the covering clique that contains them.
+
+  _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
+]
+
+// 6. KSatisfiability → Kernel (#882)
 #let ksat_ker = load-example("KSatisfiability", "Kernel")
 #let ksat_ker_sol = ksat_ker.solutions.at(0)
 #reduction-rule("KSatisfiability", "Kernel",
@@ -14902,7 +15419,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Read only the positive literal vertices: $alpha(x_i) = 1$ iff the even-indexed vertex for $x_i$ is in the kernel. Any selected clause vertices are ignored during extraction.
 ]
 
-// 5. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
+// 7. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
 #let hp_dcst = load-example("HamiltonianPath", "DegreeConstrainedSpanningTree")
 #let hp_dcst_sol = hp_dcst.solutions.at(0)
 #reduction-rule("HamiltonianPath", "DegreeConstrainedSpanningTree",
@@ -14934,7 +15451,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Collect the selected edges, find an endpoint (degree 1 vertex), walk the path to produce the vertex permutation.
 ]
 
-// 6. NAESatisfiability → SetSplitting (#382)
+// 8. NAESatisfiability → SetSplitting (#382)
 #let nae_ss = load-example("NAESatisfiability", "SetSplitting")
 #let nae_ss_sol = nae_ss.solutions.at(0)
 #reduction-rule("NAESatisfiability", "SetSplitting",

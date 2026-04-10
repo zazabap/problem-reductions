@@ -176,6 +176,7 @@ impl ReduceTo<Target> for Source { ... }
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
 - Variable names are validated against actual getter methods on the source type — typos cause compile errors
 - Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
+- **Overhead expressions describe scaling (asymptotic upper bounds), not exact sizes.** To determine the actual target problem size for a specific instance, read the `reduce_to()` construction code and count the actual variables/constraints/vertices built.
 - `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
 - `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
@@ -225,6 +226,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - `display-name` dict maps `ProblemName` to display text
 
 ## Testing Requirements
+
+**No single test should take more than 5 seconds.** If a test requires solving a large instance (e.g., ILP with thousands of variables), use a smaller test instance or a faster solver. Tests that exceed 5s block CI and must be refactored.
 
 **Reference implementations — read these first:**
 - **Reduction test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop pattern

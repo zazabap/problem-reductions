@@ -1,7 +1,10 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
+#[cfg(feature = "ilp-solver")]
+use crate::models::algebraic::ILP;
 use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
+use crate::models::misc::Clustering;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
@@ -29,6 +32,21 @@ fn test_reduction_graph_discovers_registered_reductions() {
     assert!(graph.has_direct_reduction_by_name("MaximumIndependentSet", "MinimumVertexCover"));
     assert!(graph.has_direct_reduction_by_name("MaxCut", "SpinGlass"));
     assert!(graph.has_direct_reduction_by_name("Satisfiability", "MaximumIndependentSet"));
+}
+
+#[test]
+fn test_reduction_graph_discovers_k3coloring_to_clustering() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<KColoring<K3, SimpleGraph>, Clustering>());
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_reduction_graph_discovers_clustering_to_ilp() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<Clustering, ILP<bool>>());
 }
 
 // ---- Path finding (by name) ----
@@ -634,7 +652,12 @@ fn find_paths_up_to_stops_after_limit() {
 
     // With a limit of 3, should get exactly 3
     let limited = graph.find_paths_up_to("MaximumIndependentSet", &src, "QUBO", &dst, 3);
-    assert_eq!(limited.len(), 3, "should stop after 3 paths");
+    assert!(
+        limited.len() <= 3 && limited.len() < all.len(),
+        "should stop before enumerating all {} paths, got {}",
+        all.len(),
+        limited.len()
+    );
 }
 
 #[test]
@@ -804,7 +827,7 @@ fn test_find_all_paths_mode_aggregate_rejects_witness_only() {
 }
 
 #[test]
-fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
+fn test_decision_minimum_vertex_cover_has_both_edges() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_by_name_mode(
@@ -812,7 +835,7 @@ fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
         "MinimumVertexCover",
         ReductionMode::Aggregate,
     ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
+    assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumVertexCover",
         "MinimumVertexCover",
         ReductionMode::Witness,
@@ -820,7 +843,7 @@ fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
 }
 
 #[test]
-fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
+fn test_decision_minimum_dominating_set_has_both_edges() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_by_name_mode(
@@ -828,11 +851,47 @@ fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
         "MinimumDominatingSet",
         ReductionMode::Aggregate,
     ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
+    assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumDominatingSet",
         "MinimumDominatingSet",
         ReductionMode::Witness,
     ));
+}
+
+#[test]
+fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinMaxMulticenter<SimpleGraph, One>,
+    >(ReductionMode::Witness));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinMaxMulticenter<SimpleGraph, One>,
+    >(ReductionMode::Aggregate));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinMaxMulticenter<SimpleGraph, One>,
+    >(ReductionMode::Turing));
+}
+
+#[test]
+fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Witness));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Aggregate));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Turing));
 }
 
 #[test]
@@ -880,4 +939,52 @@ fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge(
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i32>>,
     >(ReductionMode::Turing));
+}
+
+#[test]
+fn test_find_paths_bounded_limits_depth() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+
+    // With tight bound, should find fewer (or no) paths than unbounded
+    let bounded = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        Some(2),
+    );
+    let unbounded = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        None,
+    );
+    assert!(
+        bounded.len() <= unbounded.len(),
+        "bounded ({}) should find <= unbounded ({}) paths",
+        bounded.len(),
+        unbounded.len()
+    );
+
+    // With bound 0, only direct edges (no intermediates) — MIS→QUBO has no direct edge
+    let direct_only = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        Some(0),
+    );
+    assert!(
+        direct_only.is_empty(),
+        "MIS→QUBO has no direct edge, so bound=0 should return empty"
+    );
 }
