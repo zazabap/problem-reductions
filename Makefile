@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -626,6 +626,10 @@ papers-push:
 # Pull PDFs from shared remote (collaborator setup)
 papers-pull:
 	python3 scripts/fetch_papers.py pull
+
+# Regenerate docs/research/index.md from references.bib + reductions.typ
+papers-index:
+	python3 scripts/gen_paper_index.py
 
 # Show current collection stats
 papers-status:

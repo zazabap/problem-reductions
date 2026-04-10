@@ -41,7 +41,7 @@ ARXIV_DELAY = 3.5    # seconds between arxiv API requests
 MAX_RETRIES = 3       # retries per API call on 429
 DOWNLOAD_DELAY = 2.0  # seconds between PDF downloads
 SCIHUB_DELAY = 5.0    # seconds between Sci-Hub requests (be polite)
-SCIHUB_DOMAINS = ["sci-hub.se", "sci-hub.st", "sci-hub.ru"]
+SCIHUB_DOMAINS = ["sci-hub.ru", "sci-hub.do", "sci-hub.it.nf", "sci-hub.es.ht", "sci-hub.se", "sci-hub.st"]
 
 
 def parse_bib(path: Path) -> list[dict]:
@@ -310,7 +310,14 @@ def download_pdfs(manifest_entries: list[dict]):
 
         print(f"[{downloaded+1}] {key}: {url[:70]}...")
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "problemreductions/1.0"})
+            # Use browser-like headers to avoid 403 from publisher sites
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/pdf,*/*",
+            }
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=60) as resp:
                 data = resp.read()
 
@@ -354,32 +361,63 @@ def _try_scihub_download(doi: str, dest: Path) -> bool:
                 dest.write_bytes(content)
                 return True
 
-            # Parse page for embedded PDF iframe/link
+            # Parse page for embedded PDF link
             html = content.decode("utf-8", errors="ignore")
-            # Look for iframe src or direct PDF link
-            pdf_match = re.search(
-                r'(?:iframe|embed)[^>]+src\s*=\s*["\']([^"\']*\.pdf[^"\']*)["\']',
-                html, re.IGNORECASE
+            pdf_path = None
+
+            # Strategy A: citation_pdf_url meta tag (sci-hub.ru pattern)
+            m = re.search(
+                r'citation_pdf_url["\']?\s+content\s*=\s*["\']([^"\']+)',
+                html, re.IGNORECASE,
             )
-            if not pdf_match:
-                pdf_match = re.search(
+            if m:
+                pdf_path = m.group(1)
+
+            # Strategy B: /storage/ path in page
+            if not pdf_path:
+                m = re.search(r'(/storage/[^\s"\'<>,]+\.pdf)', html)
+                if m:
+                    pdf_path = m.group(1)
+
+            # Strategy C: iframe/embed src with .pdf
+            if not pdf_path:
+                m = re.search(
+                    r'(?:iframe|embed)[^>]+src\s*=\s*["\']([^"\']*\.pdf[^"\']*)["\']',
+                    html, re.IGNORECASE,
+                )
+                if m:
+                    pdf_path = m.group(1)
+
+            # Strategy D: any absolute PDF URL
+            if not pdf_path:
+                m = re.search(
                     r'(https?://[^\s"\'<>]+\.pdf(?:\?[^\s"\'<>]*)?)',
-                    html, re.IGNORECASE
+                    html, re.IGNORECASE,
                 )
-            if not pdf_match:
-                # Try //domain/path pattern (protocol-relative)
-                pdf_match = re.search(
+                if m:
+                    pdf_path = m.group(1)
+
+            # Strategy E: protocol-relative PDF URL
+            if not pdf_path:
+                m = re.search(
                     r'src\s*=\s*["\']?(//[^\s"\'<>]+\.pdf[^\s"\'<>]*)',
-                    html, re.IGNORECASE
+                    html, re.IGNORECASE,
                 )
+                if m:
+                    pdf_path = m.group(1)
+
+            pdf_match = pdf_path  # unify variable name
 
             if pdf_match:
-                pdf_url = pdf_match.group(1)
+                pdf_url = pdf_match
                 if pdf_url.startswith("//"):
                     pdf_url = "https:" + pdf_url
+                elif pdf_url.startswith("/"):
+                    pdf_url = f"https://{domain}{pdf_url}"
 
                 pdf_req = urllib.request.Request(pdf_url, headers={
-                    "User-Agent": "Mozilla/5.0",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                                  "AppleWebKit/537.36",
                     "Referer": url,
                 })
                 with urllib.request.urlopen(pdf_req, timeout=60) as pdf_resp:
@@ -448,31 +486,54 @@ def show_status():
         return
 
     all_entries = list(manifest.values())
-    found = [r for r in all_entries if r.get("pdf_url")]
-    arxiv = [r for r in all_entries if r.get("arxiv_id")]
-    oa_only = [r for r in found if not r.get("arxiv_id")]
-    missing = [r for r in all_entries if not r.get("pdf_url")]
 
+    # What's actually on disk (the ground truth)
     pdfs = list(OUTPUT_DIR.glob("*.pdf")) if OUTPUT_DIR.exists() else []
-    pdf_keys = {p.stem for p in pdfs}
-    total_size = sum(p.stat().st_size for p in pdfs)
+    pdf_keys = {p.stem for p in pdfs if p.stat().st_size > 1000}
+    total_size = sum(p.stat().st_size for p in pdfs if p.stat().st_size > 1000)
+    all_keys = {e["key"] for e in all_entries}
 
-    print(f"=== MANIFEST ===")
-    print(f"Total entries: {len(all_entries)}")
-    print(f"Arxiv: {len(arxiv)}")
-    print(f"OA (non-arxiv): {len(oa_only)}")
-    print(f"Not found: {len(missing)}")
-    print()
-    print(f"=== DOWNLOADS ===")
-    print(f"PDFs on disk: {len(pdfs)}")
-    print(f"Total size: {total_size / 1024 / 1024:.1f} MB")
-    print(f"Pending download: {len(found) - len(pdf_keys & {e['key'] for e in found})}")
+    # Truly missing = in manifest but no PDF on disk
+    truly_missing = []
+    for e in all_entries:
+        if e["key"] not in pdf_keys:
+            truly_missing.append(e)
 
-    if missing:
-        print(f"\n=== NOT FOUND ({len(missing)}) ===")
-        for r in sorted(missing, key=lambda r: r.get("year", "0")):
-            doi_str = f" doi:{r.get('doi','')}" if r.get("doi") else ""
-            print(f"  {r['key']} ({r.get('year','?')}): {r.get('title','')[:55]}{doi_str}")
+    # Categorize missing
+    textbooks = {"garey1979", "sipser2012", "cormen2022", "conway1967"}
+    missing_with_doi = [e for e in truly_missing if e.get("doi") and e["key"] not in textbooks]
+    missing_no_doi = [e for e in truly_missing if not e.get("doi") and e["key"] not in textbooks]
+    missing_textbooks = [e for e in truly_missing if e["key"] in textbooks]
+
+    print(f"=== COLLECTION ===")
+    print(f"Total in references.bib: {len(all_entries)}")
+    print(f"PDFs on disk:            {len(pdf_keys)} ({total_size / 1024 / 1024:.1f} MB)")
+    print(f"Truly missing:           {len(truly_missing)}")
+    print(f"  With DOI (retry):      {len(missing_with_doi)}")
+    print(f"  No DOI (manual):       {len(missing_no_doi)}")
+    print(f"  Textbooks:             {len(missing_textbooks)}")
+
+    # Remote status
+    if PAPERS_REMOTE:
+        print(f"\nRemote: {PAPERS_REMOTE}")
+    else:
+        print(f"\nRemote: not configured (set PAPERS_REMOTE)")
+
+    if truly_missing:
+        if missing_with_doi:
+            print(f"\n=== MISSING WITH DOI — retry with 'make papers-scihub' ({len(missing_with_doi)}) ===")
+            for r in sorted(missing_with_doi, key=lambda r: r.get("year", "0")):
+                print(f"  {r['key']} ({r.get('year','?')}): {r.get('title','')[:55]}  doi:{r['doi']}")
+
+        if missing_no_doi:
+            print(f"\n=== MISSING WITHOUT DOI — manual web search needed ({len(missing_no_doi)}) ===")
+            for r in sorted(missing_no_doi, key=lambda r: r.get("year", "0")):
+                print(f"  {r['key']} ({r.get('year','?')}): {r.get('title','')[:60]}")
+
+        if missing_textbooks:
+            print(f"\n=== TEXTBOOKS — not downloadable as PDF ({len(missing_textbooks)}) ===")
+            for r in sorted(missing_textbooks, key=lambda r: r.get("year", "0")):
+                print(f"  {r['key']} ({r.get('year','?')}): {r.get('title','')[:60]}")
 
 
 def _require_remote() -> str:
