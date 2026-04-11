@@ -96,9 +96,16 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 | 2 | ... | ... | ... |
 | 3 | ... | ... | ... |
 
+**Include a recommendation:** Bold or mark the option you think is the best fit, with a brief reason why.
+
 4. For each candidate, run `pred show <model>` and show the output — fields, complexity, available reductions. This helps the user see what data they would need to provide.
 
-5. **Ask the user to pick one** using `AskUserQuestion`. If none fit, ask the user for more detail and re-run the web search with refined keywords.
+5. **Check optimization vs decision mismatch.** If the user's goal is "minimize X" or "maximize X" but the matched model is a decision/feasibility problem (Value = `Or`, fields include a `deadline`/`bound`), explain the gap:
+   - "This model checks feasibility ('can it be done within bound D?'), not optimization directly."
+   - "To find the optimum, we'll binary search on the bound parameter."
+   - This is common for scheduling problems (deadline), knapsack (bound), etc.
+
+6. **Ask the user to pick one** using `AskUserQuestion`. If none fit, ask the user for more detail and re-run the web search with refined keywords.
 
 **Proceed to Step 3 with the chosen model.**
 
@@ -114,16 +121,19 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 
 2. **For each reachable problem**, gather info:
    - Run `pred path <model> <target>` to get the cheapest witness-capable reduction path and composed overhead
+   - **IMPORTANT:** Use the exact variant-qualified name from `pred from` output (e.g., `SpinGlass/SimpleGraph/f64`, not bare `SpinGlass`). Bare names resolve to the default variant, which may differ from the reachable variant and cause false "no path" errors.
    - Run `pred show <target>` to get its best-known complexity
    - Check if it's a solver-ready target (ILP, QUBO, SAT) or has a path to one via `pred path <target> ILP`
 
-3. **Present a ranked table** (most practical paths first — fewest hops, lowest overhead):
+3. **Present a ranked table** (most practical paths first — fewest hops, lowest overhead). **Mark a recommendation** for the most practical path:
 
    | # | Target | Hops | Composed Overhead | Target Complexity | Solver-Ready? |
    |---|--------|------|-------------------|-------------------|---------------|
    | 1 | ILP | 2 | num_vars = 2*n + m | O(2^num_vars) | Yes (is ILP) |
    | 2 | QUBO | 1 | num_vars = n | O(2^num_vars) | Yes (is QUBO) |
    | 3 | MaxSetPacking | 1 | num_sets = n | O(2^num_sets) | Yes (ILP in 2 steps) |
+
+   When overhead grows significantly between options (e.g., linear vs quadratic), note the practical implication: "QUBO adds quadratic variable blowup — prefer this only if targeting quantum/annealing hardware."
 
 4. **Ask the user** using `AskUserQuestion`: "Which reduction path would you like to use? Pick a number."
 
@@ -222,7 +232,23 @@ pred solve step_N.json --solver ilp --timeout 60
 ```
 
 <Explain what the output means for the user's original problem.
-E.g., "Max(3) means the maximum independent set has 3 vertices.">
+E.g., "Max(3) means the maximum independent set has 3 vertices."
+For decision problems: "Or(true) means a feasible solution exists within the bound.">
+
+## Finding the Optimum (decision models only)
+
+<Include this section when the matched model is a decision/feasibility problem (Value = Or)
+with a bound parameter like `deadline`, `bound`, or `capacity`.>
+
+The model checks feasibility ("can it be done within bound D?"), not optimization directly.
+To find the minimum/maximum, binary search on the bound parameter:
+
+```bash
+# Binary search for minimum deadline
+# Upper bound: sum of all task lengths (trivially feasible with 1 processor)
+# Lower bound: max(longest task, ceil(total / num_processors))
+# Try midpoint, narrow based on Or(true)/Or(false)
+```
 
 ## Solution Extraction
 
@@ -269,7 +295,8 @@ pred evaluate input.json --config <solution_vector>
 **After writing the doc:**
 
 1. Show the user the generated filename and a brief summary of what's in it.
-2. Ask if they want to make any changes before finishing.
+2. **If a built-in solver covers the chosen path** (brute-force or ILP), offer to run a live demo with the example instance: "Want me to run the example end-to-end so you can see it in action?"
+3. Ask if they want to make any changes before finishing.
 
 ---
 
@@ -279,9 +306,12 @@ pred evaluate input.json --config <solution_vector>
 - **Web search before recommendations.** In Step 2 (model matching) and Step 4 (solver recommendation), always web search first. Never rely on internal knowledge alone.
 - **Show full output.** After every Bash tool call, copy-paste the COMPLETE output into your text response as a fenced code block. Bash tool results are hidden in the UI.
 - **Announce every command.** Before running, say what command you're using and why.
+- **Always use variant-qualified names in `pred path`.** When `pred from` returns names like `SpinGlass/SimpleGraph/f64`, use that exact string in subsequent `pred path` calls. Bare names (e.g., `SpinGlass`) resolve to the default variant, which may differ from the reachable variant and cause false "no path" errors.
+- **Recommend, don't just list.** When presenting options (models in Step 2, paths in Step 3, solvers in Step 4), always bold or mark your recommended choice with a brief reason. The user can still pick freely.
 - **Compact formatting.** Write explanations as plain paragraphs. Do not use blockquote `>` syntax for explanations. Keep tight: command announcement, code block output, 1-3 sentence explanation.
 - **Conversational tone.** Guided consultation, not a lecture.
 - **Live execution.** Every `pred` command runs for real. No fake output.
 - **Graceful fallbacks.** If a path doesn't exist or a command fails, explain what happened and suggest alternatives (try another model, use brute-force, backtrack).
 - **Adapt to user level.** If the user gives a formal problem name, skip clarification. If they describe a fuzzy real-world problem, ask follow-ups one at a time.
 - **Use `--timeout 30`** with `pred solve` in any live demos during the session.
+- **Doc template sections are conditional.** "Finding the Optimum" only applies to decision models. "External Solver Alternatives" only applies when external solvers were chosen. "Solution Extraction" can be folded into "Solving" when the bundle workflow handles it automatically.

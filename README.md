@@ -42,6 +42,10 @@ make cli    # builds target/release/pred
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
+**Have a problem and looking for a solver?** Run `/find-solver` — it matches your real-world problem to a library model, explores reduction paths, and recommends solvers.
+
+**Have a solver and wondering what it can solve?** Run `/find-problem` — given a solver for a specific model, it discovers all other problems reachable via incoming reductions, ranked by effective complexity.
+
 Try a model directly from the CLI:
 
 ```bash
