@@ -838,6 +838,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve vc.json",
       "pred evaluate vc.json --config " + sol.map(str).join(","),
     )
+
+    #figure({
+      let edges = inner.graph.edges.map(e => (e.at(0), e.at(1)))
+      let verts = ((0, 0), (1, 0), (0.5, 1), (1.5, 1))
+      draw-node-highlight(verts, edges, cover)
+    },
+    caption: [A graph on #nv vertices with vertex cover $S = {#cover.map(i => $v_#i$).join(", ")}$ (blue). Total weight $|S| = #{cover.len()} <= k = #k$, certifying a yes-instance.],
+    ) <fig:decision-mvc>
     ]
   ]
 }
@@ -1020,7 +1028,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("BiconnectivityAugmentation")[
       Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
     ][
-      Biconnectivity augmentation is a classical network-design problem: add backup links so the graph survives any single vertex failure. The weighted candidate-edge formulation modeled here captures communication, transportation, and infrastructure planning settings where only a prescribed set of new links is feasible and each carries a cost. In this library, the exact baseline is brute-force enumeration over the $m = |F|$ candidate edges, yielding $O^*(2^m)$ time and matching the exported complexity metadata for the model.
+      Biconnectivity augmentation is a classical network-design problem: add backup links so the graph survives any single vertex failure. Eswaran and Tarjan @eswarantarjan1976 showed that the unweighted version (finding the minimum number of edges to add) is solvable in linear time. Frederickson and Ja'Ja' @fredericksonjaja1981 proved that the weighted version is NP-complete, even when the input graph is a tree and edge weights are restricted to ${1, 2}$. The weighted candidate-edge formulation modeled here captures communication, transportation, and infrastructure planning settings where only a prescribed set of new links is feasible and each carries a cost. In this library, the exact baseline is brute-force enumeration over the $m = |F|$ candidate edges, yielding $O^*(2^m)$ time and matching the exported complexity metadata for the model.
 
       *Example.* Consider the path graph #range(nv).map(i => $v_#i$).join($-$) with candidate edges #candidates.map(c => $(v_#(c.u), v_#(c.v))$).join(", ") carrying weights $(#candidates.map(c => str(c.w)).join(", "))$ and budget $B = #budget$. Selecting $F' = {#sel-idx.map(i => $(v_#(candidates.at(i).u), v_#(candidates.at(i).v))$).join(", ")}$ uses total weight $#sel-idx.map(i => str(candidates.at(i).w)).join(" + ") = #sel-weight$ and eliminates every articulation point: after deleting any single vertex, the remaining graph is still connected.
 
@@ -1352,7 +1360,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Disjoint Connecting Paths is the classical routing form of the vertex-disjoint paths problem, catalogued as ND40 in Garey & Johnson @garey1979. When the number of terminal pairs $k$ is part of the input, the problem is NP-complete @karp1972. In contrast, for every fixed $k$, Robertson and Seymour give an $O(n^3)$ algorithm @robertsonSeymour1995, and Kawarabayashi, Kobayashi, and Reed later improve the dependence on $n$ to $O(n^2)$ @kawarabayashiKobayashiReed2012. The implementation in this crate uses one binary variable per undirected edge, so brute-force search explores an $O^*(2^|E|)$ configuration space.#footnote[This is the exact-search bound induced by the edge-subset encoding implemented in the codebase; no sharper general exact worst-case bound is claimed here.]
 
-      *Example.* Consider the repaired YES instance with $n = #nv$ vertices, $|E| = #ne$ edges, and terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. Selecting the edges $v_0v_1$, $v_1v_3$, $v_2v_4$, and $v_4v_5$ yields the two vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$, so the instance is satisfying.
+      *Example.* Consider the canonical YES instance with $n = #nv$ vertices, $|E| = #ne$ edges, and terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. Selecting the edges $v_0v_1$, $v_1v_3$, $v_2v_4$, and $v_4v_5$ yields the two vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$, so the instance is satisfying.
 
       #pred-commands(
         "pred create --example DisjointConnectingPaths -o disjoint-connecting-paths.json",
@@ -1592,9 +1600,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("DirectedHamiltonianPath")[
       Given a directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
     ][
-      A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39). The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes.
+      A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39) @garey1979. The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes. Directed Hamiltonian paths arise naturally in genome assembly (finding Eulerian or Hamiltonian traversals of de Bruijn graphs), job sequencing with precedence constraints, and one-way street routing.
 
-      The best known exact algorithm runs in $O(n^2 dot 2^n)$ time using Held--Karp style dynamic programming with bitmask DP.
+      Björklund's randomized $O^*(1.657^n)$ algebraic method applies to directed graphs as well as undirected ones @bjorklund2014. The classical Held--Karp dynamic programming algorithm @heldkarp1962 gives a deterministic $O(n^2 dot 2^n)$ bound by tracking visited vertex subsets with bitmask DP.
 
       *Example.* Consider the directed graph $G$ on #nv vertices with arcs ${#arcs.map(((u, v)) => $(#u arrow.r #v)$).join(", ")}$. The directed Hamiltonian path $#path-order.map(v => $v_#v$).join($arrow.r$)$ visits every vertex exactly once with all consecutive pairs being arcs.
 
@@ -1654,7 +1662,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("Kernel")[
       Given a directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
     ][
-      A classical graph-theoretic concept introduced by von Neumann and Morgenstern (1944) in the context of game theory. Deciding whether a directed graph has a kernel is NP-complete in general, though every DAG has a unique kernel. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem), and stable set problems on digraphs.
+      A classical graph-theoretic concept introduced by von Neumann and Morgenstern @vonNeumannMorgenstern1944 in the context of game theory. Chvátal showed that deciding whether a directed graph has a kernel is NP-complete in general @chvatal1973, though Richardson proved that every DAG has a unique kernel @richardson1953. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem on list-chromatic index @galvin1995), and stable set problems on digraphs.
 
       Variables: A binary vector of length $|V|$, where $x_v = 1$ iff vertex $v$ is in the kernel.
 
@@ -2202,7 +2210,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let color-groups = range(k).map(c => coloring.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
   [
     #problem-def("KColoring")[
-      Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
+      Given $G = (V, E)$ and a positive integer $k$, determine whether there exists a proper $k$-coloring $c: V -> {1, ..., k}$ such that $c(u) eq.not c(v)$ for every $(u, v) in E$.
     ][
     Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$ but solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k = 3$, the best known algorithm runs in $O^*(1.3289^n)$ @beigel2005; for $k = 4$ in $O^*(1.7159^n)$ @wu2024; for $k = 5$ in $O^*((2-epsilon)^n)$ @zamir2021. In general, inclusion-exclusion achieves $O^*(2^n)$ @bjorklund2009.
 
@@ -2236,7 +2244,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("MaximumAchromaticNumber")[
       Given an undirected graph $G = (V, E)$, find a proper vertex coloring $c: V -> {1, dots, k}$ that is _complete_ --- for every pair of distinct colors $i, j$ there exists an edge $(u, v) in E$ with $c(u) = i$ and $c(v) = j$ --- maximizing the number of colors $k$.
     ][
-      The achromatic number $psi(G)$ is the largest $k$ such that $G$ admits a complete proper $k$-coloring. It was introduced by Harary and Hedetniemi (1970) and shown NP-hard @garey1979[GT5]. Applications include network partition and information dissemination. Brute-force enumeration runs in $O^*(n^n)$ time.
+      The achromatic number $psi(G)$ is the largest $k$ such that $G$ admits a complete proper $k$-coloring. It was introduced by Harary and Hedetniemi (1970) and shown NP-complete by Yannakakis and Gavril @yannakakis1980 (as a corollary of edge dominating set hardness). Garey and Johnson list it as GT5 @garey1979. Applications include network partition and information dissemination. Brute-force enumeration runs in $O^*(n^n)$ time.
 
       *Example.* Consider the 6-cycle $C_6$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") uses $#num-colors$ colors. It is proper (no adjacent pair shares a color) and complete: every pair of color classes is connected by at least one edge. Thus $psi(C_6) >= #num-colors$.
 
@@ -2245,6 +2253,17 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred solve achromatic.json",
         "pred evaluate achromatic.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      #figure({
+        let r = 1.1
+        let hex-verts = range(nv).map(i => {
+          let angle = calc.pi / 2 + 2 * calc.pi * i / nv
+          (r * calc.cos(angle), r * calc.sin(angle))
+        })
+        draw-node-colors(hex-verts, edges, coloring)
+      },
+      caption: [A complete proper coloring of $C_6$ with $psi(C_6) = #num-colors$ colors. Every pair of distinct colors is connected by at least one edge, so the coloring is complete.],
+      ) <fig:c6-achromatic>
     ]
   ]
 }
@@ -2299,7 +2318,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("MinimumGeometricConnectedDominatingSet")[
       Given points $P = {p_1, dots, p_n}$ in $RR^2$ and distance threshold $B > 0$, find $P' subset.eq P$ minimizing $|P'|$ s.t. (1) $forall p in P backslash P': exists q in P'$ with $d(p,q) <= B$ (domination), and (2) the unit-disk graph on $P'$ with radius $B$ is connected.
     ][
-    Geometric Connected Dominating Set arises in wireless ad-hoc networks: selected nodes form a connected backbone that covers all other nodes within communication range. The problem is NP-hard and generalizes both dominating set (dropping connectivity) and connected subgraph (dropping domination).
+    Geometric Connected Dominating Set arises in wireless ad-hoc networks: selected nodes form a connected backbone that covers all other nodes within communication range. Clark, Colbourn, and Johnson showed that domination and connected domination on unit disk graphs are NP-complete @clark1990; the geometric variant inherits this hardness. The problem generalizes both dominating set (dropping connectivity) and connected subgraph (dropping domination). Brute-force enumeration runs in $O^*(2^n)$ time.
 
     *Example.* Consider $n = #n$ points arranged in a $4 times 2$ ladder with spacing $3$ and threshold $B = #B$. The bottom row $P' = {#S.map(i => $p_#i$).join(", ")}$ forms a minimum connected dominating set of size $#wS$: each bottom-row point dominates the top-row point directly above it (vertical distance $3 <= #B$), and consecutive bottom-row points are within distance $3 <= #B$ of each other, so $P'$ induces a connected path.
 
@@ -2308,6 +2327,43 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve mgcds.json",
       "pred evaluate mgcds.json --config " + x.optimal_config.map(str).join(","),
     )
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      // Manual layout: 4×2 grid, bottom row y=0, top row y=1.4, columns spaced 1.5
+      let disp = (
+        (0, 0), (1.5, 0), (3.0, 0), (4.5, 0),       // bottom: p0–p3
+        (0, 1.4), (1.5, 1.4), (3.0, 1.4), (4.5, 1.4), // top: p4–p7
+      )
+      // In the original coordinate system, spacing=3 and B=3.5.
+      // Display scale factor = 1.5/3 = 0.5, so disk radius = 3.5*0.5 = 1.75.
+      // That still overwhelms. Instead, draw a dashed "coverage arc" from each
+      // selected point to its dominated neighbor — clearer than huge overlapping disks.
+      canvas(length: 1cm, {
+        import draw: *
+        // Draw edges between points within distance B (vertical=3 ≤ 3.5, horizontal=3 ≤ 3.5, diagonal=√18 > 3.5)
+        let adj = ((0,1),(1,2),(2,3),(0,4),(1,5),(2,6),(3,7),(4,5),(5,6),(6,7))
+        for (i, j) in adj {
+          let on-backbone = S.contains(i) and S.contains(j)
+          g-edge(disp.at(i), disp.at(j), stroke: if on-backbone { 2pt + blue } else { 0.8pt + gray })
+        }
+        // Domination arcs: dashed blue from selected to dominated neighbor
+        let dom-edges = ((0,4),(1,5),(2,6),(3,7))
+        for (i, j) in dom-edges {
+          g-edge(disp.at(i), disp.at(j), stroke: (paint: blue, thickness: 1.2pt, dash: "dashed"))
+        }
+        // Draw points
+        for (k, pos) in disp.enumerate() {
+          let selected = S.contains(k)
+          g-node(pos, name: "p" + str(k),
+            fill: if selected { blue } else { white },
+            label: if selected { text(fill: white)[$p_#k$] } else { [$p_#k$] })
+        }
+      })
+    },
+    caption: [Geometric Connected Dominating Set on a $4 times 2$ ladder ($B = #B$). Blue points $P' = {#S.map(i => $p_#i$).join(", ")}$ form the connected backbone (solid blue edges). Dashed blue edges show domination: each top-row point is within distance $3 <= #B$ of the bottom-row point below it.],
+    ) <fig:mgcds>
     ]
   ]
 }
@@ -2318,20 +2374,51 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let num-cliques = metric-value(sol.metric)
-  let groups = range(num-cliques).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  let edge-groups = range(num-cliques).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  // Convert edge-index groups to vertex sets (cliques)
+  let clique-verts = edge-groups.map(eg => {
+    let verts = ()
+    for idx in eg {
+      let (u, v) = edges.at(idx)
+      if u not in verts { verts.push(u) }
+      if v not in verts { verts.push(v) }
+    }
+    verts.sorted()
+  })
   [
     #problem-def("MinimumCoveringByCliques")[
       Given an undirected graph $G = (V, E)$, find a collection of cliques $C_1, dots, C_k$ in $G$ such that every edge $e in E$ is contained in at least one $C_i$, and the number of cliques $k$ is minimized.
     ][
-      Minimum Covering by Cliques (also called _edge clique cover_) is NP-hard @garey1979[GT59]. Applications include intersection graph recognition and computational biology. The minimum edge clique cover number equals the minimum dimension of a dot-product representation of the graph. Brute-force enumeration runs in $O^*(2^(|E|))$ time.
+      Minimum Covering by Cliques (also called _edge clique cover_) is NP-hard @garey1979[GT59]. Applications include intersection graph recognition and computational biology. The minimum edge clique cover number equals the minimum dimension of a dot-product representation of the graph @erdosgoodmanposa1966. Gramm et al. give an exact branch-and-reduce algorithm with a kernel of at most $2^k$ vertices @gramm2009.
 
-      *Example.* Consider $G$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal cover uses $#num-cliques$ cliques: #groups.enumerate().filter(((_, g)) => g.len() > 0).map(((i, g)) => [$C_#(i + 1)$: edges #g.map(j => str(j)).join(", ")]).join("; ").
+      *Example.* Consider $G$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal cover uses $#num-cliques$ cliques: #clique-verts.enumerate().filter(((_, vs)) => vs.len() > 0).map(((i, vs)) => [$C_#(i + 1) = {#vs.map(v => $v_#v$).join(", ")}$]).join(", "). Each $C_i$ is a triangle in $G$, and every edge belongs to at least one of these triangles.
 
       #pred-commands(
         "pred create --example MinimumCoveringByCliques -o covering-by-cliques.json",
         "pred solve covering-by-cliques.json",
         "pred evaluate covering-by-cliques.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        // Layout: 4 inner vertices (0-3) as a square, 2 outer (4,5)
+        let verts = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5), (-0.8, -0.6), (2.3, 2.1))
+        let clique-colors = (graph-colors.at(0), graph-colors.at(1), graph-colors.at(2), rgb("#f28e2b"))
+        canvas(length: 1cm, {
+          import draw: *
+          // Draw edges colored by their clique assignment
+          for (idx, (u, v)) in edges.enumerate() {
+            let c = sol.config.at(idx)
+            g-edge(verts.at(u), verts.at(v), stroke: 1.5pt + clique-colors.at(c))
+          }
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(k), label: [$v_#k$])
+          }
+        })
+      },
+      caption: [Edge clique cover of $G$ with #num-cliques cliques. Each color represents one clique: #clique-verts.enumerate().filter(((_, vs)) => vs.len() > 0).map(((i, vs)) => [$C_#(i + 1) = {#vs.map(v => $v_#v$).join(", ")}$]).join(", ").],
+      ) <fig:covering-by-cliques>
     ]
   ]
 }
@@ -2346,15 +2433,40 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("MinimumIntersectionGraphBasis")[
       Given an undirected graph $G = (V, E)$, find a universe $U$ of minimum cardinality and an assignment of subsets $S_v subset.eq U$ for each vertex $v in V$ such that two vertices $u, v$ are adjacent if and only if $S_u inter S_v eq.not emptyset$. The minimum $|U|$ is the _intersection number_ of $G$.
     ][
-      Minimum Intersection Graph Basis is NP-hard @garey1979[GT60]. Every graph is an intersection graph; the intersection number measures how compactly such a representation can be chosen. The intersection number is at most $|E|$. Brute-force enumeration runs in $O^*(|E|^(|E|))$ time.
+      Minimum Intersection Graph Basis is NP-hard @garey1979[GT60]. Erdős, Goodman, and Pósa showed that the intersection number equals the minimum edge clique cover number and is at most $floor(n^2 slash 4)$ @erdosgoodmanposa1966. Applications include bandwidth allocation in fiber-optic networks, scheduling shared resources, and formulating compact integer-programming relaxations for independent-set problems. Brute-force enumeration runs in $O^*(|E|^(|E|))$ time.
 
-      *Example.* Consider the path $P_3$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal representation uses $#universe-size$ elements: $S_0 = {0}$, $S_1 = {0, 1}$, $S_2 = {1}$.
+      *Example.* Consider the path $P_3$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal representation uses $#universe-size$ elements: $S_0 = {0}$, $S_1 = {0, 1}$, $S_2 = {1}$. Edges are witnessed by shared elements ($S_0 inter S_1 = {0}$, $S_1 inter S_2 = {1}$), and the non-edge $(0, 2)$ is confirmed by $S_0 inter S_2 = emptyset$.
 
       #pred-commands(
         "pred create --example MinimumIntersectionGraphBasis -o intersection-basis.json",
         "pred solve intersection-basis.json",
         "pred evaluate intersection-basis.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let orange = graph-colors.at(1)
+        let gray = luma(200)
+        canvas(length: 1cm, {
+          import draw: *
+          // P3: v0 — v1 — v2
+          let verts = ((0, 0), (1.8, 0), (3.6, 0))
+          g-edge(verts.at(0), verts.at(1), stroke: 1.5pt + blue)
+          g-edge(verts.at(1), verts.at(2), stroke: 1.5pt + orange)
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(k), label: [$v_#k$])
+          }
+          // Subset labels below each vertex
+          draw.content((0, -0.6), text(8pt)[$S_0 = {0}$])
+          draw.content((1.8, -0.6), text(8pt)[$S_1 = {0, 1}$])
+          draw.content((3.6, -0.6), text(8pt)[$S_2 = {1}$])
+          // Element labels on edges
+          draw.content((0.9, 0.35), text(7pt, fill: blue)[$inter = {0}$])
+          draw.content((2.7, 0.35), text(7pt, fill: orange)[$inter = {1}$])
+        })
+      },
+      caption: [Intersection graph representation of $P_3$ with intersection number $#universe-size$. Each vertex $v_i$ is assigned a subset $S_i subset.eq {0, 1}$; adjacent vertices share an element, non-adjacent vertices have disjoint subsets.],
+      ) <fig:intersection-basis>
     ]
   ]
 }
@@ -2782,6 +2894,47 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred solve optimal-linear-arrangement.json",
         "pred evaluate optimal-linear-arrangement.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      // Build inverse mapping: pos[p] = vertex placed at position p
+      #let inv = range(nv).map(p => config.position(c => c == p))
+      #figure({
+        let spacing = 1.2
+        canvas(length: 1cm, {
+          // Number-line tick marks
+          for p in range(nv) {
+            draw.line((p * spacing, -0.12), (p * spacing, 0.12), stroke: 0.5pt + luma(160))
+            draw.content((p * spacing, -0.35), text(7pt, fill: luma(100))[#p])
+          }
+          // Vertices at their assigned positions
+          for v in range(nv) {
+            let p = config.at(v)
+            g-node((p * spacing, 0), name: "v" + str(v),
+              fill: graph-colors.at(0),
+              label: text(fill: white)[$v_#v$])
+          }
+          // Edges as arcs above the line
+          for (u, v) in edges {
+            let pu = config.at(u)
+            let pv = config.at(v)
+            let span = calc.abs(pu - pv)
+            let rise = 0.35 + 0.25 * span
+            let mid-x = (pu + pv) / 2 * spacing
+            let left-x = calc.min(pu, pv) * spacing
+            let right-x = calc.max(pu, pv) * spacing
+            // Shorten endpoints to avoid overlap with vertex circles
+            let r = 0.24
+            let p0 = (left-x + r, r * rise / (spacing * span / 2))
+            let p1 = (right-x - r, r * rise / (spacing * span / 2))
+            let ctrl = (mid-x, rise)
+            draw.bezier(p0, p1, ctrl,
+              stroke: if span > 1 { 1.4pt + graph-colors.at(0) } else { 1pt + luma(160) })
+            draw.content((mid-x, rise + 0.2),
+              text(7pt, fill: if span > 1 { graph-colors.at(0) } else { luma(100) })[#span])
+          }
+        })
+      },
+      caption: [Optimal linear arrangement of #nv vertices. Each vertex $v_i$ is placed at position $f(v_i)$ on a number line. Arcs show edges; labels give stretch $|f(u) - f(v)|$. Cross-edges $(v_0, v_3)$ and $(v_2, v_5)$ (blue arcs, stretch 3) dominate the total cost #total-cost.],
+      ) <fig:ola-arrangement>
     ]
   ]
 }
@@ -2806,6 +2959,48 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred solve rooted-tree-arrangement.json --solver brute-force",
         "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      #figure({
+        // Left: source graph G.  Right: chain tree T with identity mapping.
+        let blue = graph-colors.at(0)
+        canvas(length: 1cm, {
+          // --- Source graph G (left) ---
+          let gv = ((0, 1.5), (1.5, 1.5), (1.5, 0), (3.0, 0))
+          for (idx, (u, v)) in edges.enumerate() {
+            g-edge(gv.at(u), gv.at(v), stroke: 1pt + luma(160))
+          }
+          for (k, pos) in gv.enumerate() {
+            g-node(pos, name: "g" + str(k),
+              fill: blue,
+              label: text(fill: white)[$v_#k$])
+          }
+          draw.content((1.5, -0.7), text(9pt)[$G$])
+
+          // Arrow between the two diagrams
+          draw.content((4.2, 0.75), text(10pt)[$arrow.r.double$])
+
+          // --- Chain tree T (right) ---
+          let tv = ((5.4, 2.4), (5.4, 1.6), (5.4, 0.8), (5.4, 0))
+          for i in range(3) {
+            draw.line(tv.at(i), tv.at(i + 1), stroke: 1.4pt + blue)
+          }
+          for (k, pos) in tv.enumerate() {
+            g-node(pos, name: "t" + str(k),
+              fill: if k == 0 { blue } else { white },
+              stroke: if k == 0 { none } else { 1pt + blue },
+              label: if k == 0 { text(fill: white)[$u_#k$] } else { [$u_#k$] })
+          }
+          draw.content((5.4, -0.7), text(9pt)[$T$ (chain)])
+
+          // Stretch labels on the right side of the chain
+          for i in range(3) {
+            let my = (tv.at(i).at(1) + tv.at(i + 1).at(1)) / 2
+            draw.content((6.1, my), text(7pt, fill: luma(100))[1])
+          }
+        })
+      },
+      caption: [Source graph $G$ (left) mapped to a chain tree $T$ (right) via $f = "id"$. The root $u_0$ (filled) heads the chain $u_0 dash u_1 dash u_2 dash u_3$. Each graph edge maps to a pair on the root-to-leaf path with total stretch $d_T(v_0, v_1) + d_T(v_0, v_2) + d_T(v_1, v_2) + d_T(v_2, v_3) = 1 + 2 + 1 + 1 = 5 <= K$.],
+      ) <fig:rooted-tree-arrangement>
     ]
   ]
 }
@@ -2891,7 +3086,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("MaximalIS")[
       Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
     ][
-    The maximality constraint (no vertex can be added) distinguishes this from MIS, which only requires maximum weight. Every maximum independent set is maximal, but not vice versa. The enumeration bound of $O^*(3^(n slash 3))$ for listing all maximal independent sets @tomita2006 is tight: Moon and Moser @moonmoser1965 showed every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
+    The maximality constraint (no vertex can be added without violating independence) distinguishes this from Maximum Independent Set (MIS). In MIS, the feasible set is _all_ independent sets and the objective is to maximize weight; here, the feasible set is restricted to _maximal_ independent sets only. Every maximum independent set is maximal, but the converse fails: a maximal IS can be arbitrarily smaller than the maximum. For unit weights the two optima coincide in value, but the search spaces differ — MaximalIS must certify that every non-selected vertex has a neighbor in $S$, a domination-like constraint absent from MIS. Indeed, a maximal independent set is equivalently an independent dominating set, linking MaximalIS to Minimum Dominating Set. The enumeration bound of $O^*(3^(n slash 3))$ for listing all maximal independent sets @tomita2006 is tight: Moon and Moser @moonmoser1965 showed every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
 
     *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices, edges $(v_i, v_(i+1))$ for $i = 0, ..., #(ne - 1)$, and unit weights $w(v) = 1$. The set $S = {#S-sub.map(i => $v_#i$).join(", ")}$ is a maximal independent set: no two vertices in $S$ are adjacent, and neither $v_0$ (adjacent to $v_1$), $v_2$ (adjacent to both), nor $v_4$ (adjacent to $v_3$) can be added. However, $S' = {#S-opt.map(i => $v_#i$).join(", ")}$ with $w(S') = #w-opt$ is a strictly larger maximal IS, illustrating that maximality does not imply maximum weight.
 
@@ -2922,9 +3117,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("MinimumMaximalMatching")[
       Given $G = (V, E)$, find $M subset.eq E$ of minimum cardinality such that $M$ is a matching and $M$ is maximal: every $e in E backslash M$ shares an endpoint with some $e' in M$.
     ][
-    A maximal matching cannot be extended by any edge, so every non-selected edge must be "blocked" by a selected one. Among all such matchings, the problem seeks one of minimum size. Unlike Maximum Matching (solvable in $O(n^3)$ by Edmonds' algorithm @edmonds1965), Minimum Maximal Matching is NP-hard @yannakakis1980; it can also be viewed as a Minimum Dominating Set in the line graph.
+    A maximal matching cannot be extended by any edge, so every non-selected edge must be "blocked" by a selected one. Among all such matchings, the problem seeks one of minimum size. Unlike Maximum Matching (solvable in $O(n^3)$ by Edmonds' algorithm @edmonds1965), Minimum Maximal Matching is NP-hard @yannakakis1980; it can also be viewed as a Minimum Dominating Set in the line graph. The problem is equivalent to Minimum Edge Dominating Set, and the best known exact algorithm runs in $O^*(1.3160^n)$ via branch-and-reduce with measure-and-conquer analysis @xiao2014.
 
-    *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices and $#ne$ edges. A minimum maximal matching is $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ with $|M| = #sz$. Every unselected edge shares an endpoint with a selected one, so $M$ is maximal.
+    *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices and $#ne$ edges. A minimum maximal matching is $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ with $|M| = #sz$. Every unselected edge shares an endpoint with a selected one, so $M$ is maximal and no matching of size less than $#sz$ is maximal on this graph.
 
     #pred-commands(
       "pred create --example MinimumMaximalMatching -o mmm.json",
@@ -3049,13 +3244,44 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 
-#problem-def("PartitionIntoPathsOfLength2")[
-  Given $G = (V, E)$ with $|V| = 3q$, determine if $V$ can be partitioned into $q$ disjoint sets $V_1, ..., V_q$ of three vertices each, such that each $V_t$ induces at least two edges in $G$.
-][
-A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76], proved hard by reduction from 3-Dimensional Matching. Each triple in the partition must form a path of length 2 (exactly two edges, i.e., a $P_3$ subgraph) or a triangle (all three edges). The problem models constrained grouping scenarios where cluster connectivity is required. The best known exact approach uses subset DP in $O^*(3^n)$ time.
+#{
+  let x = load-model-example("PartitionIntoPathsOfLength2")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let q = calc.div-euclid(nv, 3)
+  let config = x.optimal_config
+  // Group vertices by partition assignment
+  let groups = range(q).map(g => config.enumerate().filter(((i, c)) => c == g).map(((i, _)) => i))
+  // Count induced edges per group
+  let group-edges(g) = edges.filter(((u, v)) => config.at(u) == g and config.at(v) == g)
+  [
+    #problem-def("PartitionIntoPathsOfLength2")[
+      Given $G = (V, E)$ with $|V| = 3q$, determine if $V$ can be partitioned into $q$ disjoint sets $V_1, ..., V_q$ of three vertices each, such that each $V_t$ induces at least two edges in $G$.
+    ][
+    A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76], proved hard by reduction from 3-Dimensional Matching. Each triple in the partition must form a path of length 2 (exactly two edges, i.e., a $P_3$ subgraph) or a triangle (all three edges). The problem models constrained grouping scenarios where cluster connectivity is required. The best known exact approach uses subset DP in $O^*(3^n)$ time.
 
-*Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
-]
+    *Example.* Consider the $3 times 3$ grid-like graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges (three row-paths plus six cross-edges), and $q = #q$. The row partition #range(q).map(g => $V_#(g + 1) = {#groups.at(g).map(i => $v_#i$).join(", ")}$).join(", ") is valid: #range(q).map(g => {
+      let ge = group-edges(g)
+      [$V_#(g + 1)$ induces edges #ge.map(((u, v)) => $\{v_#u, v_#v\}$).join(", ") (path $#groups.at(g).map(i => $v_#i$).join($dash.em$)$)]
+    }).join("; "). The cross-edges also admit a column partition ${v_0, v_3, v_6}, {v_1, v_4, v_7}, {v_2, v_5, v_8}$ and several mixed groupings — the combinatorial competition among overlapping triples is what makes the problem NP-hard in general.
+
+    #pred-commands(
+      "pred create --example PartitionIntoPathsOfLength2 -o partition-paths2.json",
+      "pred solve partition-paths2.json",
+      "pred evaluate partition-paths2.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      // 3x3 grid layout: row r, column c -> vertex 3r+c
+      let verts = range(nv).map(i => (calc.rem(i, 3) * 1.8, -calc.div-euclid(i, 3) * 1.5))
+      draw-node-colors(verts, edges, config)
+    },
+    caption: [Partition into Paths of Length 2 on a $3 times 3$ grid-like graph ($q = #q$). The row partition #range(q).map(g => $V_#(g + 1) = {#groups.at(g).map(i => $v_#i$).join(", ")}$).join(", ") is shown; cross-edges also admit a column partition and mixed groupings.],
+    ) <fig:partition-paths2>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("SteinerTreeInGraphs")
@@ -3139,9 +3365,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     #problem-def("MinimumSumMulticenter")[
       Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
     ][
-    Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi (1979) via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
+    Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi @karivhakimi1979 via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
 
-    The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
+    The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. @cohenaddad2022.
 
     *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $P = {#centers.map(i => $v_#i$).join(", ")}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = #opt-cost$. This is optimal.
 
@@ -3186,11 +3412,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     #problem-def("MinMaxMulticenter")[
       Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find $S subset.eq V$ with $|S| = K$ that minimizes $max_(v in V) w(v) dot d(v, S)$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$.
     ][
-    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is minimized. NP-hard even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is minimized. NP-hard even with unit weights and unit edge lengths @karivhakimi1979.
 
-    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with optimal radius 1 corresponds to a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with optimal radius 1 corresponds to a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists @hochbaumshmoys1985; no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ @hsunemhauser1979.
 
-    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = #opt$, which is optimal.
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives distances $d(v_0) = 1$, $d(v_1) = 0$, $d(v_2) = 1$, $d(v_3) = 1$, $d(v_4) = 0$, $d(v_5) = 1$, so $max_v d(v, S) = #opt$. The diagonal edge $(1, 4)$ lets centers #centers.map(i => $v_#i$).join(" and ") cover every vertex within distance 1.
 
     #pred-commands(
       "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
@@ -3223,18 +3449,24 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("MultipleCopyFileAllocation")
+  let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let usage = x.instance.usage
+  let storage = x.instance.storage
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let opt = metric-value(sol.metric)
+  let s-cost = copies.map(i => storage.at(i)).sum()
+  let a-cost = opt - s-cost
   [
     #problem-def("MultipleCopyFileAllocation")[
       Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, and storage costs $s: V -> ZZ_(> 0)$, find a subset $V' subset.eq V$ that minimizes
       $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V'),$
       where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
     ][
-    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-hard in the strong sense, even when usage and storage costs are uniform @garey1979.
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Applications include content distribution networks (placing cache servers), database replication across data centers, and distributed file systems. Garey and Johnson record the problem as NP-hard in the strong sense, even when usage and storage costs are uniform @garey1979. It generalizes Uncapacitated Facility Location when the network topology is arbitrary.
 
-    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$ and uniform storage $s(v) = 1$. Placing copies at every vertex $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $6 dot 1 = 6$ and access cost $0$ (each vertex is distance $0$ from its own copy), for a total cost of $#sol.metric$. This is optimal: removing any copy saves $1$ in storage but adds at least $10$ in access cost for each neighbor that must now reach a more distant copy.
+    *Example.* Consider the path $P_#nv$ with usage $u = (#usage.map(str).join(", "))$ and storage costs $s = (#storage.map(str).join(", "))$. The endpoints $v_0, v_5$ have high demand ($u = 5$) but expensive storage ($s = 6$), while $v_1, v_4$ are cheap server locations ($s = 2$). Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $#copies.map(i => str(storage.at(i))).join(" + ") = #s-cost$ and access cost $5 dot 1 + 1 dot 0 + 1 dot 1 + 1 dot 1 + 1 dot 0 + 5 dot 1 = #a-cost$, for a total of $#opt$. Adding a copy at $v_0$ would save $5 dot 1 = 5$ in access but cost $6$ in storage — a net loss. This tradeoff between placement cost and proximity drives the problem's NP-hardness.
 
     #pred-commands(
       "pred create --example MultipleCopyFileAllocation -o multiple-copy-file-allocation.json",
@@ -3247,7 +3479,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       let gray = luma(200)
       canvas(length: 1cm, {
         import draw: *
-        let verts = ((0, 1.6), (1.35, 0.8), (1.35, -0.8), (0, -1.6), (-1.35, -0.8), (-1.35, 0.8))
+        let verts = range(nv).map(i => (i * 1.5, 0))
         for (u, v) in edges {
           g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
         }
@@ -3257,9 +3489,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             fill: if has-copy { blue } else { white },
             label: if has-copy { text(fill: white)[$v_#k$] } else { [$v_#k$] })
         }
+        // Show usage/storage labels below each vertex
+        for (k, pos) in verts.enumerate() {
+          draw.content((pos.at(0), pos.at(1) - 0.65),
+            text(6.5pt, fill: luma(100))[$u=#(usage.at(k)), s=#(storage.at(k))$])
+        }
       })
     },
-    caption: [Multiple Copy File Allocation on a 6-cycle. All vertices (shown in blue) host copies; total cost is $#sol.metric$.],
+    caption: [Multiple Copy File Allocation on $P_#nv$. Copy vertices #copies.map(i => $v_#i$).join(", ") (blue) have cheap storage ($s = #storage.at(copies.at(0))$); endpoints pay access cost instead. Total cost $= #opt$.],
     ) <fig:multiple-copy-file-allocation>
     ]
   ]
