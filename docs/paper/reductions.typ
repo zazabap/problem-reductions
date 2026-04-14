@@ -15027,7 +15027,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 
 // Completeness check: warn about reduction rules in JSON but missing from paper
 #context {
-  let covered = covered-rules.get()
+  let covered = covered-rules.final()
   let json-edges = {
     let edges = graph-data.edges.map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
     let unique = ()
